@@ -1,0 +1,312 @@
+import 'package:flutter/material.dart';
+import '../models/game_model.dart';
+import '../models/friend_model.dart';
+import '../models/room_model.dart';
+import '../models/chat_model.dart';
+
+class SampleData {
+  // Current user info
+  static const String currentUserName = "Alex Vance";
+  static const String currentUserTag = "@alex_play";
+  static const int currentUserLevel = 14;
+  static const int currentUserCoins = 1450;
+  static const int currentUserTrophies = 28;
+  static const double currentUserWinRate = 68.5;
+  static const int currentUserTotalMatches = 152;
+
+  // Games Catalog
+  static const List<GameModel> games = [
+    GameModel(
+      id: 'tic_tac_toe',
+      title: 'Tic-Tac-Toe',
+      category: GameCategory.board,
+      description: 'Classic quick duel! Local 2-player Pass & Play or challenge the AI bot.',
+      icon: Icons.grid_3x3_rounded,
+      primaryColor: Color(0xFF06B6D4),
+      secondaryColor: Color(0xFF8B5CF6),
+      playerCount: '1-2 Players',
+      isPlayable: true,
+      statusBadge: 'PLAYABLE NOW',
+      rating: 4.9,
+    ),
+    GameModel(
+      id: 'ludo',
+      title: 'Ludo Friends',
+      category: GameCategory.board,
+      description: 'Roll the dice and race your tokens home in this classic social board game.',
+      icon: Icons.casino_rounded,
+      primaryColor: Color(0xFFF59E0B),
+      secondaryColor: Color(0xFFEF4444),
+      playerCount: '2-4 Players',
+      isPlayable: false,
+      statusBadge: 'DEMO PREVIEW',
+      rating: 4.8,
+    ),
+    GameModel(
+      id: 'carrom',
+      title: 'Carrom Clash',
+      category: GameCategory.board,
+      description: 'Strike coins into pockets with physics-based carrom board mechanics.',
+      icon: Icons.disc_full_rounded,
+      primaryColor: Color(0xFF10B981),
+      secondaryColor: Color(0xFF059669),
+      playerCount: '2 Players',
+      isPlayable: false,
+      statusBadge: 'DEMO PREVIEW',
+      rating: 4.7,
+    ),
+    GameModel(
+      id: 'space_dodge',
+      title: 'Cyber Space Dodge',
+      category: GameCategory.action,
+      description: 'Dodge incoming laser asteroids and compete for the top high score.',
+      icon: Icons.rocket_launch_rounded,
+      primaryColor: Color(0xFFEC4899),
+      secondaryColor: Color(0xFF8B5CF6),
+      playerCount: 'Solo / Co-op',
+      isPlayable: false,
+      statusBadge: 'DEMO PREVIEW',
+      rating: 4.6,
+    ),
+    GameModel(
+      id: 'arena_brawl',
+      title: 'Neon Arena Brawl',
+      category: GameCategory.action,
+      description: 'Fast-paced multiplayer party combat with colorful neon arenas.',
+      icon: Icons.sports_kabaddi_rounded,
+      primaryColor: Color(0xFF6366F1),
+      secondaryColor: Color(0xFF3B82F6),
+      playerCount: '2-4 Players',
+      isPlayable: false,
+      statusBadge: 'DEMO PREVIEW',
+      rating: 4.5,
+    ),
+    GameModel(
+      id: 'word_rush',
+      title: 'Word Sprint',
+      category: GameCategory.casual,
+      description: 'Race against friends to find words under rapid countdown pressure.',
+      icon: Icons.text_fields_rounded,
+      primaryColor: Color(0xFF38BDF8),
+      secondaryColor: Color(0xFF0284C7),
+      playerCount: '2-6 Players',
+      isPlayable: false,
+      statusBadge: 'DEMO PREVIEW',
+      rating: 4.4,
+    ),
+  ];
+
+  // Sample Friends
+  static const List<FriendModel> friends = [
+    FriendModel(
+      id: 'f1',
+      name: 'Sarah Connor',
+      tag: '@sarah_c',
+      initial: 'S',
+      avatarColor: Color(0xFFEC4899),
+      level: 19,
+      isOnline: true,
+      statusText: 'In Lobby: Tic-Tac-Toe',
+      favoriteGame: 'Tic-Tac-Toe',
+    ),
+    FriendModel(
+      id: 'f2',
+      name: 'Marcus Brody',
+      tag: '@marcus_b',
+      initial: 'M',
+      avatarColor: Color(0xFF3B82F6),
+      level: 12,
+      isOnline: true,
+      statusText: 'Playing Ludo',
+      favoriteGame: 'Ludo Friends',
+    ),
+    FriendModel(
+      id: 'f3',
+      name: 'Chloe Kim',
+      tag: '@chloe_k',
+      initial: 'C',
+      avatarColor: Color(0xFF10B981),
+      level: 22,
+      isOnline: true,
+      statusText: 'Online (Ready to Play)',
+      favoriteGame: 'Carrom Clash',
+    ),
+    FriendModel(
+      id: 'f4',
+      name: 'David Miller',
+      tag: '@dave_m',
+      initial: 'D',
+      avatarColor: Color(0xFFF59E0B),
+      level: 9,
+      isOnline: false,
+      statusText: 'Offline 2h ago',
+      favoriteGame: 'Tic-Tac-Toe',
+    ),
+    FriendModel(
+      id: 'f5',
+      name: 'Elena Rostova',
+      tag: '@elena_r',
+      initial: 'E',
+      avatarColor: Color(0xFF8B5CF6),
+      level: 15,
+      isOnline: true,
+      statusText: 'Online',
+      favoriteGame: 'Cyber Space Dodge',
+    ),
+    FriendModel(
+      id: 'f6',
+      name: 'Kenji Sato',
+      tag: '@kenji_s',
+      initial: 'K',
+      avatarColor: Color(0xFF06B6D4),
+      level: 11,
+      isOnline: false,
+      statusText: 'Offline 1d ago',
+      favoriteGame: 'Neon Arena Brawl',
+    ),
+  ];
+
+  // Sample Game Rooms
+  static const List<RoomModel> rooms = [
+    RoomModel(
+      id: 'r1',
+      roomCode: 'PF-4912',
+      gameTitle: 'Tic-Tac-Toe Duel',
+      hostName: 'Sarah Connor',
+      currentPlayers: 1,
+      maxPlayers: 2,
+      isPrivate: false,
+      status: 'Waiting for player',
+    ),
+    RoomModel(
+      id: 'r2',
+      roomCode: 'PF-7301',
+      gameTitle: 'Ludo Champions',
+      hostName: 'Marcus Brody',
+      currentPlayers: 3,
+      maxPlayers: 4,
+      isPrivate: false,
+      status: 'Almost full',
+    ),
+    RoomModel(
+      id: 'r3',
+      roomCode: 'PF-8840',
+      gameTitle: 'Carrom Pro Match',
+      hostName: 'Chloe Kim',
+      currentPlayers: 1,
+      maxPlayers: 2,
+      isPrivate: true,
+      status: 'Private Room',
+    ),
+    RoomModel(
+      id: 'r4',
+      roomCode: 'PF-2219',
+      gameTitle: 'Party Words Sprint',
+      hostName: 'Elena Rostova',
+      currentPlayers: 4,
+      maxPlayers: 6,
+      isPrivate: false,
+      status: 'Starting soon',
+    ),
+  ];
+
+  // Sample Chat Threads
+  static final List<ChatThread> chatThreads = [
+    const ChatThread(
+      id: 'c1',
+      title: 'Sarah Connor',
+      subtitle: 'Ready for a quick Tic-Tac-Toe rematch?',
+      time: '10:42 AM',
+      unreadCount: 2,
+      isGroup: false,
+      iconColor: Color(0xFFEC4899),
+      messages: [
+        ChatMessage(
+          id: 'm1',
+          senderName: 'Sarah Connor',
+          senderInitial: 'S',
+          senderColor: Color(0xFFEC4899),
+          message: 'Hey Alex! Great game yesterday.',
+          time: '10:40 AM',
+          isMe: false,
+        ),
+        ChatMessage(
+          id: 'm2',
+          senderName: 'Alex Vance',
+          senderInitial: 'A',
+          senderColor: Color(0xFF8B5CF6),
+          message: 'Thanks Sarah! That corner block was decisive.',
+          time: '10:41 AM',
+          isMe: true,
+        ),
+        ChatMessage(
+          id: 'm3',
+          senderName: 'Sarah Connor',
+          senderInitial: 'S',
+          senderColor: Color(0xFFEC4899),
+          message: 'Ready for a quick Tic-Tac-Toe rematch?',
+          time: '10:42 AM',
+          isMe: false,
+        ),
+      ],
+    ),
+    const ChatThread(
+      id: 'c2',
+      title: 'Ludo Squad Weekend',
+      subtitle: 'Marcus: Created room PF-7301, jump in!',
+      time: 'Yesterday',
+      unreadCount: 0,
+      isGroup: true,
+      iconColor: Color(0xFFF59E0B),
+      messages: [
+        ChatMessage(
+          id: 'm4',
+          senderName: 'Marcus Brody',
+          senderInitial: 'M',
+          senderColor: Color(0xFF3B82F6),
+          message: 'Who is up for Ludo this evening?',
+          time: 'Yesterday',
+          isMe: false,
+        ),
+        ChatMessage(
+          id: 'm5',
+          senderName: 'Chloe Kim',
+          senderInitial: 'C',
+          senderColor: Color(0xFF10B981),
+          message: 'Count me in! Just finishing work.',
+          time: 'Yesterday',
+          isMe: false,
+        ),
+        ChatMessage(
+          id: 'm6',
+          senderName: 'Marcus Brody',
+          senderInitial: 'M',
+          senderColor: Color(0xFF3B82F6),
+          message: 'Created room PF-7301, jump in!',
+          time: 'Yesterday',
+          isMe: false,
+        ),
+      ],
+    ),
+    const ChatThread(
+      id: 'c3',
+      title: 'Chloe Kim',
+      subtitle: 'Check out the new Carrom trick shot video!',
+      time: 'Oct 18',
+      unreadCount: 0,
+      isGroup: false,
+      iconColor: Color(0xFF10B981),
+      messages: [
+        ChatMessage(
+          id: 'm7',
+          senderName: 'Chloe Kim',
+          senderInitial: 'C',
+          senderColor: Color(0xFF10B981),
+          message: 'Check out the new Carrom trick shot video!',
+          time: 'Oct 18',
+          isMe: false,
+        ),
+      ],
+    ),
+  ];
+}
