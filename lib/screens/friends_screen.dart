@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../data/sample_data.dart';
 import '../models/friend_model.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/demo_banner.dart';
 import '../widgets/friend_tile.dart';
+import 'tic_tac_toe_screen.dart';
 
 class FriendsScreen extends StatefulWidget {
   final VoidCallback onOpenChat;
@@ -25,7 +25,7 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -35,125 +35,162 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
     super.dispose();
   }
 
-  List<FriendModel> get _allFriends {
-    return SampleData.friends.where((f) {
+  List<FriendModel> _filterFriends(List<FriendModel> list) {
+    return list.where((f) {
       return f.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           f.tag.toLowerCase().contains(_searchQuery.toLowerCase());
     }).toList();
   }
 
-  List<FriendModel> get _onlineFriends {
-    return _allFriends.where((f) => f.isOnline).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Friends Squad'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_add_rounded),
-            tooltip: 'Add Friend',
-            color: AppColors.primaryBlueLight,
+    return ListenableBuilder(
+      listenable: AuthService(),
+      builder: (context, _) {
+        final allFriends = _filterFriends(AuthService().friends);
+        final onlineFriends = allFriends.where((f) => f.isOnline).toList();
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Friends Squad'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.person_add_rounded),
+                tooltip: 'Add Friend',
+                color: AppColors.primaryBlueLight,
+                onPressed: () => _showAddFriendDialog(context),
+              ),
+            ],
+            bottom: TabBar(
+              controller: _tabController,
+              indicatorColor: AppColors.primaryBlueLight,
+              indicatorWeight: 3,
+              labelColor: AppColors.primaryBlueLight,
+              unselectedLabelColor: AppColors.textMuted,
+              tabs: [
+                Tab(text: 'All (${allFriends.length})'),
+                Tab(text: 'Online (${onlineFriends.length})'),
+              ],
+            ),
+          ),
+          floatingActionButton: FloatingActionButton.extended(
+            backgroundColor: AppColors.primaryPurple,
+            foregroundColor: Colors.white,
+            icon: const Icon(Icons.person_add_alt_1_rounded),
+            label: const Text('Add Friend'),
             onPressed: () => _showAddFriendDialog(context),
           ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: AppColors.primaryBlueLight,
-          indicatorWeight: 3,
-          labelColor: AppColors.primaryBlueLight,
-          unselectedLabelColor: AppColors.textMuted,
-          tabs: [
-            Tab(text: 'All (${_allFriends.length})'),
-            Tab(text: 'Online (${_onlineFriends.length})'),
-            const Tab(text: 'Requests (2)'),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.primaryPurple,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.person_add_alt_1_rounded),
-        label: const Text('Add Friend'),
-        onPressed: () => _showAddFriendDialog(context),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            const DemoBanner(
-              message: 'Social squad profiles are demo mocks. Adding friends and inviting players triggers simulated events.',
-            ),
-
-            // Search Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (val) {
-                  setState(() {
-                    _searchQuery = val;
-                  });
-                },
-                decoration: InputDecoration(
-                  hintText: 'Search friends by name or tag...',
-                  hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
-                  prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear_rounded, size: 18),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() {
-                              _searchQuery = '';
-                            });
-                          },
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: AppColors.cardBg,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: AppColors.cardBorder),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: AppColors.cardBorder),
+          body: SafeArea(
+            child: Column(
+              children: [
+                // Search Bar
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (val) {
+                      setState(() {
+                        _searchQuery = val;
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search friends by name or tag...',
+                      hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
+                      prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded, size: 18),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {
+                                  _searchQuery = '';
+                                });
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: AppColors.cardBg,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: AppColors.cardBorder),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: AppColors.cardBorder),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: AppColors.primaryPurple, width: 1.5),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+
+                // Tab Content
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildFriendsList(allFriends, 'No friends added yet.'),
+                      _buildFriendsList(onlineFriends, 'No online friends right now.'),
+                    ],
+                  ),
+                ),
+              ],
             ),
-
-            // Tab Views
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  // Tab 1: All Friends
-                  _buildFriendsList(_allFriends),
-
-                  // Tab 2: Online Friends
-                  _buildFriendsList(_onlineFriends),
-
-                  // Tab 3: Pending Friend Requests
-                  _buildRequestsTab(),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildFriendsList(List<FriendModel> list) {
+  Widget _buildFriendsList(List<FriendModel> list, String emptyMessage) {
     if (list.isEmpty) {
-      return const Center(
-        child: Text(
-          'No friends found',
-          style: TextStyle(color: AppColors.textSecondary),
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.primaryPurple.withValues(alpha: 0.15),
+                ),
+                child: const Icon(
+                  Icons.group_add_rounded,
+                  size: 36,
+                  color: AppColors.primaryPurpleLight,
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Squad is Empty',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                emptyMessage,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add First Friend'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryPurple,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                onPressed: () => _showAddFriendDialog(context),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -167,86 +204,11 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
           friend: friend,
           onTap: () => _showFriendProfile(context, friend),
           onInvite: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Invited ${friend.name} to game! (Simulated)'),
-                backgroundColor: AppColors.surfaceLight,
-              ),
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const TicTacToeScreen()),
             );
           },
           onChat: widget.onOpenChat,
-        );
-      },
-    );
-  }
-
-  Widget _buildRequestsTab() {
-    final sampleRequests = [
-      {'name': 'Zack Snyder', 'tag': '@zack_s', 'initial': 'Z', 'level': 8},
-      {'name': 'Natasha Roman', 'tag': '@nat_r', 'initial': 'N', 'level': 17},
-    ];
-
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: sampleRequests.length,
-      itemBuilder: (context, index) {
-        final req = sampleRequests[index];
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.cardBg,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.cardBorder),
-          ),
-          child: Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: AppColors.primaryPurple,
-                radius: 22,
-                child: Text(
-                  req['initial'] as String,
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      req['name'] as String,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      '${req['tag']} • LVL ${req['level']}',
-                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                    ),
-                  ],
-                ),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Accepted ${req['name']}! (Demo)'),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryBlue,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  minimumSize: const Size(60, 32),
-                ),
-                child: const Text('Accept', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
         );
       },
     );
@@ -257,7 +219,7 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
       context: context,
       backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) => Padding(
         padding: const EdgeInsets.all(24),
@@ -269,38 +231,34 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
               backgroundColor: friend.avatarColor,
               child: Text(
                 friend.initial,
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+                style: const TextStyle(fontSize: 28, color: Colors.white, fontWeight: FontWeight.bold),
               ),
             ),
             const SizedBox(height: 12),
-            Text(
-              friend.name,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              friend.tag,
-              style: const TextStyle(color: AppColors.primaryBlueLight, fontSize: 13),
-            ),
+            Text(friend.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+            Text(friend.tag, style: const TextStyle(color: AppColors.textSecondary)),
             const SizedBox(height: 16),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: AppColors.cardBg,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _miniStat('Level', '${friend.level}', AppColors.trophyGold),
-                  Container(width: 1, height: 24, color: AppColors.cardBorder),
-                  _miniStat('Status', friend.isOnline ? 'Online' : 'Offline',
-                      friend.isOnline ? AppColors.onlineGreen : AppColors.textMuted),
-                  Container(width: 1, height: 24, color: AppColors.cardBorder),
-                  _miniStat('Favorite', friend.favoriteGame.split(' ').first, AppColors.primaryPurpleLight),
+                  Column(
+                    children: [
+                      const Text('Level', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                      Text('${friend.level}', style: const TextStyle(color: AppColors.trophyGold, fontWeight: FontWeight.bold, fontSize: 16)),
+                    ],
+                  ),
+                  Column(
+                    children: [
+                      const Text('Status', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                      Text(friend.statusText, style: const TextStyle(color: AppColors.onlineGreen, fontWeight: FontWeight.bold, fontSize: 13)),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -308,26 +266,35 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
             Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
-                    label: const Text('Send Message'),
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.dangerRose,
+                      side: const BorderSide(color: AppColors.dangerRose),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
                     onPressed: () {
+                      AuthService().removeFriend(friend.id);
                       Navigator.of(ctx).pop();
-                      widget.onOpenChat();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Removed ${friend.name} from squad.')),
+                      );
                     },
+                    child: const Text('Remove Friend'),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.sports_esports_rounded, size: 18),
-                    label: const Text('Invite to Play'),
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryBlue,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
                     onPressed: () {
                       Navigator.of(ctx).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Invited ${friend.name} to duel! (Demo)')),
-                      );
+                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TicTacToeScreen()));
                     },
+                    child: const Text('Challenge Duel', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -338,30 +305,20 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
     );
   }
 
-  Widget _miniStat(String label, String value, Color color) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color),
-        ),
-      ],
-    );
-  }
-
   void _showAddFriendDialog(BuildContext context) {
-    final codeController = TextEditingController();
+    final nameController = TextEditingController();
+    final tagController = TextEditingController();
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
             Icon(Icons.person_add_rounded, color: AppColors.primaryBlueLight),
             SizedBox(width: 10),
-            Text('Add New Friend'),
+            Text('Add Friend to Squad', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ],
         ),
         content: Column(
@@ -369,53 +326,31 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Enter your friend\'s 6-character player tag or code:',
+              'Enter your friend\'s name and gamer tag:',
               style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             TextField(
-              controller: codeController,
-              textCapitalization: TextCapitalization.characters,
+              controller: nameController,
+              style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: 'e.g. PF-9914 or @gamertag',
-                hintStyle: const TextStyle(color: AppColors.textMuted),
+                labelText: 'Player Name',
+                hintText: 'e.g. Marcus or Sarah',
                 filled: true,
-                fillColor: AppColors.cardBg,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
+                fillColor: AppColors.surfaceLight,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceLight,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.share_rounded, size: 18, color: AppColors.primaryPurpleLight),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      'Your code: PF-ALEX-14',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Friend code copied to clipboard! (Simulated)')),
-                      );
-                    },
-                    child: const Text('Copy', style: TextStyle(fontSize: 12)),
-                  ),
-                ],
+            const SizedBox(height: 10),
+            TextField(
+              controller: tagController,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: 'Gamer Tag',
+                hintText: 'e.g. @marcus_play',
+                filled: true,
+                fillColor: AppColors.surfaceLight,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ],
@@ -423,21 +358,28 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
+            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryPurple),
             onPressed: () {
-              final code = codeController.text.trim();
-              Navigator.of(ctx).pop();
-              if (code.isNotEmpty) {
+              final name = nameController.text.trim();
+              final tag = tagController.text.trim();
+              if (name.isNotEmpty) {
+                AuthService().addFriend(
+                  name: name,
+                  tag: tag.isNotEmpty ? tag : '@${name.toLowerCase()}',
+                );
+                Navigator.of(ctx).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Friend request sent to $code! (Simulated)'),
+                    content: Text('Added $name to your Squad!'),
+                    backgroundColor: AppColors.onlineGreen,
                   ),
                 );
               }
             },
-            child: const Text('Send Request'),
+            child: const Text('Add Friend', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

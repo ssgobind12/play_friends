@@ -3,7 +3,6 @@ import '../config/brevo_config.dart';
 import '../services/auth_service.dart';
 import '../services/brevo_email_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/demo_banner.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -19,146 +18,141 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = AuthService().currentUser;
+    return ListenableBuilder(
+      listenable: AuthService(),
+      builder: (context, _) {
+        final user = AuthService().currentUser;
+        final currentWins = user?.totalWins ?? 0;
+        final currentLevel = user?.level ?? 1;
+        final currentXp = user?.xp ?? 0;
+        final levelTargetWins = currentLevel * 4;
+        final winProgress = (currentWins % 4) / 4.0;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Player Profile'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline_rounded),
-            tooltip: 'App & Legal Info',
-            onPressed: () => _showAboutDialog(context),
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Player Profile'),
           ),
-        ],
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Column(
-            children: [
-              // Player Header Card
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1E2648), Color(0xFF121933)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: AppColors.primaryPurple.withValues(alpha: 0.35),
-                    width: 1.2,
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Stack(
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Column(
+                children: [
+                  // Player Header Card
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF1E2648), Color(0xFF121933)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: AppColors.primaryPurple.withValues(alpha: 0.35),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Column(
                       children: [
-                        CircleAvatar(
-                          radius: 42,
-                          backgroundColor: user?.avatarColor ?? AppColors.primaryPurple,
-                          child: Text(
-                            user?.avatarInitial ?? 'P',
-                            style: const TextStyle(
-                              fontSize: 36,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                        if (user?.isGuest == true)
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppColors.coinAmber,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Text(
-                                'GUEST',
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w900,
+                        Stack(
+                          children: [
+                            CircleAvatar(
+                              radius: 42,
+                              backgroundColor: user?.avatarColor ?? AppColors.primaryPurple,
+                              child: Text(
+                                user?.avatarInitial ?? 'P',
+                                style: const TextStyle(
+                                  fontSize: 36,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
                                 ),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      user?.name ?? 'Player',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      user?.tag ?? '@player',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.primaryBlueLight,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    // Level & XP Bar
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
+                            if (user?.isGuest == true)
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.coinAmber,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Text(
+                                    'GUEST',
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
                         Text(
-                          'Level ${user?.level ?? 1}',
+                          user?.name ?? 'Player',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          user?.tag ?? '@player',
                           style: const TextStyle(
                             fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.trophyGold,
+                            color: AppColors.primaryBlueLight,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const Text(
-                          '7,420 / 10,000 XP',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
+                        const SizedBox(height: 16),
+                        // Level & XP Bar
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Level $currentLevel',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.trophyGold,
+                              ),
+                            ),
+                            Text(
+                              '$currentXp XP • $currentWins / $levelTargetWins Wins',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: LinearProgressIndicator(
+                            value: winProgress == 0 && currentWins > 0 ? 1.0 : winProgress,
+                            backgroundColor: AppColors.surfaceLight,
+                            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryPurpleLight),
+                            minHeight: 8,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: const LinearProgressIndicator(
-                        value: 0.742,
-                        backgroundColor: AppColors.surfaceLight,
-                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryPurpleLight),
-                        minHeight: 8,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+                  ),
 
-              const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-              const DemoBanner(
-                message: 'All player statistics and achievements are sample demo profiles.',
-              ),
-
-              const SizedBox(height: 16),
-
-              // Statistics Grid
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStatCard(
-                      icon: Icons.sports_esports_rounded,
-                      value: '${user?.totalMatches ?? 0}',
+                  // Statistics Grid
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildStatCard(
+                          icon: Icons.sports_esports_rounded,
+                          value: '${user?.totalMatches ?? 0}',
                       label: 'Matches Played',
                       color: AppColors.primaryBlueLight,
                     ),
@@ -224,7 +218,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       leading: const Icon(Icons.badge_rounded, color: AppColors.primaryPurpleLight),
                       title: const Text('Account Status'),
                       subtitle: Text(
-                        user?.isGuest == true ? 'Guest Session (Demo)' : 'Registered Player',
+                        user?.isGuest == true ? 'Guest Session' : 'Registered Player',
                         style: TextStyle(
                           color: user?.isGuest == true ? AppColors.coinAmber : AppColors.onlineGreen,
                           fontSize: 13,
@@ -266,7 +260,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       subtitle: Text(
                         BrevoConfig.isConfigured
                             ? 'Brevo Live SMTP (Active)'
-                            : 'Demo Simulated (Tap to configure API Key)',
+                            : 'SMTP Service (Tap to configure API Key)',
                         style: TextStyle(
                           color: BrevoConfig.isConfigured
                               ? AppColors.onlineGreen
@@ -356,25 +350,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
 
-              const SizedBox(height: 24),
-
-              // Version info footer
-              const Text(
-                'Play Friends v1.0.0 (Build 1)',
-                style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                '100% Free Social Gaming • Non-gambling Application',
-                style: TextStyle(fontSize: 11, color: AppColors.textMuted),
-              ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
             ],
           ),
         ),
       ),
     );
-  }
+  },
+);
+}
 
   Widget _buildStatCard({
     required IconData icon,
@@ -679,7 +663,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Play Friends is an Android-first social gaming application built with Flutter & Material 3.',
+              'Play Friends is an Android-first social gaming application.',
               style: TextStyle(fontSize: 14, color: AppColors.textPrimary),
             ),
             SizedBox(height: 12),
@@ -689,7 +673,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             SizedBox(height: 4),
             Text(
-              '• Strictly non-gambling and free-to-play.\n• No real-money betting, cash prizes, or in-app purchases.\n• Local Tic-Tac-Toe duel is playable offline.\n• All coins and trophies are strictly in-game demo points.',
+              '• Strictly non-gambling and free-to-play.\n• No real-money betting, cash prizes, or in-app purchases.\n• Offline duels and local rooms available.\n• All coins and trophies are strictly in-game entertainment rewards.',
               style: TextStyle(fontSize: 13, height: 1.4, color: AppColors.textSecondary),
             ),
           ],

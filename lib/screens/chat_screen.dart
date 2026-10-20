@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../data/sample_data.dart';
 import '../models/chat_model.dart';
 import '../theme/app_theme.dart';
-import '../widgets/demo_banner.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -49,21 +48,11 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
         ),
       ),
       body: SafeArea(
-        child: Column(
+        child: TabBarView(
+          controller: _tabController,
           children: [
-            const DemoBanner(
-              message: 'Demo Social Chat: Send and read simulated local messages. No external server required.',
-              icon: Icons.chat_rounded,
-            ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildThreadList(_dmThreads),
-                  _buildThreadList(_groupThreads),
-                ],
-              ),
-            ),
+            _buildThreadList(_dmThreads),
+            _buildThreadList(_groupThreads),
           ],
         ),
       ),
@@ -72,8 +61,35 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
 
   Widget _buildThreadList(List<ChatThread> list) {
     if (list.isEmpty) {
-      return const Center(
-        child: Text('No conversations', style: TextStyle(color: AppColors.textSecondary)),
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.chat_bubble_outline_rounded,
+                size: 56,
+                color: AppColors.textMuted.withValues(alpha: 0.4),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'No Conversations Yet',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Add friends or join game rooms to chat with players!',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
@@ -278,9 +294,6 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const DemoBanner(
-              message: 'Simulated Conversation: New messages are saved locally during this active session.',
-            ),
             Expanded(
               child: ListView.builder(
                 controller: _scrollController,

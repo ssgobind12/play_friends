@@ -1,7 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/demo_banner.dart';
 
 enum GameMode {
   passAndPlay,
@@ -205,6 +205,13 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
     Future.delayed(const Duration(milliseconds: 350), () {
       if (!mounted) return;
 
+      final isWon = _winner == 'X';
+      final unlockedTitle = AuthService().recordMatchResult(
+        gameId: 'tic_tac_toe',
+        won: isWon,
+      );
+      final user = AuthService().currentUser;
+
       String message;
       Color accent;
       IconData icon;
@@ -213,7 +220,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
         message = "Well played! It's a draw.";
         accent = AppColors.trophyGold;
         icon = Icons.handshake_rounded;
-      } else if (_winner == 'X') {
+      } else if (isWon) {
         message = _mode == GameMode.vsAI
             ? "Victory! You defeated the AI bot!"
             : "Player X wins the match!";
@@ -240,15 +247,67 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
             children: [
               Icon(icon, color: accent, size: 28),
               const SizedBox(width: 10),
-              Text(
-                _isDraw ? 'Game Tied' : 'Round Over',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+              Expanded(
+                child: Text(
+                  _isDraw ? 'Game Tied' : 'Round Over',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
-          content: Text(
-            message,
-            style: const TextStyle(fontSize: 15, color: AppColors.textPrimary),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                message,
+                style: const TextStyle(fontSize: 15, color: AppColors.textPrimary),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.cardBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.primaryPurple.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _rewardItem(Icons.bolt_rounded, isWon ? '+100 XP' : '+25 XP', AppColors.primaryBlueLight),
+                    _rewardItem(Icons.monetization_on_rounded, isWon ? '+50 Coins' : '+10 Coins', AppColors.coinAmber),
+                    _rewardItem(Icons.military_tech_rounded, 'Level ${user?.level ?? 1}', AppColors.onlineGreen),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Wins: ${user?.totalWins ?? 0}/20 towards Ludo Friends (Level 5)',
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              ),
+              if (unlockedTitle != null) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [AppColors.primaryPurple, AppColors.accentCyan]),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.lock_open_rounded, color: Colors.white, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '🎉 NEW GAME UNLOCKED: $unlockedTitle!',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
           ),
           actions: [
             TextButton(
@@ -277,6 +336,16 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
     });
   }
 
+  Widget _rewardItem(IconData icon, String text, Color color) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 18),
+        const SizedBox(height: 2),
+        Text(text, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11)),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -295,13 +364,6 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Column(
             children: [
-              const DemoBanner(
-                message: 'Local Offline Playable Game. Supports 2-Player Pass & Play or AI Bot duel.',
-                icon: Icons.sports_esports_rounded,
-              ),
-
-              const SizedBox(height: 12),
-
               // Mode Selector
               Container(
                 padding: const EdgeInsets.all(4),

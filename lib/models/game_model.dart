@@ -18,6 +18,8 @@ class GameModel {
   final bool isPlayable;
   final String statusBadge;
   final double rating;
+  final int requiredLevel;
+  final int requiredWins;
 
   const GameModel({
     required this.id,
@@ -31,5 +33,7 @@ class GameModel {
     required this.isPlayable,
     required this.statusBadge,
     required this.rating,
+    this.requiredLevel = 1,
+    this.requiredWins = 0,
   });
 }

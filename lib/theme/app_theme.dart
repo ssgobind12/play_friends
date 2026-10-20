@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 class AppColors {
   // Deep navy backgrounds
   static const Color background = Color(0xFF0B0E1B);
+  static const Color backgroundDark = Color(0xFF0B0E1B);
   static const Color surface = Color(0xFF131A2E);
+  static const Color surfaceDark = Color(0xFF131A2E);
   static const Color surfaceLight = Color(0xFF1B243F);
   static const Color cardBg = Color(0xFF161F38);
   static const Color cardBorder = Color(0x2E8B5CF6);
@@ -13,6 +15,7 @@ class AppColors {
   static const Color primaryPurpleLight = Color(0xFFA78BFA);
   static const Color primaryBlue = Color(0xFF06B6D4);
   static const Color primaryBlueLight = Color(0xFF38BDF8);
+  static const Color accentCyan = Color(0xFF06B6D4);
 
   // Status and reward colors
   static const Color onlineGreen = Color(0xFF10B981);

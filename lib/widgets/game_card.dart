@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/game_model.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 
 class GameCard extends StatelessWidget {
@@ -14,19 +15,22 @@ class GameCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isUnlocked = AuthService().isGameUnlocked(game.id);
+    final user = AuthService().currentUser;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: AppColors.cardBg,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: game.isPlayable
+          color: isUnlocked
               ? AppColors.primaryBlue.withValues(alpha: 0.5)
               : AppColors.cardBorder,
-          width: game.isPlayable ? 1.5 : 1,
+          width: isUnlocked ? 1.5 : 1,
         ),
         boxShadow: [
-          if (game.isPlayable)
+          if (isUnlocked)
             BoxShadow(
               color: AppColors.primaryBlue.withValues(alpha: 0.15),
               blurRadius: 16,
@@ -44,29 +48,43 @@ class GameCard extends StatelessWidget {
             child: Row(
               children: [
                 // Artwork / Icon container with gradient
-                Container(
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [game.primaryColor, game.secondaryColor],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: game.primaryColor.withValues(alpha: 0.35),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
+                Stack(
+                  children: [
+                    Container(
+                      width: 70,
+                      height: 70,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [game.primaryColor, game.secondaryColor],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: game.primaryColor.withValues(alpha: 0.35),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: Icon(
-                    game.icon,
-                    size: 36,
-                    color: Colors.white,
-                  ),
+                      child: Icon(
+                        game.icon,
+                        size: 36,
+                        color: Colors.white,
+                      ),
+                    ),
+                    if (!isUnlocked)
+                      Container(
+                        width: 70,
+                        height: 70,
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        child: const Icon(Icons.lock_rounded, color: Colors.white, size: 26),
+                      ),
+                  ],
                 ),
                 const SizedBox(width: 16),
                 // Game Details
@@ -94,26 +112,35 @@ class GameCard extends StatelessWidget {
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: game.isPlayable
-                                  ? AppColors.primaryBlue.withValues(alpha: 0.2)
-                                  : AppColors.primaryPurple.withValues(alpha: 0.2),
+                              color: isUnlocked
+                                  ? AppColors.onlineGreen.withValues(alpha: 0.2)
+                                  : AppColors.coinAmber.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: game.isPlayable
-                                    ? AppColors.primaryBlue
-                                    : AppColors.primaryPurple.withValues(alpha: 0.4),
+                                color: isUnlocked
+                                    ? AppColors.onlineGreen
+                                    : AppColors.coinAmber.withValues(alpha: 0.6),
                                 width: 0.8,
                               ),
                             ),
-                            child: Text(
-                              game.statusBadge,
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: game.isPlayable
-                                    ? AppColors.primaryBlueLight
-                                    : AppColors.primaryPurpleLight,
-                              ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (!isUnlocked) ...[
+                                  const Icon(Icons.lock_rounded, size: 10, color: AppColors.coinAmber),
+                                  const SizedBox(width: 3),
+                                ],
+                                Text(
+                                  isUnlocked ? 'PLAYABLE NOW' : 'LVL ${game.requiredLevel} / ${game.requiredWins} WINS',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: isUnlocked
+                                        ? AppColors.onlineGreen
+                                        : AppColors.coinAmber,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -147,28 +174,45 @@ class GameCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 14),
-                          const Icon(
-                            Icons.star_rounded,
-                            size: 15,
-                            color: AppColors.trophyGold,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            game.rating.toStringAsFixed(1),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                              fontWeight: FontWeight.w600,
+                          if (!isUnlocked) ...[
+                            const Icon(
+                              Icons.emoji_events_rounded,
+                              size: 14,
+                              color: AppColors.coinAmber,
                             ),
-                          ),
+                            const SizedBox(width: 3),
+                            Text(
+                              '${user?.totalWins ?? 0}/${game.requiredWins} Wins',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.coinAmber,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ] else ...[
+                            const Icon(
+                              Icons.star_rounded,
+                              size: 15,
+                              color: AppColors.trophyGold,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              game.rating.toStringAsFixed(1),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                           const Spacer(),
                           Icon(
-                            game.isPlayable
+                            isUnlocked
                                 ? Icons.play_circle_fill_rounded
-                                : Icons.arrow_forward_ios_rounded,
-                            size: game.isPlayable ? 26 : 14,
-                            color: game.isPlayable
-                                ? AppColors.primaryBlueLight
+                                : Icons.lock_outline_rounded,
+                            size: 26,
+                            color: isUnlocked
+                                ? AppColors.onlineGreen
                                 : AppColors.textMuted,
                           ),
                         ],

@@ -1,6 +1,8 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
+import '../models/friend_model.dart';
+import '../models/room_model.dart';
 import '../services/brevo_email_service.dart';
 import '../theme/app_theme.dart';
 
@@ -27,7 +29,7 @@ class AuthService extends ChangeNotifier {
   factory AuthService() => _instance;
 
   AuthService._internal() {
-    // Default pre-registered users for instant demo testing
+    // Default clean users
     _registeredUsers = [
       const UserModel(
         id: 'u_alex',
@@ -40,28 +42,15 @@ class AuthService extends ChangeNotifier {
         countryFlag: '🇮🇳',
         avatarColor: AppColors.primaryPurple,
         avatarInitial: 'A',
-        level: 14,
-        coins: 1450,
-        trophies: 28,
-        winRate: 68.5,
-        totalMatches: 152,
-      ),
-      const UserModel(
-        id: 'u_sarah',
-        name: 'Sarah Connor',
-        tag: '@sarah_c',
-        email: 'sarah@playfriends.io',
-        password: 'password123',
-        phoneNumber: '9812345678',
-        countryCode: '+1',
-        countryFlag: '🇺🇸',
-        avatarColor: Color(0xFFEC4899),
-        avatarInitial: 'S',
-        level: 19,
-        coins: 2800,
-        trophies: 45,
-        winRate: 72.0,
-        totalMatches: 210,
+        level: 1,
+        coins: 500,
+        trophies: 0,
+        winRate: 0.0,
+        totalMatches: 0,
+        totalWins: 0,
+        xp: 0,
+        unlockedGameIds: ['tic_tac_toe'],
+        friends: [],
       ),
     ];
 
@@ -395,6 +384,178 @@ class AuthService extends ChangeNotifier {
 
   void logout() {
     _currentUser = null;
+    notifyListeners();
+  }
+
+  // --------------------------------------------------------------------------
+  // GAME PROGRESSION & LEVEL UNLOCK SYSTEM
+  // --------------------------------------------------------------------------
+
+  /// Records match result, calculates XP/Coins/Wins, promotes player level,
+  /// and automatically unlocks new games when reaching required level/wins.
+  /// Returns title of newly unlocked game, or null if no new unlock occurred.
+  String? recordMatchResult({required String gameId, required bool won}) {
+    if (_currentUser == null) return null;
+
+    final user = _currentUser!;
+    final newMatches = user.totalMatches + 1;
+    final newWins = user.totalWins + (won ? 1 : 0);
+    final newCoins = user.coins + (won ? 50 : 15);
+    final newTrophies = user.trophies + (won ? 1 : 0);
+    final newXp = user.xp + (won ? 100 : 30);
+    final newWinRate = newMatches > 0 ? ((newWins / newMatches) * 100) : 0.0;
+
+    // Level progression: Player increases level every 4 wins!
+    // Level 1: 0-3 wins
+    // Level 2: 4-7 wins
+    // Level 3: 8-11 wins
+    // Level 4: 12-15 wins
+    // Level 5: 16-19 wins (or 20 wins)
+    final calculatedLevel = 1 + (newWins ~/ 4);
+    final newLevel = calculatedLevel > user.level ? calculatedLevel : user.level;
+
+    final updatedUnlockedGames = List<String>.from(user.unlockedGameIds);
+    String? newlyUnlockedTitle;
+
+    // Check unlocks:
+    // Game 2: Ludo Friends unlocks at Level 5 or 20 wins!
+    if ((newLevel >= 5 || newWins >= 20) && !updatedUnlockedGames.contains('ludo')) {
+      updatedUnlockedGames.add('ludo');
+      newlyUnlockedTitle = 'Ludo Friends';
+    }
+    // Game 3: Carrom Clash unlocks at Level 10 or 40 wins!
+    if ((newLevel >= 10 || newWins >= 40) && !updatedUnlockedGames.contains('carrom')) {
+      updatedUnlockedGames.add('carrom');
+      newlyUnlockedTitle ??= 'Carrom Clash';
+    }
+    // Game 4: Cyber Space Dodge unlocks at Level 15 or 60 wins!
+    if ((newLevel >= 15 || newWins >= 60) && !updatedUnlockedGames.contains('space_dodge')) {
+      updatedUnlockedGames.add('space_dodge');
+      newlyUnlockedTitle ??= 'Cyber Space Dodge';
+    }
+
+    _currentUser = user.copyWith(
+      totalMatches: newMatches,
+      totalWins: newWins,
+      coins: newCoins,
+      trophies: newTrophies,
+      xp: newXp,
+      level: newLevel,
+      winRate: double.parse(newWinRate.toStringAsFixed(1)),
+      unlockedGameIds: updatedUnlockedGames,
+    );
+
+    notifyListeners();
+    return newlyUnlockedTitle;
+  }
+
+  /// Checks if a specific game is unlocked for the current player
+  bool isGameUnlocked(String gameId) {
+    if (_currentUser == null) return gameId == 'tic_tac_toe';
+    if (_currentUser!.unlockedGameIds.contains(gameId)) return true;
+    if (gameId == 'tic_tac_toe') return true;
+    if (gameId == 'ludo') return _currentUser!.level >= 5 || _currentUser!.totalWins >= 20;
+    if (gameId == 'carrom') return _currentUser!.level >= 10 || _currentUser!.totalWins >= 40;
+    if (gameId == 'space_dodge') return _currentUser!.level >= 15 || _currentUser!.totalWins >= 60;
+    return false;
+  }
+
+  /// Instantly unlocks all games (useful for testing and instant play)
+  void unlockAllGames() {
+    if (_currentUser == null) return;
+    final allGames = ['tic_tac_toe', 'ludo', 'carrom', 'space_dodge', 'arena_brawl', 'word_rush'];
+    _currentUser = _currentUser!.copyWith(
+      unlockedGameIds: allGames,
+      level: _currentUser!.level < 5 ? 5 : _currentUser!.level,
+      totalWins: _currentUser!.totalWins < 20 ? 20 : _currentUser!.totalWins,
+    );
+    notifyListeners();
+  }
+
+  // --------------------------------------------------------------------------
+  // REAL FRIENDS MANAGEMENT (Fresh & Real)
+  // --------------------------------------------------------------------------
+
+  List<FriendModel> get friends => _currentUser?.friends ?? _localFriends;
+  final List<FriendModel> _localFriends = [];
+
+  void addFriend({required String name, required String tag}) {
+    final cleanName = name.trim().isNotEmpty ? name.trim() : 'Player';
+    final cleanTag = tag.trim().startsWith('@') ? tag.trim().toLowerCase() : '@${tag.trim().toLowerCase()}';
+    final initial = cleanName[0].toUpperCase();
+    const colors = [
+      AppColors.primaryPurple,
+      AppColors.primaryBlueLight,
+      AppColors.onlineGreen,
+      AppColors.accentCyan,
+      AppColors.coinAmber,
+    ];
+    final color = colors[Random().nextInt(colors.length)];
+
+    final newFriend = FriendModel(
+      id: 'f_${DateTime.now().millisecondsSinceEpoch}',
+      name: cleanName,
+      tag: cleanTag,
+      initial: initial,
+      avatarColor: color,
+      level: 1,
+      isOnline: true,
+      statusText: 'Online (Ready to Play)',
+      favoriteGame: 'Tic-Tac-Toe',
+    );
+
+    if (_currentUser != null) {
+      final updated = List<FriendModel>.from(_currentUser!.friends)..add(newFriend);
+      _currentUser = _currentUser!.copyWith(friends: updated);
+    } else {
+      _localFriends.add(newFriend);
+    }
+    notifyListeners();
+  }
+
+  void removeFriend(String friendId) {
+    if (_currentUser != null) {
+      final updated = List<FriendModel>.from(_currentUser!.friends)..removeWhere((f) => f.id == friendId);
+      _currentUser = _currentUser!.copyWith(friends: updated);
+    } else {
+      _localFriends.removeWhere((f) => f.id == friendId);
+    }
+    notifyListeners();
+  }
+
+  // --------------------------------------------------------------------------
+  // REAL ROOMS MANAGEMENT (Fresh & Real)
+  // --------------------------------------------------------------------------
+
+  final List<RoomModel> _activeRooms = [];
+  List<RoomModel> get activeRooms => List.unmodifiable(_activeRooms);
+
+  void addRoom(RoomModel room) {
+    _activeRooms.insert(0, room);
+    notifyListeners();
+  }
+
+  void resetStatsForTesting() {
+    _currentUser = const UserModel(
+      id: 'u_alex',
+      email: 'alex@playfriends.io',
+      password: 'password123',
+      name: 'Alex Vance',
+      tag: '@alex_play',
+      avatarColor: Color(0xFF8B5CF6),
+      avatarInitial: 'A',
+      level: 1,
+      xp: 0,
+      coins: 500,
+      trophies: 0,
+      totalMatches: 0,
+      totalWins: 0,
+      winRate: 0.0,
+      unlockedGameIds: ['tic_tac_toe'],
+      friends: [],
+    );
+    _activeRooms.clear();
+    _localFriends.clear();
     notifyListeners();
   }
 }

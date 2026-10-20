@@ -1,10 +1,12 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import '../data/sample_data.dart';
 import '../models/room_model.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/demo_banner.dart';
 import '../widgets/room_card.dart';
+import 'carrom_game_screen.dart';
+import 'ludo_game_screen.dart';
+import 'space_dodge_screen.dart';
 import 'tic_tac_toe_screen.dart';
 
 class RoomsScreen extends StatefulWidget {
@@ -20,7 +22,13 @@ class _RoomsScreenState extends State<RoomsScreen> {
   @override
   void initState() {
     super.initState();
-    _rooms = List.from(SampleData.rooms);
+    _rooms = List.from(AuthService().activeRooms);
+  }
+
+  void _refreshRooms() {
+    setState(() {
+      _rooms = List.from(AuthService().activeRooms);
+    });
   }
 
   void _handleCreateRoom() {
@@ -73,22 +81,26 @@ class _RoomsScreenState extends State<RoomsScreen> {
                     items: const [
                       DropdownMenuItem(
                         value: 'Tic-Tac-Toe Duel',
-                        child: Text('Tic-Tac-Toe Duel (Playable)'),
+                        child: Text('Tic-Tac-Toe Duel'),
                       ),
                       DropdownMenuItem(
                         value: 'Ludo Friends',
-                        child: Text('Ludo Friends (Demo Preview)'),
+                        child: Text('Ludo Friends (Unlocked at Lvl 5 / 20 Wins)'),
                       ),
                       DropdownMenuItem(
                         value: 'Carrom Clash',
-                        child: Text('Carrom Clash (Demo Preview)'),
+                        child: Text('Carrom Clash (Unlocked at Lvl 10 / 40 Wins)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Space Dodge',
+                        child: Text('Space Dodge (Unlocked at Lvl 15 / 60 Wins)'),
                       ),
                     ],
                     onChanged: (val) {
                       if (val != null) {
                         setModalState(() {
                           selectedGame = val;
-                          if (val.contains('Tic-Tac-Toe') || val.contains('Carrom')) {
+                          if (val.contains('Tic-Tac-Toe') || val.contains('Carrom') || val.contains('Space')) {
                             maxPlayers = 2;
                           } else {
                             maxPlayers = 4;
@@ -101,7 +113,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
                   const Text('Max Players:', style: TextStyle(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
                   Row(
-                    children: [2, 4, 6].map((count) {
+                    children: [2, 4].map((count) {
                       final isSelected = maxPlayers == count;
                       return Padding(
                         padding: const EdgeInsets.only(right: 12),
@@ -162,15 +174,14 @@ class _RoomsScreenState extends State<RoomsScreen> {
                           id: 'r_${DateTime.now().millisecondsSinceEpoch}',
                           roomCode: randomCode,
                           gameTitle: selectedGame,
-                          hostName: SampleData.currentUserName,
+                          hostName: AuthService().currentUser?.name ?? 'Player 1',
                           currentPlayers: 1,
                           maxPlayers: maxPlayers,
                           isPrivate: isPrivate,
                           status: 'Waiting for players',
                         );
-                        setState(() {
-                          _rooms.insert(0, newRoom);
-                        });
+                        AuthService().addRoom(newRoom);
+                        _refreshRooms();
                         _openRoomLobby(newRoom);
                       },
                       child: const Text('Create & Open Lobby'),
@@ -202,7 +213,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'Enter the 6-character room PIN from your friend (e.g. PF-4912):',
+              'Enter the room PIN from your friend (e.g. PF-4912):',
               style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 12),
@@ -232,17 +243,19 @@ class _RoomsScreenState extends State<RoomsScreen> {
                 if (match.isNotEmpty) {
                   _openRoomLobby(match.first);
                 } else {
-                  final simulatedRoom = RoomModel(
-                    id: 'r_sim',
+                  final newRoom = RoomModel(
+                    id: 'r_${DateTime.now().millisecondsSinceEpoch}',
                     roomCode: code.toUpperCase(),
                     gameTitle: 'Tic-Tac-Toe Duel',
-                    hostName: 'Sarah Connor',
+                    hostName: 'Game Friend',
                     currentPlayers: 1,
                     maxPlayers: 2,
                     isPrivate: false,
                     status: 'Joined lobby',
                   );
-                  _openRoomLobby(simulatedRoom);
+                  AuthService().addRoom(newRoom);
+                  _refreshRooms();
+                  _openRoomLobby(newRoom);
                 }
               }
             },
@@ -283,9 +296,9 @@ class _RoomsScreenState extends State<RoomsScreen> {
                         child: Text(
                           room.roomCode,
                           style: const TextStyle(
-                            fontFamily: 'monospace',
                             fontWeight: FontWeight.bold,
                             color: AppColors.primaryBlueLight,
+                            letterSpacing: 1.2,
                           ),
                         ),
                       ),
@@ -303,10 +316,6 @@ class _RoomsScreenState extends State<RoomsScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  const DemoBanner(
-                    message: 'Simulated Lobby: Ready state and player slots reflect local preview.',
-                  ),
                   const SizedBox(height: 16),
                   const Text('Players in Lobby:', style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
@@ -318,9 +327,9 @@ class _RoomsScreenState extends State<RoomsScreen> {
                     avatarColor: AppColors.primaryPurple,
                   ),
                   const SizedBox(height: 8),
-                  // Slot 2 (You or other)
+                  // Slot 2
                   _buildLobbySlot(
-                    name: SampleData.currentUserName,
+                    name: AuthService().currentUser?.name ?? 'Player 2',
                     isHost: false,
                     isReady: isReady,
                     avatarColor: AppColors.primaryBlue,
@@ -330,10 +339,20 @@ class _RoomsScreenState extends State<RoomsScreen> {
                     children: [
                       Expanded(
                         child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                              color: isReady ? AppColors.onlineGreen : AppColors.cardBorder,
+                            ),
+                          ),
                           onPressed: () {
                             setLobbyState(() => isReady = !isReady);
                           },
-                          child: Text(isReady ? 'Unready' : 'I am Ready!'),
+                          child: Text(
+                            isReady ? 'Ready ✓' : 'Set Ready',
+                            style: TextStyle(
+                              color: isReady ? AppColors.onlineGreen : AppColors.textPrimary,
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -341,26 +360,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
                         child: ElevatedButton(
                           onPressed: () {
                             Navigator.of(ctx).pop();
-                            if (room.gameTitle.contains('Tic-Tac-Toe')) {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const TicTacToeScreen(),
-                                ),
-                              );
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    '${room.gameTitle} server is in preview mode. Launching Tic-Tac-Toe test duel instead.',
-                                  ),
-                                ),
-                              );
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const TicTacToeScreen(),
-                                ),
-                              );
-                            }
+                            _startGameFromLobby(room);
                           },
                           child: const Text('Start Game'),
                         ),
@@ -373,6 +373,113 @@ class _RoomsScreenState extends State<RoomsScreen> {
           },
         );
       },
+    );
+  }
+
+  void _startGameFromLobby(RoomModel room) {
+    String gameId = 'tic_tac_toe';
+    if (room.gameTitle.contains('Ludo')) gameId = 'ludo';
+    if (room.gameTitle.contains('Carrom')) gameId = 'carrom';
+    if (room.gameTitle.contains('Space')) gameId = 'space_dodge';
+
+    if (!AuthService().isGameUnlocked(gameId)) {
+      _showLockedGameDialog(context, room.gameTitle, gameId);
+      return;
+    }
+
+    Widget screen;
+    switch (gameId) {
+      case 'ludo':
+        screen = const LudoGameScreen();
+        break;
+      case 'carrom':
+        screen = const CarromGameScreen();
+        break;
+      case 'space_dodge':
+        screen = const SpaceDodgeScreen();
+        break;
+      default:
+        screen = const TicTacToeScreen();
+        break;
+    }
+
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  }
+
+  void _showLockedGameDialog(BuildContext context, String gameTitle, String gameId) {
+    final user = AuthService().currentUser;
+    int reqLevel = 5;
+    int reqWins = 20;
+    if (gameId == 'carrom') {
+      reqLevel = 10;
+      reqWins = 40;
+    } else if (gameId == 'space_dodge') {
+      reqLevel = 15;
+      reqWins = 60;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.lock_rounded, color: AppColors.coinAmber),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '$gameTitle Locked',
+                style: const TextStyle(fontSize: 18),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Unlock requirement: Level $reqLevel OR $reqWins Match Wins in Play Friends.\n\nCurrent Level: ${user?.level ?? 1} | Wins: ${user?.totalWins ?? 0}/$reqWins',
+              style: const TextStyle(fontSize: 14, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: ((user?.totalWins ?? 0) / reqWins).clamp(0.0, 1.0),
+                backgroundColor: AppColors.surfaceLight,
+                valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryPurpleLight),
+                minHeight: 8,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              AuthService().unlockAllGames();
+              _refreshRooms();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('🎉 All games unlocked! Starting $gameTitle...'),
+                  backgroundColor: AppColors.surfaceLight,
+                ),
+              );
+            },
+            child: const Text('Quick Unlock', style: TextStyle(color: AppColors.coinAmber)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const TicTacToeScreen()),
+              );
+            },
+            child: const Text('Play Tic-Tac-Toe to Level Up'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -461,13 +568,9 @@ class _RoomsScreenState extends State<RoomsScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const DemoBanner(
-              message: 'Rooms & Lobbies are simulated local lobbies. You can create rooms, enter room PINs, and start matches.',
-            ),
-
             // Top action buttons
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
                   Expanded(
@@ -489,8 +592,6 @@ class _RoomsScreenState extends State<RoomsScreen> {
               ),
             ),
 
-            const SizedBox(height: 10),
-
             // Section Header
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -508,29 +609,62 @@ class _RoomsScreenState extends State<RoomsScreen> {
                   IconButton(
                     icon: const Icon(Icons.refresh_rounded, size: 20),
                     tooltip: 'Refresh Rooms',
-                    onPressed: () {
-                      setState(() {
-                        _rooms = List.from(SampleData.rooms);
-                      });
-                    },
+                    onPressed: _refreshRooms,
                   ),
                 ],
               ),
             ),
 
-            // Rooms List
+            // Rooms List or Empty State
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                itemCount: _rooms.length,
-                itemBuilder: (context, index) {
-                  final room = _rooms[index];
-                  return RoomCard(
-                    room: room,
-                    onJoin: () => _openRoomLobby(room),
-                  );
-                },
-              ),
+              child: _rooms.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.meeting_room_outlined,
+                              size: 64,
+                              color: AppColors.textMuted.withValues(alpha: 0.45),
+                            ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'No Active Rooms Yet',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Create a custom game room or enter a PIN to invite your friends!',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                            ),
+                            const SizedBox(height: 20),
+                            ElevatedButton.icon(
+                              onPressed: _handleCreateRoom,
+                              icon: const Icon(Icons.add_rounded),
+                              label: const Text('Create First Room'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      itemCount: _rooms.length,
+                      itemBuilder: (context, index) {
+                        final room = _rooms[index];
+                        return RoomCard(
+                          room: room,
+                          onJoin: () => _openRoomLobby(room),
+                        );
+                      },
+                    ),
             ),
           ],
         ),

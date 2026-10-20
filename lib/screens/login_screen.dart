@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/demo_banner.dart';
 import '../widgets/forgot_password_dialog.dart';
 import 'register_screen.dart';
 
@@ -156,14 +155,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 16),
-
-                  const DemoBanner(
-                    message: 'Demo Authentication: Sign in with a test account, register a new gamer profile, or continue as guest.',
-                    icon: Icons.shield_outlined,
-                  ),
-
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
 
                   // Error banner
                   if (_errorMessage != null)

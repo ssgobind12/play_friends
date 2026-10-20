@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import '../data/sample_data.dart';
 import '../models/game_model.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/demo_banner.dart';
 import '../widgets/game_card.dart';
 import 'tic_tac_toe_screen.dart';
+import 'ludo_game_screen.dart';
+import 'carrom_game_screen.dart';
+import 'space_dodge_screen.dart';
 
 class GamesScreen extends StatefulWidget {
   const GamesScreen({super.key});
@@ -49,242 +52,256 @@ class _GamesScreenState extends State<GamesScreen> {
     }).toList();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final games = _filteredGames;
+  void _launchGame(BuildContext context, GameModel game) {
+    final auth = AuthService();
+    final isUnlocked = auth.isGameUnlocked(game.id);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Game Arcade'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline_rounded),
-            tooltip: 'Game Engine Info',
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('About Games'),
-                  content: const Text(
-                    'Play Friends includes a fully functional, playable local Tic-Tac-Toe engine (with AI & Pass-and-Play modes). Other titles (Ludo, Carrom, Action) are demo showcase previews for future multiplayer integrations.',
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(ctx).pop(),
-                      child: const Text('Got it'),
+    if (isUnlocked) {
+      Widget screen;
+      switch (game.id) {
+        case 'ludo':
+          screen = const LudoGameScreen();
+          break;
+        case 'carrom':
+          screen = const CarromGameScreen();
+          break;
+        case 'space_dodge':
+          screen = const SpaceDodgeGameScreen();
+          break;
+        case 'tic_tac_toe':
+        default:
+          screen = const TicTacToeScreen();
+          break;
+      }
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+    } else {
+      final user = auth.currentUser;
+      final wins = user?.totalWins ?? 0;
+      final level = user?.level ?? 1;
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppColors.surfaceDark,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              const Icon(Icons.lock_rounded, color: AppColors.coinAmber, size: 26),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '${game.title} Locked',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Unlocks automatically when you reach Level ${game.requiredLevel} or win ${game.requiredWins} games!',
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.cardBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.cardBorder),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Win Progress', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                        Text('$wins / ${game.requiredWins} Wins', style: const TextStyle(color: AppColors.coinAmber, fontWeight: FontWeight.bold, fontSize: 12)),
+                      ],
                     ),
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(
+                      value: (wins / (game.requiredWins > 0 ? game.requiredWins : 1)).clamp(0.0, 1.0),
+                      backgroundColor: AppColors.surfaceLight,
+                      valueColor: const AlwaysStoppedAnimation<Color>(AppColors.coinAmber),
+                      minHeight: 8,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    const SizedBox(height: 10),
+                    Text('Player Level: $level (Required: Level ${game.requiredLevel})', style: const TextStyle(color: Colors.white70, fontSize: 12)),
                   ],
                 ),
-              );
-            },
+              ),
+            ],
           ),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            const DemoBanner(
-              message: 'Tic-Tac-Toe is playable right now! Other titles are shown as demo concept previews.',
-            ),
-
-            // Search Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (val) {
-                  setState(() {
-                    _searchQuery = val;
-                  });
-                },
-                decoration: InputDecoration(
-                  hintText: 'Search games (e.g. Ludo, Tic-Tac-Toe)...',
-                  hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
-                  prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear_rounded, size: 18),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() {
-                              _searchQuery = '';
-                            });
-                          },
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: AppColors.cardBg,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: AppColors.cardBorder),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                auth.unlockAllGames();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('🎉 ${game.title} unlocked!'),
+                    backgroundColor: AppColors.onlineGreen,
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: AppColors.cardBorder),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(color: AppColors.primaryPurple, width: 1.5),
-                  ),
-                ),
-              ),
+                );
+              },
+              child: const Text('Quick Unlock', style: TextStyle(color: AppColors.accentCyan)),
             ),
-
-            // Category Filter Chips
-            SizedBox(
-              height: 48,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                itemCount: _categories.length,
-                itemBuilder: (context, index) {
-                  final cat = _categories[index];
-                  final isSelected = _selectedCategory == cat;
-
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: FilterChip(
-                      selected: isSelected,
-                      label: Text(cat),
-                      labelStyle: TextStyle(
-                        fontSize: 13,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                        color: isSelected ? Colors.white : AppColors.textSecondary,
-                      ),
-                      backgroundColor: AppColors.cardBg,
-                      selectedColor: AppColors.primaryPurple,
-                      checkmarkColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                        side: BorderSide(
-                          color: isSelected ? AppColors.primaryPurple : AppColors.cardBorder,
-                        ),
-                      ),
-                      onSelected: (bool selected) {
-                        setState(() {
-                          _selectedCategory = cat;
-                        });
-                      },
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            // Games List
-            Expanded(
-              child: games.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.sports_esports_outlined,
-                            size: 48,
-                            color: AppColors.textMuted.withValues(alpha: 0.6),
-                          ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'No games found matching your search',
-                            style: TextStyle(color: AppColors.textSecondary),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      itemCount: games.length,
-                      itemBuilder: (context, index) {
-                        final game = games[index];
-                        return GameCard(
-                          game: game,
-                          onTap: () {
-                            if (game.isPlayable) {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const TicTacToeScreen(),
-                                ),
-                              );
-                            } else {
-                              _showDemoDialog(context, game);
-                            }
-                          },
-                        );
-                      },
-                    ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryPurple),
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TicTacToeScreen()));
+              },
+              child: const Text('Play Tic-Tac-Toe', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
-      ),
-    );
+      );
+    }
   }
 
-  void _showDemoDialog(BuildContext context, GameModel game) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: Row(
-          children: [
-            Icon(game.icon, color: game.primaryColor),
-            const SizedBox(width: 10),
-            Expanded(child: Text(game.title)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.primaryPurple.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                game.statusBadge,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primaryPurpleLight,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(game.description),
-            const SizedBox(height: 12),
-            Text(
-              'Supported: ${game.playerCount}',
-              style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'This game requires online multiplayer servers which are not active in this demo version. You can play Tic-Tac-Toe locally right now!',
-              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Dismiss'),
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: AuthService(),
+      builder: (context, _) {
+        final games = _filteredGames;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Game Arcade'),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const TicTacToeScreen(),
+          body: SafeArea(
+            child: Column(
+              children: [
+                // Search Bar
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (val) {
+                      setState(() {
+                        _searchQuery = val;
+                      });
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'Search games (e.g. Ludo, Carrom, Space)...',
+                      hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
+                      prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded, size: 18),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {
+                                  _searchQuery = '';
+                                });
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: AppColors.cardBg,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: AppColors.cardBorder),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: AppColors.cardBorder),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: const BorderSide(color: AppColors.primaryPurple, width: 1.5),
+                      ),
+                    ),
+                  ),
                 ),
-              );
-            },
-            child: const Text('Launch Tic-Tac-Toe'),
+
+                // Category Filter Chips
+                SizedBox(
+                  height: 48,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    itemCount: _categories.length,
+                    itemBuilder: (context, index) {
+                      final cat = _categories[index];
+                      final isSelected = _selectedCategory == cat;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: FilterChip(
+                          label: Text(cat),
+                          selected: isSelected,
+                          onSelected: (val) {
+                            setState(() {
+                              _selectedCategory = cat;
+                            });
+                          },
+                          backgroundColor: AppColors.cardBg,
+                          selectedColor: AppColors.primaryPurple,
+                          checkmarkColor: Colors.white,
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : AppColors.textSecondary,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 13,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            side: BorderSide(
+                              color: isSelected ? AppColors.primaryPurple : AppColors.cardBorder,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                // Games List
+                Expanded(
+                  child: games.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.sports_esports_outlined,
+                                size: 48,
+                                color: AppColors.textMuted.withValues(alpha: 0.6),
+                              ),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'No games found matching your search',
+                                style: TextStyle(color: AppColors.textSecondary),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          itemCount: games.length,
+                          itemBuilder: (context, index) {
+                            final game = games[index];
+                            return GameCard(
+                              game: game,
+                              onTap: () => _launchGame(context, game),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

@@ -3,7 +3,6 @@ import '../models/country_code.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/country_picker_dialog.dart';
-import '../widgets/demo_banner.dart';
 import '../widgets/otp_verification_view.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -208,10 +207,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const DemoBanner(
-                        message:
-                            'Registration requires 6-digit Email OTP verification. Phone number & country code required for fair play.',
-                        icon: Icons.shield_outlined,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryPurple.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: AppColors.primaryPurple.withValues(alpha: 0.35),
+                            width: 1,
+                          ),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.shield_outlined, size: 18, color: AppColors.primaryPurpleLight),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Account Security: 6-digit Email OTP verification is required to complete registration.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
 
                       const SizedBox(height: 12),

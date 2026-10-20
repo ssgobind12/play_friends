@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'friend_model.dart';
 
 class UserModel {
   final String id;
@@ -16,6 +17,10 @@ class UserModel {
   final int trophies;
   final double winRate;
   final int totalMatches;
+  final int totalWins;
+  final int xp;
+  final List<String> unlockedGameIds;
+  final List<FriendModel> friends;
   final bool isGuest;
 
   const UserModel({
@@ -34,6 +39,10 @@ class UserModel {
     this.trophies = 0,
     this.winRate = 0.0,
     this.totalMatches = 0,
+    this.totalWins = 0,
+    this.xp = 0,
+    this.unlockedGameIds = const ['tic_tac_toe'],
+    this.friends = const [],
     this.isGuest = false,
   });
 
@@ -52,6 +61,10 @@ class UserModel {
     int? trophies,
     double? winRate,
     int? totalMatches,
+    int? totalWins,
+    int? xp,
+    List<String>? unlockedGameIds,
+    List<FriendModel>? friends,
     bool? isGuest,
   }) {
     return UserModel(
@@ -70,6 +83,10 @@ class UserModel {
       trophies: trophies ?? this.trophies,
       winRate: winRate ?? this.winRate,
       totalMatches: totalMatches ?? this.totalMatches,
+      totalWins: totalWins ?? this.totalWins,
+      xp: xp ?? this.xp,
+      unlockedGameIds: unlockedGameIds ?? this.unlockedGameIds,
+      friends: friends ?? this.friends,
       isGuest: isGuest ?? this.isGuest,
     );
   }
