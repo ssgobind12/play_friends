@@ -2,11 +2,10 @@
 /// Allows storing and verifying user registrations (email and mobile number).
 class AwsConfig {
   /// AWS API Gateway / Lambda REST Endpoint URL
-  /// Example: https://xxxxxxxxxx.execute-api.ap-south-1.amazonaws.com/prod/users
-  static String apiEndpoint = '';
+  static String apiEndpoint = 'https://6zsqpcfh9j.execute-api.ap-southeast-2.amazonaws.com/users';
 
-  /// AWS Region (default: ap-south-1 for Mumbai, India)
-  static String region = 'ap-south-1';
+  /// AWS Region
+  static String region = 'ap-southeast-2';
 
   /// Amazon DynamoDB table name for gamer accounts
   static String tableName = 'PlayFriends_Users';
