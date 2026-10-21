@@ -48,6 +48,11 @@ app.*.map.json
 .widget_preview/
 
 # Android signing keys & credentials (NEVER commit to GitHub!)
+*.jks
+*.keystore
+key.properties
+*.apk
+*.aab
 *.keystore
 *.jks
 android/key.properties

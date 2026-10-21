@@ -5,6 +5,7 @@ import '../models/friend_model.dart';
 import '../models/room_model.dart';
 import '../services/aws_storage_service.dart';
 import '../services/brevo_email_service.dart';
+import '../services/in_app_music_service.dart';
 import '../theme/app_theme.dart';
 
 class OtpRecord {
@@ -263,6 +264,7 @@ class AuthService extends ChangeNotifier {
         if (!_registeredUsers.any((u) => u.id == adminUser.id)) {
           _registeredUsers.add(adminUser);
         }
+        InAppMusicService().loadUserSongs(_currentUser!.id);
         notifyListeners();
         return null; // Success
       } else {
@@ -290,6 +292,7 @@ class AuthService extends ChangeNotifier {
     }
 
     _currentUser = matchedUser;
+    InAppMusicService().loadUserSongs(_currentUser!.id);
     notifyListeners();
     return null; // Success
   }
@@ -569,6 +572,9 @@ class AuthService extends ChangeNotifier {
   /// Update active player profile photo or avatar preset
   void updateProfilePhoto(String? photo) {
     if (_currentUser == null) return;
+    final userId = _currentUser!.id;
+    final email = _currentUser!.email;
+
     _currentUser = _currentUser!.copyWith(
       profilePhoto: photo,
       clearProfilePhoto: photo == null,
@@ -577,6 +583,14 @@ class AuthService extends ChangeNotifier {
     if (idx != -1) {
       _registeredUsers[idx] = _currentUser!;
     }
+
+    // Sync to AWS cloud storage server (saves or removes from server)
+    AwsStorageService.updateUserProfilePhoto(
+      userId: userId,
+      email: email,
+      profilePhoto: photo,
+    );
+
     notifyListeners();
   }
 
@@ -602,7 +616,16 @@ class AuthService extends ChangeNotifier {
   bool deleteCurrentUser() {
     if (_currentUser == null) return false;
     final currentUserId = _currentUser!.id;
+    final currentUserEmail = _currentUser!.email;
+
     _registeredUsers.removeWhere((u) => u.id == currentUserId);
+
+    // Remove user profile photo and songs from AWS server
+    AwsStorageService.deleteUserProfilePhoto(
+      userId: currentUserId,
+      email: currentUserEmail,
+    );
+
     _currentUser = null;
     notifyListeners();
     return true;

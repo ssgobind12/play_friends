@@ -18,7 +18,7 @@ void main() {
 
     // Verify app brand / greeting
     expect(find.text('Hey Alex!'), findsOneWidget);
-    expect(find.text('Tic-Tac-Toe Duel'), findsWidgets);
+    expect(find.text('Who is Live Now'), findsOneWidget);
 
     // Verify Bottom Navigation items
     expect(find.byType(BottomNavigationBar), findsOneWidget);
@@ -31,6 +31,7 @@ void main() {
     await tester.tap(find.text('Games'));
     await tester.pumpAndSettle();
     expect(find.text('Game Arcade'), findsOneWidget);
+    expect(find.text('Tic-Tac-Toe Duel'), findsWidgets);
 
     // Switch to Friends tab
     await tester.tap(find.text('Friends'));

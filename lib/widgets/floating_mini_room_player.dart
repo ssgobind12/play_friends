@@ -5,7 +5,7 @@ import '../services/voice_room_manager.dart';
 import '../theme/app_theme.dart';
 
 /// Floating Mini Room Player: Appears at the bottom-left of all screens
-/// when a user is in an active voice room (matching Achat / Chalo Talk reference layout).
+/// when a user is in an active voice room.
 class FloatingMiniRoomPlayer extends StatefulWidget {
   const FloatingMiniRoomPlayer({super.key});
 

@@ -87,11 +87,23 @@ class MainActivity : FlutterActivity() {
                     }
                     result.success(true)
                 }
+                "minimizeApp" -> {
+                    try {
+                        moveTaskToBack(true)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.success(false)
+                    }
+                }
                 else -> {
                     result.notImplemented()
                 }
             }
         }
+    }
+
+    override fun onBackPressed() {
+        moveTaskToBack(true)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

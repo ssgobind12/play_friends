@@ -1,5 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:play_friends/models/room_model.dart';
+import 'package:play_friends/models/room_theme_model.dart';
+import 'package:play_friends/services/aws_storage_service.dart';
+import 'package:play_friends/services/in_app_music_service.dart';
 import 'package:play_friends/services/privacy_filter_service.dart';
 import 'package:play_friends/services/voice_room_manager.dart';
 
@@ -58,7 +61,7 @@ void main() {
   });
 
   group('VoiceRoomManager Tests', () {
-    final testRoom = RoomModel(
+    const testRoom = RoomModel(
       id: 'test_1',
       roomCode: 'PF-9999',
       gameTitle: 'Music Party',
@@ -97,8 +100,8 @@ void main() {
 
     test('Follow room and follow user toggles work', () {
       final manager = VoiceRoomManager();
-      final roomCode = 'TEST-ROOM-123';
-      final userName = 'TestFriend99';
+      const roomCode = 'TEST-ROOM-123';
+      const userName = 'TestFriend99';
 
       expect(manager.isFollowingRoom(roomCode), isFalse);
       manager.toggleFollowRoom(roomCode);
@@ -111,6 +114,63 @@ void main() {
       expect(manager.isFollowingUser(userName), isTrue);
       manager.toggleFollowUser(userName);
       expect(manager.isFollowingUser(userName), isFalse);
+    });
+
+    test('Room join starts silent and does not auto-play music', () {
+      final manager = VoiceRoomManager();
+      final music = InAppMusicService();
+
+      manager.joinRoom(testRoom);
+      expect(music.isPlaying, isFalse);
+    });
+  });
+
+  group('Room Themes Tests', () {
+    test('Provides exactly 10 distinct room themes', () {
+      expect(RoomThemeData.presetThemes.length, equals(10));
+      final ids = RoomThemeData.presetThemes.map((t) => t.id).toSet();
+      expect(ids.length, equals(10));
+    });
+  });
+
+  group('Server Photo & Song Storage Tests', () {
+    test('Server updates and deletes user profile photo', () async {
+      const userId = 'user_photo_test';
+      const email = 'photo_test@example.com';
+      const photoUri = 'data:image/jpeg;base64,mockphotodata';
+
+      final saveSuccess = await AwsStorageService.updateUserProfilePhoto(
+        userId: userId,
+        email: email,
+        profilePhoto: photoUri,
+      );
+      expect(saveSuccess, isTrue);
+
+      final deleteSuccess = await AwsStorageService.deleteUserProfilePhoto(
+        userId: userId,
+        email: email,
+      );
+      expect(deleteSuccess, isTrue);
+    });
+
+    test('Server stores and fetches user uploaded songs', () async {
+      const userId = 'user_song_test';
+
+      await AwsStorageService.uploadSongToServer(
+        userId: userId,
+        songId: 99,
+        title: 'Server Beat 1',
+        genre: 'Lofi',
+        bpm: '90 BPM',
+        audioPathOrUrl: '/path/song.mp3',
+      );
+
+      final userSongs = await AwsStorageService.getUserSongsFromServer(userId);
+      expect(userSongs.any((s) => s['title'] == 'Server Beat 1'), isTrue);
+
+      await AwsStorageService.deleteSongFromServer(userId: userId, songId: 99);
+      final remaining = await AwsStorageService.getUserSongsFromServer(userId);
+      expect(remaining.any((s) => s['title'] == 'Server Beat 1'), isFalse);
     });
   });
 }

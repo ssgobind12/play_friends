@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'auth_service.dart';
+import 'aws_storage_service.dart';
 import 'phone_media_picker_service.dart';
 
 class MusicTrack {
@@ -84,25 +86,74 @@ class InAppMusicService extends ChangeNotifier {
   double get volume => _volume;
   MusicTrack get currentTrack => _tracks[_currentTrackIndex.clamp(0, _tracks.length - 1)];
 
-  /// Upload and register custom music track in local storage store
+  /// Load all songs uploaded by this user from the server / cloud storage
+  Future<void> loadUserSongs(String userId) async {
+    final serverSongs = await AwsStorageService.getUserSongsFromServer(userId);
+    bool changed = false;
+
+    for (final s in serverSongs) {
+      final title = (s['title'] ?? '').toString().trim();
+      if (title.isEmpty) continue;
+
+      final alreadyExists = _tracks.any((t) => t.isUserUploaded && t.title == title);
+      if (!alreadyExists) {
+        final newId = _tracks.length;
+        _tracks.add(
+          MusicTrack(
+            id: newId,
+            title: title,
+            genre: (s['genre'] ?? 'Phone Audio').toString(),
+            bpm: (s['bpm'] ?? '124 BPM').toString(),
+            icon: Icons.library_music_rounded,
+            accentColor: const Color(0xFFEC4899),
+            isUserUploaded: true,
+            audioSource: s['audioPathOrUrl']?.toString(),
+          ),
+        );
+        changed = true;
+      }
+    }
+
+    if (changed) notifyListeners();
+  }
+
+  /// Upload and register custom music track in server and local storage store
   MusicTrack uploadCustomMusic({
     required String title,
     required String genre,
     String? audioPathOrUrl,
     String? bpm,
+    String? fileName,
   }) {
     final newId = _tracks.length;
+    final cleanTitle = title.trim().isNotEmpty ? title.trim() : 'Custom Track #$newId';
+    final cleanGenre = genre.trim().isNotEmpty ? genre.trim() : 'Custom Audio';
+    final cleanBpm = (bpm != null && bpm.trim().isNotEmpty) ? bpm.trim() : '124 BPM';
+
     final track = MusicTrack(
       id: newId,
-      title: title.trim().isNotEmpty ? title.trim() : 'Custom Track #$newId',
-      genre: genre.trim().isNotEmpty ? genre.trim() : 'Custom Audio',
-      bpm: (bpm != null && bpm.trim().isNotEmpty) ? bpm.trim() : '124 BPM',
+      title: cleanTitle,
+      genre: cleanGenre,
+      bpm: cleanBpm,
       icon: Icons.library_music_rounded,
       accentColor: const Color(0xFFEC4899),
       isUserUploaded: true,
       audioSource: audioPathOrUrl,
     );
     _tracks.add(track);
+
+    // Save to AWS server and persistent cache
+    final currentUserId = AuthService().currentUser?.id ?? '01';
+    AwsStorageService.uploadSongToServer(
+      userId: currentUserId,
+      songId: newId,
+      title: cleanTitle,
+      genre: cleanGenre,
+      bpm: cleanBpm,
+      audioPathOrUrl: audioPathOrUrl ?? '',
+      fileName: fileName,
+    );
+
     selectTrack(newId);
     playMusic();
     notifyListeners();

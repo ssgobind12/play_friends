@@ -7,6 +7,7 @@ import 'screens/rooms_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/login_screen.dart';
 import 'services/auth_service.dart';
+import 'services/phone_media_picker_service.dart';
 import 'theme/app_theme.dart';
 import 'widgets/floating_mini_room_player.dart';
 
@@ -80,17 +81,30 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
       const ProfileScreen(),
     ];
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          IndexedStack(
-            index: _currentIndex,
-            children: screens,
-          ),
-          const FloatingMiniRoomPlayer(),
-        ],
-      ),
-      bottomNavigationBar: Container(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (_currentIndex != 0) {
+          setState(() {
+            _currentIndex = 0;
+          });
+        } else {
+          // Cleanly minimize app to background without terminating process or closing
+          PhoneMediaPickerService.minimizeApp();
+        }
+      },
+      child: Scaffold(
+        body: Stack(
+          children: [
+            IndexedStack(
+              index: _currentIndex,
+              children: screens,
+            ),
+            const FloatingMiniRoomPlayer(),
+          ],
+        ),
+        bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           border: Border(
             top: BorderSide(color: AppColors.cardBorder, width: 1),
@@ -123,6 +137,7 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

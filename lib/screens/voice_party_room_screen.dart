@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/room_model.dart';
+import '../models/room_theme_model.dart';
 import '../services/auth_service.dart';
 import '../services/game_sound_service.dart';
 import '../services/in_app_music_service.dart';
@@ -14,7 +15,7 @@ import 'carrom_game_screen.dart';
 import 'ludo_game_screen.dart';
 import 'tic_tac_toe_screen.dart';
 
-/// Available animated gifts (Chalo Talk / Ahchat style)
+// Available animated gifts for voice rooms
 class GiftItem {
   final String id;
   final String name;
@@ -179,7 +180,7 @@ class FloatingReaction {
   FloatingReaction({required this.emoji, required this.startX, required this.key});
 }
 
-/// Full screen Voice & Party Room Screen (Ahchat / Chalo Talk style)
+/// Full screen Voice & Party Room Screen
 class VoicePartyRoomScreen extends StatefulWidget {
   final RoomModel room;
 
@@ -207,6 +208,7 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
   int _activeSpectators = 120;
   GiftItem? _activeGiftOverlay;
   String? _activeGiftSender;
+  RoomThemeData _currentTheme = RoomThemeData.presetThemes[0];
 
   Timer? _simulatedTrafficTimer;
 
@@ -218,8 +220,8 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
     // Register active room in VoiceRoomManager for background & floating mini-player
     VoiceRoomManager().joinRoom(widget.room);
 
-    // Start room background music automatically when entering room!
-    InAppMusicService().playMusic();
+    // Silent by default when entering or creating room; only plays when player presses play!
+    InAppMusicService().pauseMusic();
 
     // Continuous Vinyl record rotation animation
     _vinylAnimCtrl = AnimationController(
@@ -255,7 +257,7 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
       return MicSeatData(seatIndex: i + 1);
     });
 
-    // Initial Chalo Talk / Ahchat Welcome Messages
+    // Initial Room Welcome Messages
     _messages = [
       RoomChatMessage(
         id: 'msg_welcome',
@@ -669,7 +671,7 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
                               border: Border.all(color: const Color(0xFFEC4899)),
                             ),
                             child: const Text(
-                              'Chalo Talk Style',
+                              'Send Charm ✨',
                               style: TextStyle(fontSize: 10, color: Color(0xFFEC4899), fontWeight: FontWeight.bold),
                             ),
                           ),
@@ -788,6 +790,120 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
     );
   }
 
+  void _showThemeSelectorSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.palette_rounded, color: AppColors.accentCyan, size: 24),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      '10 Room Atmosphere Themes',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  ),
+                ],
+              ),
+              const Text(
+                'Customize the background lighting and atmosphere of this room:',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 14),
+              Flexible(
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  itemCount: RoomThemeData.presetThemes.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 2.6,
+                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 10,
+                  ),
+                  itemBuilder: (context, i) {
+                    final theme = RoomThemeData.presetThemes[i];
+                    final isSelected = theme.id == _currentTheme.id;
+
+                    return InkWell(
+                      onTap: () {
+                        setState(() {
+                          _currentTheme = theme;
+                        });
+                        Navigator.of(ctx).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Row(
+                              children: [
+                                Icon(theme.icon, color: theme.accentColor, size: 20),
+                                const SizedBox(width: 8),
+                                Text('Switched room theme to "${theme.name}"!'),
+                              ],
+                            ),
+                            backgroundColor: AppColors.surfaceDark,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: theme.gradientColors.take(2).toList(),
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isSelected ? theme.accentColor : Colors.white24,
+                            width: isSelected ? 2 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(theme.icon, color: theme.accentColor, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                theme.name,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  color: isSelected ? Colors.white : Colors.white70,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (isSelected)
+                              Icon(Icons.check_circle_rounded, color: theme.accentColor, size: 18),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _launchRoomGame() {
     Widget targetScreen;
     if (widget.room.gameTitle.contains('Ludo')) {
@@ -831,16 +947,11 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
       child: Scaffold(
         body: Stack(
           children: [
-            // 1. Dusk Twilight Cityscape / Party Gradient Background
+            // 1. Dynamic Room Theme Gradient Background (10 Custom Themes)
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    Color(0xFF151838), // Night indigo
-                    Color(0xFF231A47), // Deep violet
-                    Color(0xFF381A4C), // Dusk purple
-                    Color(0xFF261234), // Warm night horizon
-                  ],
+                  colors: _currentTheme.gradientColors,
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                 ),
@@ -878,7 +989,7 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
 
                   const SizedBox(height: 10),
 
-                  // 4. Floating Vinyl Record DJ Music Player (Ahchat / Chalo Talk style)
+                  // 4. Floating Vinyl Record DJ Music Player
                   if (_isVinylPlayerVisible) _buildVinylRecordPlayer(currentTrack, music),
 
                   // 5. Live Room Chat Stream & Welcome Notices
@@ -1048,7 +1159,16 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
 
           const SizedBox(width: 6),
 
-          // Exit / Close Room Button with Minimize dialog
+          // 10 Room Themes Switcher Button
+          IconButton(
+            icon: const Icon(Icons.palette_rounded, color: AppColors.coinAmber, size: 22),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            tooltip: '10 Room Themes',
+            onPressed: () => _showThemeSelectorSheet(context),
+          ),
+
+          const SizedBox(width: 4),
           IconButton(
             icon: const Icon(Icons.power_settings_new_rounded, color: Colors.white, size: 24),
             tooltip: 'Leave / Minimize Room',
@@ -1394,7 +1514,7 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
       itemBuilder: (context, i) {
         final msg = _messages[i];
 
-        // 1. Join Room Notice Banner (Chalo Talk style)
+        // 1. Join Room Notice Banner
         if (msg.isJoinAnnouncement) {
           return Container(
             margin: const EdgeInsets.symmetric(vertical: 4),
@@ -1462,7 +1582,7 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
           );
         }
 
-        // 2. Gift Announcement Banner (Golden Chalo Talk banner)
+        // 2. Gift Announcement Banner (Golden VIP Party banner)
         if (msg.isGiftAnnouncement) {
           return Container(
             margin: const EdgeInsets.symmetric(vertical: 4),
@@ -1643,7 +1763,7 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
 
           const SizedBox(width: 6),
 
-          // 5. Gifts Shop Button with Bonus Badge (Chalo Talk style)
+          // 5. Gifts Shop Button with Bonus Badge
           GestureDetector(
             onTap: _showGiftDrawer,
             child: Container(

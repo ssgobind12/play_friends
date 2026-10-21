@@ -82,8 +82,8 @@ class VoiceRoomManager extends ChangeNotifier {
     // Default: Host is always admin
     _roomAdmins.add(room.hostName);
 
-    // Auto-play music for everyone in room
-    InAppMusicService().playMusic();
+    // Silent by default when creating or joining a room; starts only when player presses play!
+    InAppMusicService().pauseMusic();
     notifyListeners();
   }
 

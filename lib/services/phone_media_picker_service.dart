@@ -48,6 +48,13 @@ class PhoneMediaPickerService {
     } catch (_) {}
   }
 
+  /// Minimizes the app to background instead of closing or destroying the activity
+  static Future<void> minimizeApp() async {
+    try {
+      await _channel.invokeMethod('minimizeApp');
+    } catch (_) {}
+  }
+
   /// Stops the Android MediaPlayer
   static Future<void> stopAudioFile() async {
     try {

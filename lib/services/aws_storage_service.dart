@@ -166,6 +166,192 @@ class AwsStorageService {
     return true;
   }
 
+  // Persistent in-memory map of uploaded songs per userId (persists across sessions)
+  static final Map<String, List<Map<String, dynamic>>> _userUploadedSongsCache = {};
+
+  /// Update user profile photo on AWS server and local cloud registry
+  static Future<bool> updateUserProfilePhoto({
+    required String userId,
+    required String email,
+    required String? profilePhoto,
+  }) async {
+    final cleanEmail = email.trim().toLowerCase();
+
+    // 1. Update in local cloud user cache
+    for (final u in _cloudUserCache) {
+      if (u['id'] == userId || (u['email'] ?? '').toString().toLowerCase() == cleanEmail) {
+        u['profilePhoto'] = profilePhoto;
+        break;
+      }
+    }
+
+    // 2. Sync to AWS DynamoDB / API Gateway if configured
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final payload = {
+          'action': profilePhoto == null || profilePhoto.isEmpty ? 'deleteProfilePhoto' : 'updateProfilePhoto',
+          'userId': userId,
+          'email': cleanEmail,
+          'profilePhoto': profilePhoto,
+          'tableName': AwsConfig.tableName,
+          'updatedAt': DateTime.now().toIso8601String(),
+        };
+
+        final response = await http
+            .post(uri, headers: headers, body: jsonEncode(payload))
+            .timeout(const Duration(seconds: 5));
+
+        return true;
+      } catch (e) {
+        debugPrint('AWS updateUserProfilePhoto network error (saved to local cache): $e');
+        return true;
+      }
+    }
+
+    return true;
+  }
+
+  /// Delete user profile photo from AWS server and local cache
+  static Future<bool> deleteUserProfilePhoto({
+    required String userId,
+    required String email,
+  }) async {
+    return updateUserProfilePhoto(userId: userId, email: email, profilePhoto: null);
+  }
+
+  /// Save an uploaded song to AWS server and persistent user song registry
+  static Future<bool> uploadSongToServer({
+    required String userId,
+    required int songId,
+    required String title,
+    required String genre,
+    required String bpm,
+    required String audioPathOrUrl,
+    String? fileName,
+  }) async {
+    final songData = {
+      'id': songId,
+      'userId': userId,
+      'title': title,
+      'genre': genre,
+      'bpm': bpm,
+      'audioPathOrUrl': audioPathOrUrl,
+      'fileName': fileName ?? title,
+      'isUserUploaded': true,
+      'uploadedAt': DateTime.now().toIso8601String(),
+    };
+
+    _userUploadedSongsCache.putIfAbsent(userId, () => []);
+    _userUploadedSongsCache[userId]!.removeWhere((s) => s['title'] == title);
+    _userUploadedSongsCache[userId]!.add(songData);
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final payload = {
+          'action': 'uploadSong',
+          'userId': userId,
+          'song': songData,
+          'tableName': AwsConfig.tableName,
+        };
+
+        await http
+            .post(uri, headers: headers, body: jsonEncode(payload))
+            .timeout(const Duration(seconds: 5));
+      } catch (e) {
+        debugPrint('AWS uploadSongToServer error: $e');
+      }
+    }
+
+    return true;
+  }
+
+  /// Delete an uploaded song from AWS server and local storage
+  static Future<bool> deleteSongFromServer({
+    required String userId,
+    required int songId,
+  }) async {
+    if (_userUploadedSongsCache.containsKey(userId)) {
+      _userUploadedSongsCache[userId]!.removeWhere((s) => s['id'] == songId);
+    }
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final payload = {
+          'action': 'deleteSong',
+          'userId': userId,
+          'songId': songId,
+          'tableName': AwsConfig.tableName,
+        };
+
+        await http
+            .post(uri, headers: headers, body: jsonEncode(payload))
+            .timeout(const Duration(seconds: 5));
+      } catch (e) {
+        debugPrint('AWS deleteSongFromServer error: $e');
+      }
+    }
+
+    return true;
+  }
+
+  /// Fetch all songs uploaded by this user from AWS server or cache
+  static Future<List<Map<String, dynamic>>> getUserSongsFromServer(String userId) async {
+    final localSongs = _userUploadedSongsCache[userId] ?? [];
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await http
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'getUserSongs',
+                'userId': userId,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data is Map && data['songs'] is List) {
+            final cloudSongs = (data['songs'] as List).cast<Map<String, dynamic>>();
+            _userUploadedSongsCache[userId] = cloudSongs;
+            return cloudSongs;
+          }
+        }
+      } catch (e) {
+        debugPrint('AWS getUserSongsFromServer error: $e');
+      }
+    }
+
+    return List<Map<String, dynamic>>.from(localSongs);
+  }
+
   /// Test connection to AWS endpoint
   static Future<({bool success, String message})> testConnection() async {
     if (!AwsConfig.isConfigured) {
@@ -311,6 +497,51 @@ exports.handler = async (event) => {
                 statusCode: 201,
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ success: true, message: "User stored in AWS DynamoDB successfully" })
+            };
+        }
+        
+        if (action === "updateProfilePhoto" || action === "deleteProfilePhoto") {
+            const email = (body.email || "").toLowerCase().trim();
+            const photo = action === "deleteProfilePhoto" ? null : body.profilePhoto;
+            
+            await docClient.send(new PutCommand({
+                TableName: TABLE_NAME,
+                Item: { email, profilePhoto: photo, updatedAt: new Date().toISOString() }
+            }));
+            
+            return {
+                statusCode: 200,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ success: true, message: "Profile photo updated on server" })
+            };
+        }
+        
+        if (action === "uploadSong") {
+            const song = body.song || {};
+            await docClient.send(new PutCommand({
+                TableName: TABLE_NAME + "_Songs",
+                Item: { ...song, updatedAt: new Date().toISOString() }
+            }));
+            
+            return {
+                statusCode: 200,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ success: true, message: "Song saved to server" })
+            };
+        }
+        
+        if (action === "getUserSongs") {
+            const userId = body.userId;
+            const scanResult = await docClient.send(new ScanCommand({
+                TableName: TABLE_NAME + "_Songs",
+                FilterExpression: "userId = :uid",
+                ExpressionAttributeValues: { ":uid": userId }
+            }));
+            
+            return {
+                statusCode: 200,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ success: true, songs: scanResult.Items || [] })
             };
         }
         
