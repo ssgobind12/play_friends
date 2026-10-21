@@ -156,10 +156,8 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     final movable = _getMovableTokens(_currentTurn, _diceValue);
 
     if (movable.isEmpty) {
-      setState(() {
-        _statusBanner = "No moves available with $_diceValue";
-      });
-      await Future.delayed(const Duration(milliseconds: 700));
+      // Like Ludo King, cleanly switch turn without showing "No moves available" banner
+      await Future.delayed(const Duration(milliseconds: 550));
       if (mounted) _switchTurn();
     } else if (movable.length == 1) {
       // Auto move single option
