@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../config/aws_config.dart';
 import '../config/brevo_config.dart';
 import '../services/auth_service.dart';
+import '../services/aws_storage_service.dart';
 import '../services/brevo_email_service.dart';
 import '../theme/app_theme.dart';
 
@@ -271,6 +273,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
                       onTap: () => _showBrevoConfigDialog(context),
+                    ),
+                    const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
+                    ListTile(
+                      leading: Icon(
+                        Icons.cloud_sync_rounded,
+                        color: AwsConfig.isConfigured
+                            ? AppColors.onlineGreen
+                            : const Color(0xFFFF9900),
+                      ),
+                      title: const Text('AWS Cloud Storage (DynamoDB)'),
+                      subtitle: Text(
+                        AwsConfig.isConfigured
+                            ? 'AWS Cloud Sync (Active - ${AwsConfig.tableName})'
+                            : 'Persistent Storage (Tap to configure AWS)',
+                        style: TextStyle(
+                          color: AwsConfig.isConfigured
+                              ? AppColors.onlineGreen
+                              : const Color(0xFFFF9900),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                      onTap: () => _showAwsConfigDialog(context),
                     ),
                     const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
                     ListTile(
@@ -603,6 +629,231 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   );
                 },
                 child: const Text('Save & Apply'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showAwsConfigDialog(BuildContext context) {
+    final endpointController = TextEditingController(text: AwsConfig.apiEndpoint);
+    final regionController = TextEditingController(text: AwsConfig.region);
+    final tableController = TextEditingController(text: AwsConfig.tableName);
+    final apiKeyController = TextEditingController(text: AwsConfig.apiKey);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            backgroundColor: AppColors.surface,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            title: const Row(
+              children: [
+                Icon(Icons.cloud_sync_rounded, color: Color(0xFFFF9900)),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'AWS Cloud Storage',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: (AwsConfig.isConfigured ? AppColors.onlineGreen : const Color(0xFFFF9900))
+                          .withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AwsConfig.isConfigured ? AppColors.onlineGreen : const Color(0xFFFF9900),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          AwsConfig.isConfigured ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+                          size: 18,
+                          color: AwsConfig.isConfigured ? AppColors.onlineGreen : const Color(0xFFFF9900),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            AwsConfig.isConfigured
+                                ? 'AWS Cloud Storage is ACTIVE! Registered emails & mobile numbers are synced to Amazon DynamoDB.'
+                                : 'Local storage active. Enter your AWS API Gateway URL below to sync to DynamoDB.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AwsConfig.isConfigured ? AppColors.onlineGreen : const Color(0xFFFF9900),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('AWS API Gateway / Lambda URL:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: endpointController,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: 'https://xxxxxx.execute-api.ap-south-1.amazonaws.com/prod/users',
+                      hintStyle: const TextStyle(fontSize: 11, color: AppColors.textMuted),
+                      filled: true,
+                      fillColor: AppColors.cardBg,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('AWS Region:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                            const SizedBox(height: 6),
+                            TextField(
+                              controller: regionController,
+                              style: const TextStyle(fontSize: 13),
+                              decoration: InputDecoration(
+                                hintText: 'ap-south-1',
+                                filled: true,
+                                fillColor: AppColors.cardBg,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('DynamoDB Table:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                            const SizedBox(height: 6),
+                            TextField(
+                              controller: tableController,
+                              style: const TextStyle(fontSize: 13),
+                              decoration: InputDecoration(
+                                hintText: 'PlayFriends_Users',
+                                filled: true,
+                                fillColor: AppColors.cardBg,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('API Key (Optional x-api-key):', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: apiKeyController,
+                    style: const TextStyle(fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: 'Optional AWS API Key',
+                      filled: true,
+                      fillColor: AppColors.cardBg,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.cardBg,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Text(
+                      '• Stores email ID & mobile number in DynamoDB.\n• Prevents duplicate registration of same email or mobile number.',
+                      style: TextStyle(fontSize: 11, color: AppColors.textSecondary, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Cancel'),
+              ),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.network_check_rounded, size: 16),
+                label: const Text('Test Connection'),
+                onPressed: () async {
+                  AwsConfig.apiEndpoint = endpointController.text.trim();
+                  AwsConfig.region = regionController.text.trim();
+                  AwsConfig.tableName = tableController.text.trim();
+                  AwsConfig.apiKey = apiKeyController.text.trim();
+
+                  final result = await AwsStorageService.testConnection();
+
+                  if (context.mounted) {
+                    showDialog(
+                      context: context,
+                      builder: (testCtx) => AlertDialog(
+                        title: Row(
+                          children: [
+                            Icon(
+                              result.success ? Icons.check_circle_rounded : Icons.error_outline_rounded,
+                              color: result.success ? AppColors.onlineGreen : AppColors.dangerRose,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(result.success ? 'AWS Connected!' : 'AWS Notice'),
+                          ],
+                        ),
+                        content: Text(result.message, style: const TextStyle(fontSize: 13)),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(testCtx).pop(),
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                },
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFF9900),
+                  foregroundColor: Colors.black,
+                ),
+                onPressed: () {
+                  AwsConfig.apiEndpoint = endpointController.text.trim();
+                  AwsConfig.region = regionController.text.trim();
+                  AwsConfig.tableName = tableController.text.trim();
+                  AwsConfig.apiKey = apiKeyController.text.trim();
+                  setDialogState(() {});
+                  setState(() {});
+                  Navigator.of(ctx).pop();
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        AwsConfig.isConfigured
+                            ? 'AWS Cloud Storage configured! User accounts will sync to DynamoDB.'
+                            : 'AWS settings updated.',
+                      ),
+                      backgroundColor: AppColors.surfaceLight,
+                    ),
+                  );
+                },
+                child: const Text('Save & Apply', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           );

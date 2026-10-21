@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../models/friend_model.dart';
 import '../models/room_model.dart';
+import '../services/aws_storage_service.dart';
 import '../services/brevo_email_service.dart';
 import '../theme/app_theme.dart';
 
@@ -296,7 +297,10 @@ class AuthService extends ChangeNotifier {
 
     for (final user in _registeredUsers) {
       if (user.email.toLowerCase() == cleanEmail) {
-        return 'An account with this email already exists.';
+        return 'This email is already used / registered. Please sign in or use another email.';
+      }
+      if (user.phoneNumber != null && user.phoneNumber!.replaceAll(RegExp(r'\D'), '') == cleanPhone) {
+        return 'This mobile number is already used / registered. Please sign in or use another mobile number.';
       }
       if (user.tag.toLowerCase() == formattedTag) {
         return 'This gamer tag is already taken. Please choose another.';
@@ -304,6 +308,35 @@ class AuthService extends ChangeNotifier {
     }
 
     return null; // Valid
+  }
+
+  /// Async validation that also checks AWS Cloud Storage (DynamoDB / API Gateway)
+  Future<String?> validateRegistrationDetailsAsync({
+    required String name,
+    required String tag,
+    required String email,
+    required String password,
+    required String phoneNumber,
+  }) async {
+    final localError = validateRegistrationDetails(
+      name: name,
+      tag: tag,
+      email: email,
+      password: password,
+      phoneNumber: phoneNumber,
+    );
+    if (localError != null) return localError;
+
+    // Check AWS cloud storage
+    final awsCheck = await AwsStorageService.checkUserExists(
+      email: email,
+      phoneNumber: phoneNumber,
+    );
+    if (awsCheck.exists) {
+      return awsCheck.message ?? 'This email or mobile number is already registered in AWS.';
+    }
+
+    return null;
   }
 
   String? register({
@@ -345,7 +378,7 @@ class AuthService extends ChangeNotifier {
       avatarColor: avatarColor,
       avatarInitial: initial,
       level: 1,
-      coins: 500, // Starter demo coins
+      coins: 500, // Starter coins
       trophies: 5,
       winRate: 0.0,
       totalMatches: 0,
@@ -353,6 +386,10 @@ class AuthService extends ChangeNotifier {
 
     _registeredUsers.add(newUser);
     _currentUser = newUser;
+
+    // Persist to AWS Cloud Storage / DynamoDB
+    AwsStorageService.storeUser(newUser);
+
     notifyListeners();
     return null; // Success
   }

@@ -62,7 +62,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  void _handleInitiateRegistration() {
+  Future<void> _handleInitiateRegistration() async {
     if (!_formKey.currentState!.validate()) return;
 
     if (!_agreeGuidelines) {
@@ -77,8 +77,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _errorMessage = null;
     });
 
-    // Validate details with AuthService
-    final validationError = AuthService().validateRegistrationDetails(
+    // Validate details with AuthService (Local + AWS Cloud Check)
+    final validationError = await AuthService().validateRegistrationDetailsAsync(
       name: _nameController.text,
       tag: _tagController.text,
       email: _emailController.text,
@@ -86,6 +86,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       phoneNumber: _phoneController.text,
     );
 
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (validationError != null) {

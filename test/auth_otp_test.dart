@@ -28,7 +28,7 @@ void main() {
       expect(verified, isFalse);
     });
 
-    test('Registration requires phone number validation', () {
+    test('Registration requires phone number validation and blocks duplicate phone numbers', () {
       final invalidPhone = auth.validateRegistrationDetails(
         name: 'Gamer One',
         tag: '@gamer1',
@@ -38,12 +38,23 @@ void main() {
       );
       expect(invalidPhone, contains('phone number'));
 
-      final validPhone = auth.validateRegistrationDetails(
+      // Existing phone number 9876543210 belongs to Alex Vance
+      final duplicatePhone = auth.validateRegistrationDetails(
         name: 'Gamer One',
         tag: '@gamer1',
         email: 'gamer1@test.com',
         password: 'password123',
         phoneNumber: '9876543210',
+      );
+      expect(duplicatePhone, contains('already used'));
+
+      // New unique phone number
+      final validPhone = auth.validateRegistrationDetails(
+        name: 'Gamer One',
+        tag: '@gamer1',
+        email: 'gamer1@test.com',
+        password: 'password123',
+        phoneNumber: '9123456789',
       );
       expect(validPhone, isNull);
     });
@@ -135,6 +146,40 @@ void main() {
       expect(BrevoConfig.senderEmail, 'noreply@ssgobind.space');
       expect(BrevoConfig.replyToEmail, 'playgamefriendes@gmail.com');
       expect(BrevoConfig.domain, 'ssgobind.space');
+    });
+
+    test('AWS Storage checkUserExists blocks duplicate email and mobile number', () async {
+      // Register a user
+      auth.register(
+        name: 'Cloud Player',
+        tag: '@cloud_play',
+        email: 'cloud@ssgobind.space',
+        password: 'password123',
+        phoneNumber: '9988776655',
+        countryCode: '+91',
+        countryFlag: '🇮🇳',
+        avatarColor: const Color(0xFF8B5CF6),
+      );
+
+      // Attempting to register again with same email
+      final emailCheck = await auth.validateRegistrationDetailsAsync(
+        name: 'Another Player',
+        tag: '@another_tag',
+        email: 'cloud@ssgobind.space',
+        password: 'password123',
+        phoneNumber: '9111222333',
+      );
+      expect(emailCheck, contains('email is already used'));
+
+      // Attempting to register again with same phone number
+      final phoneCheck = await auth.validateRegistrationDetailsAsync(
+        name: 'Another Player',
+        tag: '@another_tag',
+        email: 'unique_new@ssgobind.space',
+        password: 'password123',
+        phoneNumber: '9988776655',
+      );
+      expect(phoneCheck, contains('mobile number is already used'));
     });
   });
 }
