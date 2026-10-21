@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data/sample_data.dart';
 import '../models/chat_model.dart';
+import '../services/privacy_filter_service.dart';
 import '../theme/app_theme.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -238,6 +239,38 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   void _sendMessage() {
     final text = _msgController.text.trim();
     if (text.isEmpty) return;
+
+    // Strict Privacy & Anti-Scam filter
+    final check = PrivacyFilterService.checkMessage(text);
+    if (!check.isAllowed) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1E1B4B),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.shield_rounded, color: Colors.amber, size: 26),
+              SizedBox(width: 8),
+              Text('Security Protection', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            ],
+          ),
+          content: Text(
+            check.reason ??
+                'Sharing personal contact details (phone numbers, WhatsApp, Instagram, Facebook, or external IDs) is strictly prohibited to ensure safety.',
+            style: const TextStyle(fontSize: 13, height: 1.4),
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryPurple),
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Understood'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
 
     final newMsg = ChatMessage(
       id: 'm_${DateTime.now().millisecondsSinceEpoch}',

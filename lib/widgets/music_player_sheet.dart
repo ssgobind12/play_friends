@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../services/auth_service.dart';
 import '../services/in_app_music_service.dart';
 import '../services/phone_media_picker_service.dart';
+import '../services/voice_room_manager.dart';
 import '../theme/app_theme.dart';
 
 class MusicPlayerSheet extends StatelessWidget {
@@ -16,6 +18,23 @@ class MusicPlayerSheet extends StatelessWidget {
       ),
       builder: (_) => const MusicPlayerSheet(),
     );
+  }
+
+  bool _checkPermission(BuildContext context) {
+    if (!VoiceRoomManager().hasActiveRoom) return true;
+    final currentUserName = AuthService().currentUser?.name;
+    final canManage = VoiceRoomManager().canControlMusic(currentUserName);
+    if (!canManage) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🔒 Only Room Host or assigned Admins can control room music.'),
+          backgroundColor: Colors.redAccent,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return false;
+    }
+    return true;
   }
 
   void _showUploadMusicDialog(BuildContext context) {
@@ -292,7 +311,10 @@ class MusicPlayerSheet extends StatelessWidget {
                       color: current.accentColor,
                       size: 38,
                     ),
-                    onPressed: musicService.toggleMusic,
+                    onPressed: () {
+                      if (!_checkPermission(context)) return;
+                      musicService.toggleMusic();
+                    },
                   ),
                 ],
               ),
@@ -314,6 +336,7 @@ class MusicPlayerSheet extends StatelessWidget {
                     elevation: 3,
                   ),
                   onPressed: () async {
+                    if (!_checkPermission(context)) return;
                     final picked = await PhoneMediaPickerService.pickMusicFromPhoneStorage();
                     if (picked != null) {
                       final title = picked['title'] ?? 'Uploaded Song';
@@ -356,7 +379,10 @@ class MusicPlayerSheet extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
-                  onPressed: () => _showUploadMusicDialog(context),
+                  onPressed: () {
+                    if (!_checkPermission(context)) return;
+                    _showUploadMusicDialog(context);
+                  },
                 ),
               ),
 
@@ -405,7 +431,10 @@ class MusicPlayerSheet extends StatelessWidget {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: InkWell(
-                        onTap: () => musicService.selectTrack(track.id),
+                        onTap: () {
+                          if (!_checkPermission(context)) return;
+                          musicService.selectTrack(track.id);
+                        },
                         borderRadius: BorderRadius.circular(14),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

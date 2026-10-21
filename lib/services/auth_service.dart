@@ -631,6 +631,21 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Promotes user level and XP based on gifts / coins
+  void promoteLevelFromCoins(int addedXp, int newLevel) {
+    if (_currentUser == null) return;
+    final current = _currentUser!;
+    _currentUser = current.copyWith(
+      xp: current.xp + addedXp,
+      level: max(current.level, newLevel),
+    );
+    final idx = _registeredUsers.indexWhere((u) => u.id == _currentUser!.id);
+    if (idx != -1) {
+      _registeredUsers[idx] = _currentUser!;
+    }
+    notifyListeners();
+  }
+
   // --------------------------------------------------------------------------
   // REAL FRIENDS MANAGEMENT (Fresh & Real)
   // --------------------------------------------------------------------------

@@ -6,6 +6,8 @@ import '../models/room_model.dart';
 import '../services/auth_service.dart';
 import '../services/game_sound_service.dart';
 import '../services/in_app_music_service.dart';
+import '../services/privacy_filter_service.dart';
+import '../services/voice_room_manager.dart';
 import '../theme/app_theme.dart';
 import '../widgets/music_player_sheet.dart';
 import 'carrom_game_screen.dart';
@@ -213,6 +215,9 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
     super.initState();
     _charmPoints = widget.room.giftPoints;
 
+    // Register active room in VoiceRoomManager for background & floating mini-player
+    VoiceRoomManager().joinRoom(widget.room);
+
     // Start room background music automatically when entering room!
     InAppMusicService().playMusic();
 
@@ -364,20 +369,129 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
         GameSoundService.buttonTap();
       } else {
         // Seat taken by another user
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Mic Seat ${seatIndex + 1} is currently in use by ${_seats[seatIndex].userName}'),
-            backgroundColor: AppColors.surfaceLight,
-            duration: const Duration(seconds: 1),
-          ),
-        );
+        final occupant = _seats[seatIndex].userName!;
+        final isHostMe = widget.room.hostName == user.name;
+        if (isHostMe) {
+          _showHostUserManageSheet(occupant, seatIndex);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Mic Seat ${seatIndex + 1} is currently in use by $occupant'),
+              backgroundColor: AppColors.surfaceLight,
+              duration: const Duration(seconds: 1),
+            ),
+          );
+        }
       }
     });
+  }
+
+  void _showHostUserManageSheet(String targetUser, int seatIndex) {
+    final roomManager = VoiceRoomManager();
+    final isAdmin = roomManager.roomAdmins.contains(targetUser);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1B4B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Manage $targetUser',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: Icon(
+                isAdmin ? Icons.remove_moderator_rounded : Icons.admin_panel_settings_rounded,
+                color: AppColors.coinAmber,
+              ),
+              title: Text(isAdmin ? 'Remove Admin Permissions' : '👑 Assign as Room Admin'),
+              subtitle: Text(
+                isAdmin
+                    ? 'User will no longer be able to control or change room music'
+                    : 'Allow user to control room music & upload tracks',
+                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                final nowAdmin = roomManager.toggleAdminPermission(targetUser);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(nowAdmin
+                        ? '👑 $targetUser is now a Room Admin! Can control music.'
+                        : 'Removed admin rights from $targetUser'),
+                    backgroundColor: AppColors.onlineGreen,
+                  ),
+                );
+                setState(() {});
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.mic_off_rounded, color: Colors.redAccent),
+              title: const Text('Mute Participant Mic'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                setState(() {
+                  _seats[seatIndex] = _seats[seatIndex].copyWith(isMuted: true, isSpeaking: false);
+                });
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.card_giftcard_rounded, color: AppColors.accentCyan),
+              title: const Text('Send Gift to Participant'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _showGiftDrawer();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _sendMessage(String text) {
     final clean = text.trim();
     if (clean.isEmpty) return;
+
+    // Strict Privacy & Anti-Scam Filter
+    final check = PrivacyFilterService.checkMessage(clean);
+    if (!check.isAllowed) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1E1B4B),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.shield_rounded, color: Colors.amber, size: 26),
+              SizedBox(width: 8),
+              Text('Security Protection', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            ],
+          ),
+          content: Text(
+            check.reason ??
+                'Sharing personal contact details (phone numbers, WhatsApp, Instagram, Facebook, or external IDs) is not permitted.',
+            style: const TextStyle(fontSize: 13, height: 1.4),
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryPurple),
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Understood'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     final user = AuthService().currentUser;
     final senderName = user?.name ?? 'Player';
 
@@ -450,6 +564,11 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
     // Trigger celebration sound & haptics
     GameSoundService.giftSent();
 
+    final prevLevel = user.level;
+    // Record gift in VoiceRoomManager: increases room level, room charm, and user ID level
+    VoiceRoomManager().recordGiftSent(coins: gift.cost, senderName: user.name);
+    final newLevel = auth.currentUser?.level ?? prevLevel;
+
     setState(() {
       _charmPoints += gift.cost;
       _activeGiftOverlay = gift;
@@ -460,7 +579,7 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
           senderName: user.name,
           senderPhoto: user.profilePhoto,
           senderColor: user.avatarColor,
-          level: user.level,
+          level: newLevel,
           message: 'showered ${widget.room.hostName} with ${gift.icon} ${gift.name}!',
           isGiftAnnouncement: true,
           gift: gift,
@@ -468,6 +587,16 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
         ),
       );
     });
+
+    if (newLevel > prevLevel) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('🎉 LEVEL UP! You reached Level $newLevel! Larger room capacity unlocked!'),
+          backgroundColor: AppColors.trophyGold,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
 
     _giftAnimCtrl.forward(from: 0.0).then((_) {
       if (mounted) {
@@ -694,76 +823,82 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
     final music = InAppMusicService();
     final currentTrack = music.currentTrack;
 
-    return Scaffold(
-      body: Stack(
-        children: [
-          // 1. Dusk Twilight Cityscape / Party Gradient Background
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Color(0xFF151838), // Night indigo
-                  Color(0xFF231A47), // Deep violet
-                  Color(0xFF381A4C), // Dusk purple
-                  Color(0xFF261234), // Warm night horizon
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        // Room stays active in VoiceRoomManager and continues playing in background floating mini-player!
+      },
+      child: Scaffold(
+        body: Stack(
+          children: [
+            // 1. Dusk Twilight Cityscape / Party Gradient Background
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Color(0xFF151838), // Night indigo
+                    Color(0xFF231A47), // Deep violet
+                    Color(0xFF381A4C), // Dusk purple
+                    Color(0xFF261234), // Warm night horizon
+                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
               ),
             ),
-          ),
 
-          // Ambient Stars / City Glow Details
-          Positioned(
-            top: 60,
-            left: 20,
-            child: Icon(Icons.star_rounded, size: 8, color: Colors.white.withValues(alpha: 0.3)),
-          ),
-          Positioned(
-            top: 120,
-            right: 40,
-            child: Icon(Icons.star_rounded, size: 10, color: Colors.white.withValues(alpha: 0.4)),
-          ),
-          Positioned(
-            top: 220,
-            left: 50,
-            child: Icon(Icons.star_rounded, size: 6, color: Colors.white.withValues(alpha: 0.2)),
-          ),
-
-          // Main Room Content
-          SafeArea(
-            child: Column(
-              children: [
-                // 2. Room Top Header Bar
-                _buildTopHeader(),
-
-                const SizedBox(height: 10),
-
-                // 3. Multi-Mic Seats Grid (Host + 7 Guest Seats)
-                _buildMicSeatGrid(),
-
-                const SizedBox(height: 10),
-
-                // 4. Floating Vinyl Record DJ Music Player (Ahchat / Chalo Talk style)
-                if (_isVinylPlayerVisible) _buildVinylRecordPlayer(currentTrack, music),
-
-                // 5. Live Room Chat Stream & Welcome Notices
-                Expanded(
-                  child: _buildChatStream(),
-                ),
-
-                // 6. Bottom Control & Action Bar (Speaker, Mic, Emoji, Chat, Gift, Game)
-                _buildBottomActionBar(),
-              ],
+            // Ambient Stars / City Glow Details
+            Positioned(
+              top: 60,
+              left: 20,
+              child: Icon(Icons.star_rounded, size: 8, color: Colors.white.withValues(alpha: 0.3)),
             ),
-          ),
+            Positioned(
+              top: 120,
+              right: 40,
+              child: Icon(Icons.star_rounded, size: 10, color: Colors.white.withValues(alpha: 0.4)),
+            ),
+            Positioned(
+              top: 220,
+              left: 50,
+              child: Icon(Icons.star_rounded, size: 6, color: Colors.white.withValues(alpha: 0.2)),
+            ),
 
-          // 7. Full-Screen Floating Emoji Reactions
-          ..._reactions.map((r) => _buildAnimatedReaction(r)),
+            // Main Room Content
+            SafeArea(
+              child: Column(
+                children: [
+                  // 2. Room Top Header Bar
+                  _buildTopHeader(),
 
-          // 8. Full-Screen Celebratory Gift Overlay
-          if (_activeGiftOverlay != null) _buildGiftCelebrationOverlay(),
-        ],
+                  const SizedBox(height: 10),
+
+                  // 3. Multi-Mic Seats Grid (Host + 7 Guest Seats)
+                  _buildMicSeatGrid(),
+
+                  const SizedBox(height: 10),
+
+                  // 4. Floating Vinyl Record DJ Music Player (Ahchat / Chalo Talk style)
+                  if (_isVinylPlayerVisible) _buildVinylRecordPlayer(currentTrack, music),
+
+                  // 5. Live Room Chat Stream & Welcome Notices
+                  Expanded(
+                    child: _buildChatStream(),
+                  ),
+
+                  // 6. Bottom Control & Action Bar (Speaker, Mic, Emoji, Chat, Gift, Game)
+                  _buildBottomActionBar(),
+                ],
+              ),
+            ),
+
+            // 7. Full-Screen Floating Emoji Reactions
+            ..._reactions.map((r) => _buildAnimatedReaction(r)),
+
+            // 8. Full-Screen Celebratory Gift Overlay
+            if (_activeGiftOverlay != null) _buildGiftCelebrationOverlay(),
+          ],
+        ),
       ),
     );
   }
@@ -776,6 +911,16 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       child: Row(
         children: [
+          // Minimize / Back Button to return to app while floating mini-player stays active
+          IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            tooltip: 'Minimize Room',
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          const SizedBox(width: 8),
+
           // Host Profile Pill with Room Title and ID
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -831,11 +976,56 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
                     ],
                   ),
                 ),
+                const SizedBox(width: 6),
+                // Room Level Badge (Ahchat style: 1000->Lv2, 3000->Lv3, 5000->Lv4...)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryPurple.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    'Lv.${LevelProgressionService.calculateLevel(_charmPoints)}',
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.accentCyan),
+                  ),
+                ),
               ],
             ),
           ),
 
           const Spacer(),
+
+          // Follow Room Button (+ Follow / Following ✓)
+          ListenableBuilder(
+            listenable: VoiceRoomManager(),
+            builder: (context, _) {
+              final isFollowed = VoiceRoomManager().isFollowingRoom(widget.room.roomCode);
+              return GestureDetector(
+                onTap: () {
+                  VoiceRoomManager().toggleFollowRoom(widget.room.roomCode);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(isFollowed ? 'Unfollowed room' : 'Following room! Added to your Favorites ⭐'),
+                      duration: const Duration(milliseconds: 900),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: isFollowed ? AppColors.onlineGreen : AppColors.primaryPurple,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    isFollowed ? 'Following ✓' : '+ Follow',
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(width: 6),
 
           // Spectators Count & Avatars Pill (> 100 person capacity according to level!)
           Container(
@@ -858,12 +1048,43 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
 
           const SizedBox(width: 6),
 
-          // Exit / Close Room Button
+          // Exit / Close Room Button with Minimize dialog
           IconButton(
             icon: const Icon(Icons.power_settings_new_rounded, color: Colors.white, size: 24),
-            tooltip: 'Leave Room',
+            tooltip: 'Leave / Minimize Room',
             onPressed: () {
-              Navigator.of(context).pop();
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: const Color(0xFF1E1B4B),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  title: const Text('Voice Party Room'),
+                  content: const Text(
+                    'Do you want to minimize this room to the floating mini-player, or leave completely?',
+                    style: TextStyle(fontSize: 13, height: 1.4),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        // Minimize: pop screen, keeps room active in background with floating mini-player!
+                        Navigator.of(ctx).pop();
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Minimize to Floating Player', style: TextStyle(color: AppColors.accentCyan)),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                      onPressed: () {
+                        // Leave: stop audio, clear active room, pop screen
+                        Navigator.of(ctx).pop();
+                        VoiceRoomManager().leaveRoom();
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Leave Room'),
+                    ),
+                  ],
+                ),
+              );
             },
           ),
         ],
@@ -1095,13 +1316,37 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
               color: Colors.white,
               size: 32,
             ),
-            onPressed: () => music.toggleMusic(),
+            onPressed: () {
+              final currentUserName = AuthService().currentUser?.name;
+              if (!VoiceRoomManager().canControlMusic(currentUserName)) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('🔒 Only Room Host or assigned Admins can control room music.'),
+                    backgroundColor: Colors.redAccent,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+                return;
+              }
+              music.toggleMusic();
+            },
           ),
 
           // 4. Next Track Button
           IconButton(
             icon: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 26),
             onPressed: () {
+              final currentUserName = AuthService().currentUser?.name;
+              if (!VoiceRoomManager().canControlMusic(currentUserName)) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('🔒 Only Room Host or assigned Admins can change tracks.'),
+                    backgroundColor: Colors.redAccent,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+                return;
+              }
               final nextIndex = (music.currentTrackIndex + 1) % music.tracks.length;
               music.selectTrack(nextIndex);
             },
@@ -1111,7 +1356,20 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
           IconButton(
             icon: const Icon(Icons.queue_music_rounded, color: AppColors.accentCyan, size: 24),
             tooltip: 'Choose / Upload Music',
-            onPressed: () => MusicPlayerSheet.show(context),
+            onPressed: () {
+              final currentUserName = AuthService().currentUser?.name;
+              if (!VoiceRoomManager().canControlMusic(currentUserName)) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('🔒 Only Room Host or assigned Admins can choose or upload music.'),
+                    backgroundColor: Colors.redAccent,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+                return;
+              }
+              MusicPlayerSheet.show(context);
+            },
           ),
 
           // 6. Close / Minimize Button

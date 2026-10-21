@@ -8,6 +8,7 @@ import 'screens/chat_screen.dart';
 import 'screens/login_screen.dart';
 import 'services/auth_service.dart';
 import 'theme/app_theme.dart';
+import 'widgets/floating_mini_room_player.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -80,9 +81,14 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
     ];
 
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: screens,
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _currentIndex,
+            children: screens,
+          ),
+          const FloatingMiniRoomPlayer(),
+        ],
       ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(

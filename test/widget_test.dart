@@ -3,10 +3,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:play_friends/main.dart';
 import 'package:play_friends/screens/tic_tac_toe_screen.dart';
 import 'package:play_friends/services/auth_service.dart';
+import 'package:play_friends/services/voice_room_manager.dart';
 
 void main() {
   setUp(() {
     AuthService().resetStatsForTesting();
+    VoiceRoomManager().leaveRoom();
   });
 
   testWidgets('App renders Home screen with BottomNavigationBar', (WidgetTester tester) async {
