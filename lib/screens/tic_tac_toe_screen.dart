@@ -1,12 +1,15 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/game_sound_service.dart';
 import '../theme/app_theme.dart';
 
 enum GameMode {
   passAndPlay,
   vsAI,
 }
+
+enum TicTacToeDifficulty { easy, medium, hard }
 
 class TicTacToeScreen extends StatefulWidget {
   const TicTacToeScreen({super.key});
@@ -25,6 +28,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
 
   // Game Mode
   GameMode _mode = GameMode.passAndPlay;
+  TicTacToeDifficulty _difficulty = TicTacToeDifficulty.medium;
 
   // Scoreboard
   int _xWins = 0;
@@ -65,6 +69,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
       return;
     }
 
+    GameSoundService.ticTacToeCellTap();
     _makeMove(index, _isXTurn ? 'X' : 'O');
 
     // If game is still ongoing and playing against AI, trigger AI move
@@ -91,8 +96,9 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
     Future.delayed(const Duration(milliseconds: 550), () {
       if (!mounted || _winner != null || _isDraw) return;
 
-      final aiMove = _calculateBestAiMove();
+      final aiMove = _calculateAiMove();
       if (aiMove != null) {
+        GameSoundService.ticTacToeCellTap();
         _makeMove(aiMove, 'O');
       }
 
@@ -100,6 +106,30 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
         _isAiThinking = false;
       });
     });
+  }
+
+  int? _calculateAiMove() {
+    final available = <int>[];
+    for (int i = 0; i < 9; i++) {
+      if (_board[i] == null) available.add(i);
+    }
+    if (available.isEmpty) return null;
+
+    if (_difficulty == TicTacToeDifficulty.easy) {
+      available.shuffle(Random());
+      return available.first;
+    } else if (_difficulty == TicTacToeDifficulty.medium) {
+      // 50% chance smart, 50% chance random
+      if (Random().nextBool()) {
+        return _calculateBestAiMove();
+      } else {
+        available.shuffle(Random());
+        return available.first;
+      }
+    } else {
+      // Hard mode: minimax / optimal
+      return _calculateBestAiMove();
+    }
   }
 
   int? _calculateBestAiMove() {
@@ -217,16 +247,19 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
       IconData icon;
 
       if (_isDraw) {
+        GameSoundService.ticTacToeDraw();
         message = "Well played! It's a draw.";
         accent = AppColors.trophyGold;
         icon = Icons.handshake_rounded;
       } else if (isWon) {
+        GameSoundService.ticTacToeWin();
         message = _mode == GameMode.vsAI
             ? "Victory! You defeated the AI bot!"
             : "Player X wins the match!";
         accent = AppColors.primaryBlueLight;
         icon = Icons.emoji_events_rounded;
       } else {
+        GameSoundService.gameOver();
         message = _mode == GameMode.vsAI
             ? "AI Bot won this round! Rematch?"
             : "Player O wins the match!";
@@ -352,6 +385,55 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
       appBar: AppBar(
         title: const Text('Tic-Tac-Toe Arena'),
         actions: [
+          PopupMenuButton<TicTacToeDifficulty>(
+            icon: const Icon(Icons.tune_rounded),
+            tooltip: 'AI Difficulty: ${_difficulty.name.toUpperCase()}',
+            initialValue: _difficulty,
+            onSelected: (mode) {
+              setState(() {
+                _difficulty = mode;
+                _resetBoard();
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Bot difficulty set to ${mode.name.toUpperCase()}'),
+                  duration: const Duration(milliseconds: 900),
+                ),
+              );
+            },
+            itemBuilder: (ctx) => [
+              PopupMenuItem(
+                value: TicTacToeDifficulty.easy,
+                child: Row(
+                  children: [
+                    const Icon(Icons.sentiment_satisfied_alt_rounded, color: Colors.green),
+                    const SizedBox(width: 8),
+                    Text('Easy Bot ${_difficulty == TicTacToeDifficulty.easy ? "✓" : ""}'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: TicTacToeDifficulty.medium,
+                child: Row(
+                  children: [
+                    const Icon(Icons.smart_toy_rounded, color: Colors.amber),
+                    const SizedBox(width: 8),
+                    Text('Medium Bot ${_difficulty == TicTacToeDifficulty.medium ? "✓" : ""}'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: TicTacToeDifficulty.hard,
+                child: Row(
+                  children: [
+                    const Icon(Icons.psychology_rounded, color: Colors.redAccent),
+                    const SizedBox(width: 8),
+                    Text('Hard Bot (Master) ${_difficulty == TicTacToeDifficulty.hard ? "✓" : ""}'),
+                  ],
+                ),
+              ),
+            ],
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Restart Board',
@@ -435,7 +517,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
                               const Icon(Icons.smart_toy_rounded, size: 16),
                               const SizedBox(width: 6),
                               Text(
-                                'Vs AI Bot',
+                                'Vs AI (${_difficulty.name[0].toUpperCase()}${_difficulty.name.substring(1)})',
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.bold,

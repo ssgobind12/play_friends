@@ -2,7 +2,11 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/game_sound_service.dart';
 import '../theme/app_theme.dart';
+
+/// Ludo AI difficulty level
+enum LudoDifficulty { easy, medium, hard }
 
 /// Represents a single Ludo token
 class LudoToken {
@@ -36,6 +40,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   int _playerCount = 2; // 2 or 4 players
   bool _vsAi = true; // Play vs Computer Bot
   int _tokensPerPlayer = 4; // 2 or 4 tokens per player
+  LudoDifficulty _difficulty = LudoDifficulty.medium;
 
   // Active Players in Turn Order
   List<String> get _activePlayers =>
@@ -117,6 +122,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     });
 
     _diceAnimController.forward(from: 0.0);
+    GameSoundService.ludoDiceRoll();
 
     final rng = Random();
     for (int i = 0; i < 7; i++) {
@@ -184,8 +190,24 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     for (final t in list) {
       if (t.inYard) {
         if (dice == 6) valid.add(t);
-      } else if (t.step + dice <= 56) {
-        valid.add(t);
+      } else {
+        final newStep = t.step + dice;
+        if (newStep <= 56) {
+          // FIX: Allow stacking own tokens on a safe spot — never blocked.
+          // Only block if destination (non-safe perimeter) has 2+ own tokens already (stacking limit).
+          if (newStep < 51) {
+            final targetGlobal = _getGlobalPerimeterIndex(player, newStep);
+            final ownOnTarget = _tokens.where(
+              (o) => o.player == player && !o.inYard && !o.isHome && !o.inHomeLane && _getGlobalPerimeterIndex(o.player, o.step) == targetGlobal,
+            ).length;
+            // Allow stacking on safe spots freely; elsewhere limit to 2 own tokens per cell
+            if (_isSafeSpot(targetGlobal) || ownOnTarget < 2) {
+              valid.add(t);
+            }
+          } else {
+            valid.add(t); // home lane or home goal — always allowed
+          }
+        }
       }
     }
     return valid;
@@ -194,7 +216,23 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   void _aiChooseMove(List<LudoToken> movable) {
     if (_winner != null || !mounted) return;
 
-    // Smart priority:
+    final rng = Random();
+
+    // EASY: Just pick random movable token
+    if (_difficulty == LudoDifficulty.easy) {
+      final shuffled = List<LudoToken>.from(movable)..shuffle(rng);
+      _moveToken(shuffled.first);
+      return;
+    }
+
+    // MEDIUM: 50% chance to play smart, 50% random
+    if (_difficulty == LudoDifficulty.medium && rng.nextDouble() < 0.5) {
+      final shuffled = List<LudoToken>.from(movable)..shuffle(rng);
+      _moveToken(shuffled.first);
+      return;
+    }
+
+    // HARD (or medium smart branch): Full priority AI
     // 1. Move token into Home Goal (step == 56)
     // 2. Capture an opponent token
     // 3. Bring out token from yard on 6
@@ -249,13 +287,16 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       if (token.inYard) {
         if (_diceValue == 6) {
           token.step = 0; // Exit yard to start tile!
+          GameSoundService.ludoTokenMove();
           earnedBonusRoll = true;
           bonusReason = "🎲 Rolled 6! Extra roll!";
         }
       } else {
         token.step += _diceValue;
+        GameSoundService.ludoTokenMove();
 
         if (token.step == 56) {
+          GameSoundService.ludoTokenHome();
           earnedBonusRoll = true;
           bonusReason = "🏆 Reached Home! Extra roll!";
         } else if (token.step < 51) {
@@ -276,6 +317,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
               for (final victim in captured) {
                 victim.step = -1; // Send back to yard!
               }
+              GameSoundService.ludoTokenCaptured();
               earnedBonusRoll = true;
               bonusReason = "💥 CUT opponent token! Extra roll!";
             }
@@ -509,6 +551,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   }
 
   void _onGameWon(bool isPlayerWinner) {
+    GameSoundService.ludoWin();
     final unlockedTitle = AuthService().recordMatchResult(
       gameId: 'ludo',
       won: isPlayerWinner,
@@ -647,6 +690,12 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                   _tokensPerPlayer = 2; // 2 Tokens Quick Match
                 } else if (val == 40) {
                   _tokensPerPlayer = 4; // 4 Tokens Classic Match
+                } else if (val == 10) {
+                  _difficulty = LudoDifficulty.easy;
+                } else if (val == 11) {
+                  _difficulty = LudoDifficulty.medium;
+                } else if (val == 12) {
+                  _difficulty = LudoDifficulty.hard;
                 }
                 _resetGame();
               });
@@ -690,6 +739,37 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                     Icon(_tokensPerPlayer == 4 ? Icons.check_circle_rounded : Icons.circle_outlined, size: 18),
                     const SizedBox(width: 8),
                     const Text('Classic Mode (4 Tokens)'),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              PopupMenuItem(
+                value: 10,
+                child: Row(
+                  children: [
+                    Icon(_difficulty == LudoDifficulty.easy ? Icons.check_circle_rounded : Icons.circle_outlined, size: 18, color: Colors.green),
+                    const SizedBox(width: 8),
+                    const Text('🟢 Easy AI'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 11,
+                child: Row(
+                  children: [
+                    Icon(_difficulty == LudoDifficulty.medium ? Icons.check_circle_rounded : Icons.circle_outlined, size: 18, color: Colors.orange),
+                    const SizedBox(width: 8),
+                    const Text('🟡 Medium AI'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 12,
+                child: Row(
+                  children: [
+                    Icon(_difficulty == LudoDifficulty.hard ? Icons.check_circle_rounded : Icons.circle_outlined, size: 18, color: Colors.red),
+                    const SizedBox(width: 8),
+                    const Text('🔴 Hard AI'),
                   ],
                 ),
               ),
@@ -827,11 +907,74 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                                   final coords = _getTokenCoordinates(token);
                                   final isMovable = movableTokens.contains(token);
 
+                                  // Calculate multi-token stacking offset on safe/stop points
+                                  final visibleTokens = _tokens.where((t) {
+                                    if (_playerCount == 2 && t.player != 'Red' && t.player != 'Yellow') {
+                                      return false;
+                                    }
+                                    return true;
+                                  }).toList();
+
+                                  final sameCellTokens = visibleTokens.where((t) {
+                                    if (token.inYard) return t.id == token.id;
+                                    if (t.inYard) return false;
+                                    if (token.isHome) return t.isHome && t.player == token.player;
+                                    if (t.isHome) return false;
+                                    if (token.inHomeLane) {
+                                      return t.inHomeLane && t.player == token.player && t.step == token.step;
+                                    }
+                                    if (t.inHomeLane) return false;
+                                    return _getGlobalPerimeterIndex(t.player, t.step) ==
+                                        _getGlobalPerimeterIndex(token.player, token.step);
+                                  }).toList();
+
+                                  final stackCount = sameCellTokens.length;
+                                  final stackIndex = sameCellTokens.indexOf(token);
+
+                                  final double tokenSize = stackCount > 1
+                                      ? (stackCount == 2 ? cellSize * 0.62 : cellSize * 0.50)
+                                      : cellSize * 0.85;
+
+                                  final cellCenterX = (coords.y * cellSize) + (cellSize / 2);
+                                  final cellCenterY = (coords.x * cellSize) + (cellSize / 2);
+
+                                  double offX = 0;
+                                  double offY = 0;
+                                  if (stackCount == 2) {
+                                    offX = stackIndex == 0 ? -cellSize * 0.17 : cellSize * 0.17;
+                                    offY = stackIndex == 0 ? -cellSize * 0.17 : cellSize * 0.17;
+                                  } else if (stackCount == 3) {
+                                    if (stackIndex == 0) {
+                                      offX = -cellSize * 0.18;
+                                      offY = -cellSize * 0.16;
+                                    } else if (stackIndex == 1) {
+                                      offX = cellSize * 0.18;
+                                      offY = -cellSize * 0.16;
+                                    } else {
+                                      offX = 0;
+                                      offY = cellSize * 0.18;
+                                    }
+                                  } else if (stackCount >= 4) {
+                                    if (stackIndex == 0) {
+                                      offX = -cellSize * 0.18;
+                                      offY = -cellSize * 0.18;
+                                    } else if (stackIndex == 1) {
+                                      offX = cellSize * 0.18;
+                                      offY = -cellSize * 0.18;
+                                    } else if (stackIndex == 2) {
+                                      offX = -cellSize * 0.18;
+                                      offY = cellSize * 0.18;
+                                    } else {
+                                      offX = cellSize * 0.18;
+                                      offY = cellSize * 0.18;
+                                    }
+                                  }
+
                                   return Positioned(
-                                    left: coords.y * cellSize,
-                                    top: coords.x * cellSize,
-                                    width: cellSize,
-                                    height: cellSize,
+                                    left: cellCenterX + offX - (tokenSize / 2),
+                                    top: cellCenterY + offY - (tokenSize / 2),
+                                    width: tokenSize,
+                                    height: tokenSize,
                                     child: GestureDetector(
                                       behavior: HitTestBehavior.opaque,
                                       onTap: isMovable ? () => _moveToken(token) : null,
@@ -846,8 +989,8 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                                             return Transform.scale(
                                               scale: scale,
                                               child: Container(
-                                                width: cellSize * 0.85,
-                                                height: cellSize * 0.85,
+                                                width: tokenSize,
+                                                height: tokenSize,
                                                 decoration: BoxDecoration(
                                                   shape: BoxShape.circle,
                                                   gradient: RadialGradient(
@@ -880,7 +1023,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                                                         ? Icons.star_rounded
                                                         : Icons.workspace_premium_rounded,
                                                     color: Colors.white,
-                                                    size: cellSize * 0.5,
+                                                    size: tokenSize * 0.58,
                                                   ),
                                                 ),
                                               ),

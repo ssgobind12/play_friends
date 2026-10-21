@@ -57,6 +57,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
       context,
       selectedCountry: _selectedCountry,
     );
+    // Clear the phone field when country changes (new digit count)
+    _phoneController.clear();
     if (picked != null) {
       setState(() => _selectedCountry = picked);
     }
@@ -444,10 +446,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             child: TextFormField(
                               controller: _phoneController,
                               keyboardType: TextInputType.phone,
+                              maxLength: _selectedCountry.phoneDigits,
                               style: const TextStyle(color: Colors.white),
                               decoration: InputDecoration(
                                 labelText: 'Phone Number',
-                                hintText: '9876543210',
+                                hintText: '${'X' * _selectedCountry.phoneDigits} (${_selectedCountry.phoneDigits} digits)',
+                                counterStyle: const TextStyle(color: AppColors.textMuted, fontSize: 11),
                                 prefixIcon: const Icon(
                                   Icons.phone_android_rounded,
                                   color: AppColors.primaryBlueLight,
@@ -463,8 +467,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   return 'Please enter phone number.';
                                 }
                                 final digits = val.replaceAll(RegExp(r'\D'), '');
-                                if (digits.length < 7 || digits.length > 15) {
-                                  return 'Enter 7-15 digits.';
+                                final required = _selectedCountry.phoneDigits;
+                                if (digits.length != required) {
+                                  return 'Enter exactly $required digits for ${_selectedCountry.name}.';
                                 }
                                 return null;
                               },

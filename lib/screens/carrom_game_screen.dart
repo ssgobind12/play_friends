@@ -1,7 +1,10 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/game_sound_service.dart';
 import '../theme/app_theme.dart';
+
+enum CarromDifficulty { easy, medium, hard }
 
 class CarromPiece {
   Offset position;
@@ -41,6 +44,7 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
   int _shotsRemaining = 8;
   bool _isMoving = false;
   final double _boardSize = 340.0;
+  CarromDifficulty _difficulty = CarromDifficulty.medium;
 
   @override
   void initState() {
@@ -56,10 +60,13 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
     super.dispose();
   }
 
+  int get _targetScore => _difficulty == CarromDifficulty.easy ? 20 : (_difficulty == CarromDifficulty.medium ? 25 : 30);
+  int get _initialShots => _difficulty == CarromDifficulty.easy ? 10 : (_difficulty == CarromDifficulty.medium ? 8 : 6);
+
   void _resetBoard() {
     _pieces.clear();
     _score = 0;
-    _shotsRemaining = 8;
+    _shotsRemaining = _initialShots;
     _isMoving = false;
     _strikerX = 0.5;
 
@@ -145,6 +152,7 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
             p.isPocketed = true;
             p.velocity = Offset.zero;
             if (!p.isStriker) {
+              GameSoundService.carromCoinPocketed();
               setState(() => _score += p.points);
             }
             break;
@@ -199,6 +207,7 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
   void _fireStriker(Offset impulse) {
     if (_isMoving || _shotsRemaining <= 0) return;
 
+    GameSoundService.carromStrike();
     setState(() {
       _shotsRemaining--;
       _isMoving = true;
@@ -209,7 +218,12 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
   }
 
   void _onMatchComplete() {
-    final won = _score >= 25;
+    final won = _score >= _targetScore;
+    if (won) {
+      GameSoundService.ticTacToeWin();
+    } else {
+      GameSoundService.gameOver();
+    }
     final unlockedTitle = AuthService().recordMatchResult(
       gameId: 'carrom',
       won: won,
@@ -238,12 +252,12 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Final Score: $_score Points in 8 Shots!',
+              'Final Score: $_score Points in $_initialShots Shots!',
               style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
-              won ? 'Outstanding striking skills! Target achieved.' : 'Good try! Score 25+ points to claim victory.',
+              won ? 'Outstanding striking skills! Target achieved.' : 'Good try! Score $_targetScore+ points to claim victory.',
               style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
             ),
             const SizedBox(height: 16),
@@ -326,6 +340,55 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
         elevation: 0,
         title: const Text('Carrom Clash Arena', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
+          PopupMenuButton<CarromDifficulty>(
+            icon: const Icon(Icons.tune_rounded),
+            tooltip: 'Difficulty: ${_difficulty.name.toUpperCase()}',
+            initialValue: _difficulty,
+            onSelected: (mode) {
+              setState(() {
+                _difficulty = mode;
+                _resetBoard();
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Difficulty set to ${mode.name.toUpperCase()} (Target: $_targetScore pts, Shots: $_initialShots)'),
+                  duration: const Duration(milliseconds: 1200),
+                ),
+              );
+            },
+            itemBuilder: (ctx) => [
+              PopupMenuItem(
+                value: CarromDifficulty.easy,
+                child: Row(
+                  children: [
+                    const Icon(Icons.stars_rounded, color: Colors.green),
+                    const SizedBox(width: 8),
+                    Text('Easy (10 shots, 20 pts) ${_difficulty == CarromDifficulty.easy ? "✓" : ""}'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: CarromDifficulty.medium,
+                child: Row(
+                  children: [
+                    const Icon(Icons.stars_rounded, color: Colors.amber),
+                    const SizedBox(width: 8),
+                    Text('Medium (8 shots, 25 pts) ${_difficulty == CarromDifficulty.medium ? "✓" : ""}'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: CarromDifficulty.hard,
+                child: Row(
+                  children: [
+                    const Icon(Icons.stars_rounded, color: Colors.redAccent),
+                    const SizedBox(width: 8),
+                    Text('Hard (6 shots, 30 pts) ${_difficulty == CarromDifficulty.hard ? "✓" : ""}'),
+                  ],
+                ),
+              ),
+            ],
+          ),
           IconButton(
             tooltip: 'Reset Board',
             icon: const Icon(Icons.refresh_rounded),
@@ -344,7 +407,7 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
                 children: [
                   _badge('Score', '$_score pts', AppColors.coinAmber),
                   _badge('Shots Left', '$_shotsRemaining', AppColors.primaryBlueLight),
-                  _badge('Target', '25 pts', AppColors.onlineGreen),
+                  _badge('Target', '$_targetScore pts', AppColors.onlineGreen),
                 ],
               ),
             ),

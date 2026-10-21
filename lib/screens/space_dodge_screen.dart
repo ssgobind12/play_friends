@@ -2,7 +2,10 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/game_sound_service.dart';
 import '../theme/app_theme.dart';
+
+enum SpaceDifficulty { easy, medium, hard }
 
 class Asteroid {
   double x;
@@ -39,6 +42,7 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
   bool _isPlaying = true;
   int _secondsSurvived = 0;
   Timer? _timer;
+  SpaceDifficulty _difficulty = SpaceDifficulty.medium;
 
   @override
   void initState() {
@@ -72,13 +76,34 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
         _secondsSurvived++;
         _score += 5;
       });
-      // Spawn asteroid
-      if (Random().nextDouble() < 0.85) {
+      // Spawn asteroid with difficulty-adjusted rates
+      final double spawnChance;
+      final double baseSpeed;
+      final double accel;
+      switch (_difficulty) {
+        case SpaceDifficulty.easy:
+          spawnChance = 0.60;
+          baseSpeed = 0.0035;
+          accel = 0.0001;
+          break;
+        case SpaceDifficulty.medium:
+          spawnChance = 0.85;
+          baseSpeed = 0.0055;
+          accel = 0.00018;
+          break;
+        case SpaceDifficulty.hard:
+          spawnChance = 0.98;
+          baseSpeed = 0.0080;
+          accel = 0.00025;
+          break;
+      }
+
+      if (Random().nextDouble() < spawnChance) {
         _asteroids.add(Asteroid(
           x: Random().nextDouble(),
           y: -0.1,
           radius: 12 + Random().nextDouble() * 16,
-          speed: 0.006 + (_secondsSurvived * 0.0002),
+          speed: baseSpeed + (_secondsSurvived * accel),
         ));
       }
       // Spawn bonus items
@@ -115,6 +140,7 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
       if (dist < 0.07) {
         toRemoveAsteroids.add(a);
         _lives--;
+        GameSoundService.spaceDodgeHit();
         if (_lives <= 0) {
           _gameOver();
           return;
@@ -133,6 +159,7 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
       final dist = sqrt(dx * dx + dy * dy);
       if (dist < 0.08) {
         toRemoveItems.add(item);
+        GameSoundService.spaceDodgeStar();
         _score += item.isStar ? 50 : 25;
       } else if (item.y > 1.1) {
         toRemoveItems.add(item);
@@ -149,6 +176,11 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
     _timer?.cancel();
 
     final won = _score >= 150 || _secondsSurvived >= 30;
+    if (won) {
+      GameSoundService.ticTacToeWin();
+    } else {
+      GameSoundService.gameOver();
+    }
     final unlockedTitle = AuthService().recordMatchResult(
       gameId: 'space_dodge',
       won: won,
@@ -243,6 +275,62 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text('Cyber Space Dodge', style: TextStyle(fontWeight: FontWeight.bold)),
+        actions: [
+          PopupMenuButton<SpaceDifficulty>(
+            icon: const Icon(Icons.tune_rounded),
+            tooltip: 'Difficulty: ${_difficulty.name.toUpperCase()}',
+            initialValue: _difficulty,
+            onSelected: (mode) {
+              setState(() {
+                _difficulty = mode;
+                _startGame();
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Difficulty set to ${mode.name.toUpperCase()}'),
+                  duration: const Duration(milliseconds: 900),
+                ),
+              );
+            },
+            itemBuilder: (ctx) => [
+              PopupMenuItem(
+                value: SpaceDifficulty.easy,
+                child: Row(
+                  children: [
+                    const Icon(Icons.speed_rounded, color: Colors.green),
+                    const SizedBox(width: 8),
+                    Text('Easy ${_difficulty == SpaceDifficulty.easy ? "✓" : ""}'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: SpaceDifficulty.medium,
+                child: Row(
+                  children: [
+                    const Icon(Icons.speed_rounded, color: Colors.amber),
+                    const SizedBox(width: 8),
+                    Text('Medium ${_difficulty == SpaceDifficulty.medium ? "✓" : ""}'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: SpaceDifficulty.hard,
+                child: Row(
+                  children: [
+                    const Icon(Icons.speed_rounded, color: Colors.redAccent),
+                    const SizedBox(width: 8),
+                    Text('Hard ${_difficulty == SpaceDifficulty.hard ? "✓" : ""}'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          IconButton(
+            tooltip: 'Restart Mission',
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: _startGame,
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
