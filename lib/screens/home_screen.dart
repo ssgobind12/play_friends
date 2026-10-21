@@ -328,7 +328,7 @@ class HomeScreen extends StatelessWidget {
                         IconButton(
                           icon: const Icon(Icons.music_note_rounded),
                           color: AppColors.primaryBlueLight,
-                          tooltip: 'In-App Music',
+                          tooltip: 'Music Store & Upload',
                           onPressed: () => MusicPlayerSheet.show(context),
                         ),
                         IconButton(
@@ -338,6 +338,67 @@ class HomeScreen extends StatelessWidget {
                           onPressed: onOpenChat,
                         ),
                       ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // Dedicated Music Store & Upload Card
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: InkWell(
+                      onTap: () => MusicPlayerSheet.show(context),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF2E1065), Color(0xFF1E1B4B)],
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.5)),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.music_note_rounded, color: Color(0xFFC084FC), size: 22),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '🎵 Music Store & Custom Upload',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                                  ),
+                                  SizedBox(height: 2),
+                                  Text(
+                                    'Upload custom songs from device or play game music',
+                                    style: TextStyle(fontSize: 11, color: Colors.white70),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF8B5CF6),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text(
+                                'Upload / Play',
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
 

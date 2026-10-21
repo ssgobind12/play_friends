@@ -609,7 +609,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.music_note_rounded, color: AppColors.accentCyan),
-            tooltip: 'Room Music Store',
+            tooltip: 'Music Store & Upload',
             onPressed: () => MusicPlayerSheet.show(context),
           ),
         ],

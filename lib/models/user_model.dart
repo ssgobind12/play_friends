@@ -72,6 +72,7 @@ class UserModel {
     bool? isGuest,
     bool? isAdmin,
     String? profilePhoto,
+    bool clearProfilePhoto = false,
   }) {
     return UserModel(
       id: id,
@@ -95,7 +96,7 @@ class UserModel {
       friends: friends ?? this.friends,
       isGuest: isGuest ?? this.isGuest,
       isAdmin: isAdmin ?? this.isAdmin,
-      profilePhoto: profilePhoto ?? this.profilePhoto,
+      profilePhoto: clearProfilePhoto ? null : (profilePhoto ?? this.profilePhoto),
     );
   }
 }

@@ -178,7 +178,7 @@ class _GamesScreenState extends State<GamesScreen> {
             actions: [
               IconButton(
                 icon: const Icon(Icons.music_note_rounded, color: AppColors.accentCyan),
-                tooltip: 'Game Music Store',
+                tooltip: 'Music Store & Upload',
                 onPressed: () => MusicPlayerSheet.show(context),
               ),
             ],

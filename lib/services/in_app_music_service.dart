@@ -9,6 +9,8 @@ class MusicTrack {
   final String bpm;
   final IconData icon;
   final Color accentColor;
+  final bool isUserUploaded;
+  final String? audioSource;
 
   const MusicTrack({
     required this.id,
@@ -17,11 +19,14 @@ class MusicTrack {
     required this.bpm,
     required this.icon,
     required this.accentColor,
+    this.isUserUploaded = false,
+    this.audioSource,
   });
 }
 
 /// InAppMusicService: Manages local store background music in games & rooms.
-/// Plays melodic synthesized audio loops across gameplay sessions.
+/// Plays melodic synthesized audio loops across gameplay sessions and supports
+/// user uploads of custom music tracks.
 class InAppMusicService extends ChangeNotifier {
   static final InAppMusicService _instance = InAppMusicService._internal();
   factory InAppMusicService() => _instance;
@@ -35,13 +40,8 @@ class InAppMusicService extends ChangeNotifier {
   double _volume = 0.8;
   Timer? _loopTimer;
 
-  bool get isPlaying => _isPlaying;
-  int get currentTrackIndex => _currentTrackIndex;
-  double get volume => _volume;
-  MusicTrack get currentTrack => tracks[_currentTrackIndex];
-
-  static const List<MusicTrack> tracks = [
-    MusicTrack(
+  static final List<MusicTrack> _initialTracks = [
+    const MusicTrack(
       id: 0,
       title: 'Arcade Neon Pulse',
       genre: 'Synthwave / Retro',
@@ -49,7 +49,7 @@ class InAppMusicService extends ChangeNotifier {
       icon: Icons.electric_bolt_rounded,
       accentColor: Color(0xFF06B6D4),
     ),
-    MusicTrack(
+    const MusicTrack(
       id: 1,
       title: 'Lofi Chill Gaming',
       genre: 'Lofi / Ambient',
@@ -57,7 +57,7 @@ class InAppMusicService extends ChangeNotifier {
       icon: Icons.headphones_rounded,
       accentColor: Color(0xFF8B5CF6),
     ),
-    MusicTrack(
+    const MusicTrack(
       id: 2,
       title: 'Ludo Arena Fiesta',
       genre: 'Carnival / Beat',
@@ -65,7 +65,7 @@ class InAppMusicService extends ChangeNotifier {
       icon: Icons.casino_rounded,
       accentColor: Color(0xFFF59E0B),
     ),
-    MusicTrack(
+    const MusicTrack(
       id: 3,
       title: 'Champion Victory Beat',
       genre: 'Heroic Anthem',
@@ -75,8 +75,41 @@ class InAppMusicService extends ChangeNotifier {
     ),
   ];
 
+  late final List<MusicTrack> _tracks = List<MusicTrack>.from(_initialTracks);
+
+  List<MusicTrack> get tracks => List.unmodifiable(_tracks);
+  bool get isPlaying => _isPlaying;
+  int get currentTrackIndex => _currentTrackIndex;
+  double get volume => _volume;
+  MusicTrack get currentTrack => _tracks[_currentTrackIndex.clamp(0, _tracks.length - 1)];
+
+  /// Upload and register custom music track in local storage store
+  MusicTrack uploadCustomMusic({
+    required String title,
+    required String genre,
+    String? audioPathOrUrl,
+    String? bpm,
+  }) {
+    final newId = _tracks.length;
+    final track = MusicTrack(
+      id: newId,
+      title: title.trim().isNotEmpty ? title.trim() : 'Custom Track #$newId',
+      genre: genre.trim().isNotEmpty ? genre.trim() : 'Custom Audio',
+      bpm: (bpm != null && bpm.trim().isNotEmpty) ? bpm.trim() : '124 BPM',
+      icon: Icons.library_music_rounded,
+      accentColor: const Color(0xFFEC4899),
+      isUserUploaded: true,
+      audioSource: audioPathOrUrl,
+    );
+    _tracks.add(track);
+    selectTrack(newId);
+    playMusic();
+    notifyListeners();
+    return track;
+  }
+
   void playMusic([int? trackIndex]) {
-    if (trackIndex != null && trackIndex >= 0 && trackIndex < tracks.length) {
+    if (trackIndex != null && trackIndex >= 0 && trackIndex < _tracks.length) {
       _currentTrackIndex = trackIndex;
     }
     _isPlaying = true;
@@ -99,7 +132,7 @@ class InAppMusicService extends ChangeNotifier {
   }
 
   void selectTrack(int index) {
-    _currentTrackIndex = index.clamp(0, tracks.length - 1);
+    _currentTrackIndex = index.clamp(0, _tracks.length - 1);
     if (_isPlaying) {
       _loopTimer?.cancel();
       _startMelodyLoop();
@@ -135,8 +168,10 @@ class InAppMusicService extends ChangeNotifier {
     try {
       final soundKey = _currentTrackIndex == 0
           ? 'cellTap'
-          : (_currentTrackIndex == 1 ? 'star' : (_currentTrackIndex == 2 ? 'tokenMove' : 'strike'));
-      _soundChannel.invokeMethod('play', {'sound': soundKey});
+          : (_currentTrackIndex == 1
+              ? 'star'
+              : (_currentTrackIndex == 2 ? 'tokenMove' : 'strike'));
+      _soundChannel.invokeMethod('play', {'sound': soundKey}).catchError((_) => null);
     } catch (_) {
       // Ignored for non-native environments
     }

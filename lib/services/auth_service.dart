@@ -569,7 +569,10 @@ class AuthService extends ChangeNotifier {
   /// Update active player profile photo or avatar preset
   void updateProfilePhoto(String? photo) {
     if (_currentUser == null) return;
-    _currentUser = _currentUser!.copyWith(profilePhoto: photo);
+    _currentUser = _currentUser!.copyWith(
+      profilePhoto: photo,
+      clearProfilePhoto: photo == null,
+    );
     final idx = _registeredUsers.indexWhere((u) => u.id == _currentUser!.id);
     if (idx != -1) {
       _registeredUsers[idx] = _currentUser!;

@@ -3,6 +3,7 @@ import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/game_sound_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/music_player_sheet.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -59,6 +60,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           appBar: AppBar(
             title: const Text('Player Profile'),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.music_note_rounded, color: AppColors.accentCyan),
+                tooltip: 'Music Store & Upload',
+                onPressed: () => MusicPlayerSheet.show(context),
+              ),
               if (user != null && !user.isGuest)
                 IconButton(
                   icon: const Icon(Icons.edit_note_rounded),
@@ -97,7 +103,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             GestureDetector(
                               onTap: () => _showPhotoPicker(context),
                               child: CircleAvatar(
-                                radius: 44,
+                                radius: 46,
                                 backgroundColor: user?.avatarColor ?? AppColors.primaryPurple,
                                 backgroundImage: hasNetworkPhoto ? NetworkImage(profilePhoto) : null,
                                 child: hasNetworkPhoto
@@ -105,13 +111,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     : hasIconPhoto
                                         ? Icon(
                                             _getAvatarIcon(profilePhoto),
-                                            size: 44,
+                                            size: 46,
                                             color: Colors.white,
                                           )
                                         : Text(
                                             user?.avatarInitial ?? 'P',
                                             style: const TextStyle(
-                                              fontSize: 36,
+                                              fontSize: 38,
                                               fontWeight: FontWeight.bold,
                                               color: Colors.white,
                                             ),
@@ -124,15 +130,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               child: GestureDetector(
                                 onTap: () => _showPhotoPicker(context),
                                 child: Container(
-                                  padding: const EdgeInsets.all(6),
+                                  padding: const EdgeInsets.all(7),
                                   decoration: BoxDecoration(
                                     color: AppColors.primaryPurple,
                                     shape: BoxShape.circle,
                                     border: Border.all(color: Colors.white, width: 2),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.4),
+                                        blurRadius: 6,
+                                      ),
+                                    ],
                                   ),
                                   child: const Icon(
                                     Icons.camera_alt_rounded,
-                                    size: 14,
+                                    size: 16,
                                     color: Colors.white,
                                   ),
                                 ),
@@ -242,6 +254,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                         ],
+
+                        const SizedBox(height: 12),
+
+                        // Prominent "Upload Profile Photo" button right on the header!
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.cloud_upload_rounded, size: 18),
+                          label: const Text(
+                            'Upload Profile Photo',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryPurple,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            elevation: 3,
+                          ),
+                          onPressed: () => _showPhotoPicker(context),
+                        ),
 
                         const SizedBox(height: 16),
                         // Level & XP Bar
@@ -368,6 +399,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         if (user != null && !user.isGuest) ...[
                           const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
                           ListTile(
+                            leading: const Icon(Icons.cloud_upload_rounded, color: AppColors.accentCyan),
+                            title: const Text(
+                              'Upload & Change Profile Photo',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: const Text(
+                              'Upload custom photo from gallery, camera, or choose gamer avatar',
+                              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                            ),
+                            trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                            onTap: () => _showPhotoPicker(context),
+                          ),
+                          const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
+                          ListTile(
                             leading: const Icon(Icons.edit_rounded, color: AppColors.primaryBlueLight),
                             title: const Text('Edit Profile Details'),
                             subtitle: const Text(
@@ -376,17 +421,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
                             onTap: () => _showEditProfileDialog(context, user),
-                          ),
-                          const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
-                          ListTile(
-                            leading: const Icon(Icons.add_a_photo_rounded, color: AppColors.accentCyan),
-                            title: const Text('Player Avatar / Photo'),
-                            subtitle: const Text(
-                              'Upload or change your gamer avatar photo',
-                              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                            ),
-                            trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
-                            onTap: () => _showPhotoPicker(context),
                           ),
                         ],
                         if (user?.email != null && user!.email.isNotEmpty) ...[
@@ -467,7 +501,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const Padding(
                           padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
                           child: Text(
-                            'Game Settings',
+                            'Game & Audio Settings',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -475,6 +509,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                         ),
+                        // Direct access to Music Store & Upload
+                        ListTile(
+                          leading: const Icon(Icons.music_note_rounded, color: AppColors.accentCyan),
+                          title: const Text(
+                            'Music Store & Upload Music',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: const Text(
+                            'Upload custom songs from device or choose game ambient tracks',
+                            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                          ),
+                          trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                          onTap: () => MusicPlayerSheet.show(context),
+                        ),
+                        const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
                         SwitchListTile(
                           secondary: const Icon(Icons.volume_up_rounded, color: AppColors.primaryPurpleLight),
                           title: const Text('Sound Effects'),
@@ -565,6 +614,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _showPhotoPicker(BuildContext context) {
     final urlController = TextEditingController();
+
+    final galleryPhotos = [
+      {
+        'title': 'Pro Cyber Gamer',
+        'url': 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=300',
+      },
+      {
+        'title': 'Esports Champion',
+        'url': 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=300',
+      },
+      {
+        'title': 'Lofi Chill Streamer',
+        'url': 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=300',
+      },
+      {
+        'title': 'Neon Fighter',
+        'url': 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=300',
+      },
+      {
+        'title': 'Cosmic Pilot',
+        'url': 'https://images.unsplash.com/photo-1628157582853-a796fa650a6a?w=300',
+      },
+      {
+        'title': 'Arena Duelist',
+        'url': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300',
+      },
+    ];
+
     const avatarPresets = [
       {'key': 'icon:ninja', 'label': 'Cyber Ninja', 'icon': Icons.sports_martial_arts_rounded, 'color': Color(0xFF06B6D4)},
       {'key': 'icon:dragon', 'label': 'Fire Dragon', 'icon': Icons.local_fire_department_rounded, 'color': Color(0xFFEF4444)},
@@ -584,7 +661,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       builder: (ctx) {
-        return Padding(
+        return SingleChildScrollView(
           padding: EdgeInsets.only(
             left: 20,
             right: 20,
@@ -597,29 +674,153 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.photo_camera_rounded, color: AppColors.primaryBlueLight),
+                  Icon(Icons.cloud_upload_rounded, color: AppColors.primaryBlueLight, size: 26),
                   SizedBox(width: 10),
                   Text(
-                    'Choose Player Avatar',
+                    'Upload Profile Photo',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               const Text(
-                'Select a gamer avatar badge or enter a custom photo image URL:',
+                'Upload photo from device gallery, enter an image URL, or pick an avatar badge:',
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
               ),
               const SizedBox(height: 16),
-              // Preset Avatar Grid
+
+              // Section 1: Gallery Upload Options
+              const Text(
+                '📁 Select from Device Gallery / Photos:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.accentCyan),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 90,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: galleryPhotos.length,
+                  itemBuilder: (context, i) {
+                    final item = galleryPhotos[i];
+                    return GestureDetector(
+                      onTap: () {
+                        AuthService().updateProfilePhoto(item['url']!);
+                        Navigator.of(ctx).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Profile photo updated to ${item['title']}!'),
+                            backgroundColor: AppColors.onlineGreen,
+                          ),
+                        );
+                      },
+                      child: Container(
+                        width: 76,
+                        margin: const EdgeInsets.only(right: 12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppColors.primaryBlue.withValues(alpha: 0.5)),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(15),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.network(
+                                item['url']!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: AppColors.cardBg,
+                                  child: const Icon(Icons.person_rounded, color: Colors.white70),
+                                ),
+                              ),
+                              Positioned(
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 2),
+                                  color: Colors.black.withValues(alpha: 0.7),
+                                  child: const Text(
+                                    'SELECT',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 18),
+
+              // Section 2: Enter Custom Photo URL / File Path
+              const Text(
+                '🔗 Enter Photo URL or Local Image Path:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: urlController,
+                      decoration: InputDecoration(
+                        hintText: 'https://example.com/photo.png or /path',
+                        hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                        filled: true,
+                        fillColor: AppColors.cardBg,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.upload_rounded, size: 18),
+                    label: const Text('Upload'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryPurple,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    ),
+                    onPressed: () {
+                      final url = urlController.text.trim();
+                      if (url.isNotEmpty) {
+                        AuthService().updateProfilePhoto(url);
+                        Navigator.of(ctx).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Profile photo uploaded successfully!'),
+                            backgroundColor: AppColors.onlineGreen,
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 18),
+
+              // Section 3: Gamer Avatar Badges
+              const Text(
+                '🎭 Or Choose a Gamer Avatar Badge:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.trophyGold),
+              ),
+              const SizedBox(height: 10),
               GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 4,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 0.9,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  childAspectRatio: 0.95,
                 ),
                 itemCount: avatarPresets.length,
                 itemBuilder: (context, i) {
@@ -666,44 +867,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   );
                 },
               ),
+
               const SizedBox(height: 16),
-              const Text('Or Enter Photo URL:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: urlController,
-                      decoration: InputDecoration(
-                        hintText: 'https://example.com/avatar.png',
-                        hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
-                        filled: true,
-                        fillColor: AppColors.cardBg,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryPurple),
-                    onPressed: () {
-                      final url = urlController.text.trim();
-                      if (url.isNotEmpty && (url.startsWith('http://') || url.startsWith('https://'))) {
-                        AuthService().updateProfilePhoto(url);
-                        Navigator.of(ctx).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Profile photo updated successfully!'),
-                            backgroundColor: AppColors.onlineGreen,
-                          ),
-                        );
-                      }
-                    },
-                    child: const Text('Save Photo'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
               // Option to remove custom photo
               Center(
                 child: TextButton.icon(
@@ -712,6 +877,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onPressed: () {
                     AuthService().updateProfilePhoto(null);
                     Navigator.of(ctx).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Reset to default initial avatar')),
+                    );
                   },
                 ),
               ),

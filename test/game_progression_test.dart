@@ -1,8 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:play_friends/models/room_model.dart';
 import 'package:play_friends/services/auth_service.dart';
+import 'package:play_friends/services/in_app_music_service.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() {
     AuthService().resetStatsForTesting();
   });
@@ -109,6 +111,39 @@ void main() {
       expect(auth.registeredUsers.any((u) => u.id == testUserId), isFalse);
       // Admin still remains in registered users
       expect(auth.registeredUsers.any((u) => u.id == AuthService.adminUser.id), isTrue);
+    });
+
+    test('User can upload and update profile photo', () {
+      final auth = AuthService();
+      auth.resetStatsForTesting();
+      expect(auth.currentUser?.profilePhoto, isNull);
+
+      auth.updateProfilePhoto('https://example.com/my_avatar.png');
+      expect(auth.currentUser?.profilePhoto, 'https://example.com/my_avatar.png');
+
+      auth.updateProfilePhoto('icon:ninja');
+      expect(auth.currentUser?.profilePhoto, 'icon:ninja');
+
+      auth.updateProfilePhoto(null);
+      expect(auth.currentUser?.profilePhoto, isNull);
+    });
+
+    test('User can upload custom music to in-app music store', () {
+      final musicService = InAppMusicService();
+      final initialCount = musicService.tracks.length;
+
+      final uploaded = musicService.uploadCustomMusic(
+        title: 'Cyberpunk Synthwave Beat',
+        genre: 'Synthwave',
+        bpm: '130 BPM',
+        audioPathOrUrl: '🎵 Cyberpunk.mp3',
+      );
+
+      expect(musicService.tracks.length, initialCount + 1);
+      expect(uploaded.title, 'Cyberpunk Synthwave Beat');
+      expect(uploaded.isUserUploaded, isTrue);
+      expect(musicService.currentTrack.title, 'Cyberpunk Synthwave Beat');
+      expect(musicService.isPlaying, isTrue);
     });
   });
 }
