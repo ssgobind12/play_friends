@@ -608,6 +608,29 @@ class AuthService extends ChangeNotifier {
     return true;
   }
 
+  /// Deducts coins for sending gifts or entry fees
+  bool spendCoins(int amount) {
+    if (_currentUser == null || _currentUser!.coins < amount) return false;
+    _currentUser = _currentUser!.copyWith(coins: _currentUser!.coins - amount);
+    final idx = _registeredUsers.indexWhere((u) => u.id == _currentUser!.id);
+    if (idx != -1) {
+      _registeredUsers[idx] = _currentUser!;
+    }
+    notifyListeners();
+    return true;
+  }
+
+  /// Adds coins for bonuses, rewards, or recharges
+  void addCoins(int amount) {
+    if (_currentUser == null) return;
+    _currentUser = _currentUser!.copyWith(coins: _currentUser!.coins + amount);
+    final idx = _registeredUsers.indexWhere((u) => u.id == _currentUser!.id);
+    if (idx != -1) {
+      _registeredUsers[idx] = _currentUser!;
+    }
+    notifyListeners();
+  }
+
   // --------------------------------------------------------------------------
   // REAL FRIENDS MANAGEMENT (Fresh & Real)
   // --------------------------------------------------------------------------
@@ -662,6 +685,42 @@ class AuthService extends ChangeNotifier {
   // --------------------------------------------------------------------------
   // REAL ROOMS MANAGEMENT (Fresh & Real)
   // --------------------------------------------------------------------------
+
+  static const List<RoomModel> defaultPartyRooms = [
+    RoomModel(
+      id: 'r_seed_1',
+      roomCode: 'PF-8821',
+      gameTitle: '🎵 Bollywood & Gaming Beats',
+      hostName: 'Kabir 👑',
+      currentPlayers: 142,
+      maxPlayers: 250,
+      isPrivate: false,
+      status: 'Live Voice Party',
+      giftPoints: 3400,
+    ),
+    RoomModel(
+      id: 'r_seed_2',
+      roomCode: 'PF-4912',
+      gameTitle: '🎲 Ludo Friends & Gift Party',
+      hostName: 'Aanya 🌸',
+      currentPlayers: 88,
+      maxPlayers: 150,
+      isPrivate: false,
+      status: 'Live Voice Party',
+      giftPoints: 1850,
+    ),
+    RoomModel(
+      id: 'r_seed_3',
+      roomCode: 'PF-1034',
+      gameTitle: '✨ Chill Lounge & Songs',
+      hostName: 'Rohan 🎧',
+      currentPlayers: 195,
+      maxPlayers: 500,
+      isPrivate: false,
+      status: 'Live Voice Party',
+      giftPoints: 5200,
+    ),
+  ];
 
   final List<RoomModel> _activeRooms = [];
   List<RoomModel> get activeRooms => List.unmodifiable(_activeRooms);

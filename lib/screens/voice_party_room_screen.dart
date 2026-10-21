@@ -1,0 +1,1518 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
+import 'package:flutter/material.dart';
+import '../models/room_model.dart';
+import '../services/auth_service.dart';
+import '../services/game_sound_service.dart';
+import '../services/in_app_music_service.dart';
+import '../theme/app_theme.dart';
+import '../widgets/music_player_sheet.dart';
+import 'carrom_game_screen.dart';
+import 'ludo_game_screen.dart';
+import 'tic_tac_toe_screen.dart';
+
+/// Available animated gifts (Chalo Talk / Ahchat style)
+class GiftItem {
+  final String id;
+  final String name;
+  final String icon;
+  final int cost;
+  final Color glowColor;
+  final String description;
+
+  const GiftItem({
+    required this.id,
+    required this.name,
+    required this.icon,
+    required this.cost,
+    required this.glowColor,
+    required this.description,
+  });
+}
+
+const List<GiftItem> kRoomGifts = [
+  GiftItem(
+    id: 'rose',
+    name: 'Romantic Rose',
+    icon: '🌹',
+    cost: 10,
+    glowColor: Color(0xFFF43F5E),
+    description: 'Shower with fresh roses',
+  ),
+  GiftItem(
+    id: 'heart',
+    name: 'Love Heart',
+    icon: '💖',
+    cost: 50,
+    glowColor: Color(0xFFEC4899),
+    description: 'Send endless sparkling love',
+  ),
+  GiftItem(
+    id: 'dice',
+    name: 'Lucky Dice',
+    icon: '🎲',
+    cost: 100,
+    glowColor: Color(0xFF8B5CF6),
+    description: 'Brings high rolls & luck',
+  ),
+  GiftItem(
+    id: 'ring',
+    name: 'Diamond Ring',
+    icon: '💍',
+    cost: 500,
+    glowColor: Color(0xFF06B6D4),
+    description: 'Sparkling royal diamond',
+  ),
+  GiftItem(
+    id: 'car',
+    name: 'Super Sports Car',
+    icon: '🏎️',
+    cost: 1000,
+    glowColor: Color(0xFFEF4444),
+    description: 'Vroooom across the room!',
+  ),
+  GiftItem(
+    id: 'castle',
+    name: 'Magic Castle',
+    icon: '🏰',
+    cost: 2500,
+    glowColor: Color(0xFFF59E0B),
+    description: 'Royal kingdom palace',
+  ),
+  GiftItem(
+    id: 'dragon',
+    name: 'Golden Dragon',
+    icon: '🐉',
+    cost: 5000,
+    glowColor: Color(0xFFEAB308),
+    description: 'Fierce mythical dragon banner',
+  ),
+  GiftItem(
+    id: 'rocket',
+    name: 'Galaxy Rocket',
+    icon: '🚀',
+    cost: 10000,
+    glowColor: Color(0xFF3B82F6),
+    description: 'Blast off to the stars!',
+  ),
+];
+
+class RoomChatMessage {
+  final String id;
+  final String senderName;
+  final String? senderPhoto;
+  final Color senderColor;
+  final int level;
+  final String message;
+  final bool isJoinAnnouncement;
+  final bool isGiftAnnouncement;
+  final GiftItem? gift;
+  final String? recipientName;
+
+  const RoomChatMessage({
+    required this.id,
+    required this.senderName,
+    this.senderPhoto,
+    required this.senderColor,
+    this.level = 1,
+    required this.message,
+    this.isJoinAnnouncement = false,
+    this.isGiftAnnouncement = false,
+    this.gift,
+    this.recipientName,
+  });
+}
+
+class MicSeatData {
+  final int seatIndex;
+  final String? userName;
+  final String? userPhoto;
+  final Color? userColor;
+  final int level;
+  final bool isMuted;
+  final bool isSpeaking;
+  final bool isHost;
+
+  const MicSeatData({
+    required this.seatIndex,
+    this.userName,
+    this.userPhoto,
+    this.userColor,
+    this.level = 1,
+    this.isMuted = false,
+    this.isSpeaking = false,
+    this.isHost = false,
+  });
+
+  MicSeatData copyWith({
+    String? userName,
+    String? userPhoto,
+    Color? userColor,
+    int? level,
+    bool? isMuted,
+    bool? isSpeaking,
+    bool? isHost,
+    bool clearUser = false,
+  }) {
+    return MicSeatData(
+      seatIndex: seatIndex,
+      userName: clearUser ? null : (userName ?? this.userName),
+      userPhoto: clearUser ? null : (userPhoto ?? this.userPhoto),
+      userColor: clearUser ? null : (userColor ?? this.userColor),
+      level: clearUser ? 1 : (level ?? this.level),
+      isMuted: isMuted ?? this.isMuted,
+      isSpeaking: isSpeaking ?? this.isSpeaking,
+      isHost: isHost ?? this.isHost,
+    );
+  }
+}
+
+/// Floating animated reaction item
+class FloatingReaction {
+  final String emoji;
+  final double startX;
+  final Key key;
+
+  FloatingReaction({required this.emoji, required this.startX, required this.key});
+}
+
+/// Full screen Voice & Party Room Screen (Ahchat / Chalo Talk style)
+class VoicePartyRoomScreen extends StatefulWidget {
+  final RoomModel room;
+
+  const VoicePartyRoomScreen({super.key, required this.room});
+
+  @override
+  State<VoicePartyRoomScreen> createState() => _VoicePartyRoomScreenState();
+}
+
+class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
+    with TickerProviderStateMixin {
+  late AnimationController _vinylAnimCtrl;
+  late AnimationController _giftAnimCtrl;
+  late ScrollController _chatScrollCtrl;
+  final TextEditingController _chatInputCtrl = TextEditingController();
+
+  late List<MicSeatData> _seats;
+  late List<RoomChatMessage> _messages;
+  final List<FloatingReaction> _reactions = [];
+
+  bool _isMicMuted = false;
+  bool _isRoomAudioMuted = false;
+  bool _isVinylPlayerVisible = true;
+  int _charmPoints = 0;
+  int _activeSpectators = 120;
+  GiftItem? _activeGiftOverlay;
+  String? _activeGiftSender;
+
+  Timer? _simulatedTrafficTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _charmPoints = widget.room.giftPoints;
+
+    // Start room background music automatically when entering room!
+    InAppMusicService().playMusic();
+
+    // Continuous Vinyl record rotation animation
+    _vinylAnimCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat();
+
+    // Gift Celebration Banner Animation
+    _giftAnimCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    );
+
+    _chatScrollCtrl = ScrollController();
+
+    final user = AuthService().currentUser;
+    final isHostMe = widget.room.hostName == (user?.name ?? '');
+
+    // Initialize 8 Mic Seats (Seat 1 = Host)
+    _seats = List.generate(8, (i) {
+      if (i == 0) {
+        return MicSeatData(
+          seatIndex: 1,
+          userName: widget.room.hostName,
+          userPhoto: isHostMe ? user?.profilePhoto : widget.room.hostPhoto,
+          userColor: isHostMe ? (user?.avatarColor ?? AppColors.primaryPurple) : AppColors.primaryPurple,
+          level: isHostMe ? (user?.level ?? 1) : 25,
+          isMuted: false,
+          isSpeaking: true,
+          isHost: true,
+        );
+      }
+      return MicSeatData(seatIndex: i + 1);
+    });
+
+    // Initial Chalo Talk / Ahchat Welcome Messages
+    _messages = [
+      RoomChatMessage(
+        id: 'msg_welcome',
+        senderName: 'System Bot',
+        senderColor: AppColors.accentCyan,
+        message: 'Welcome to ${widget.room.roomCode}! Be polite, share music, and have fun!',
+      ),
+      const RoomChatMessage(
+        id: 'join_1',
+        senderName: 'Brinda 🦄',
+        senderColor: Color(0xFFF472B6),
+        level: 4,
+        message: 'entered the room',
+        isJoinAnnouncement: true,
+      ),
+      const RoomChatMessage(
+        id: 'join_2',
+        senderName: 'SimplyChetana 🧿',
+        senderColor: Color(0xFF38BDF8),
+        level: 8,
+        message: 'entered the room',
+        isJoinAnnouncement: true,
+      ),
+      const RoomChatMessage(
+        id: 'msg_1',
+        senderName: 'Pragati 🦄',
+        senderColor: Color(0xFFA78BFA),
+        level: 3,
+        message: 'Hello everyone! Great music in this room 🎶',
+      ),
+    ];
+
+    // Simulate realistic room spectators & activity
+    _activeSpectators = max(widget.room.currentPlayers, 85 + Random().nextInt(50));
+    _startSimulatedTraffic();
+  }
+
+  void _startSimulatedTraffic() {
+    _simulatedTrafficTimer = Timer.periodic(const Duration(seconds: 14), (timer) {
+      if (!mounted) return;
+      final names = ['Kabir 👑', 'Aanya 🌸', 'Rohan Gamer', 'Pooja ✨', 'Deepak ⚡'];
+      final randomName = names[Random().nextInt(names.length)];
+      final randomLevel = 1 + Random().nextInt(20);
+
+      setState(() {
+        _activeSpectators = min(widget.room.maxPlayers, _activeSpectators + 1);
+        _messages.add(
+          RoomChatMessage(
+            id: 'sim_join_${DateTime.now().millisecondsSinceEpoch}',
+            senderName: randomName,
+            senderColor: Color((Random().nextDouble() * 0xFFFFFF).toInt()).withValues(alpha: 1.0),
+            level: randomLevel,
+            message: 'entered the room',
+            isJoinAnnouncement: true,
+          ),
+        );
+      });
+      _scrollToBottom();
+    });
+  }
+
+  @override
+  void dispose() {
+    _simulatedTrafficTimer?.cancel();
+    _vinylAnimCtrl.dispose();
+    _giftAnimCtrl.dispose();
+    _chatScrollCtrl.dispose();
+    _chatInputCtrl.dispose();
+    super.dispose();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_chatScrollCtrl.hasClients) {
+        _chatScrollCtrl.animateTo(
+          _chatScrollCtrl.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _toggleMicSeat(int seatIndex) {
+    final user = AuthService().currentUser;
+    if (user == null) return;
+
+    final mySeatIndex = _seats.indexWhere((s) => s.userName == user.name);
+
+    setState(() {
+      if (mySeatIndex == seatIndex) {
+        // Leave seat
+        _seats[seatIndex] = MicSeatData(seatIndex: seatIndex + 1);
+        GameSoundService.buttonTap();
+      } else if (_seats[seatIndex].userName == null) {
+        // If already on another seat, vacate it first
+        if (mySeatIndex != -1) {
+          _seats[mySeatIndex] = MicSeatData(seatIndex: mySeatIndex + 1);
+        }
+        // Take seat
+        _seats[seatIndex] = MicSeatData(
+          seatIndex: seatIndex + 1,
+          userName: user.name,
+          userPhoto: user.profilePhoto,
+          userColor: user.avatarColor,
+          level: user.level,
+          isMuted: _isMicMuted,
+          isSpeaking: !_isMicMuted,
+          isHost: seatIndex == 0,
+        );
+        GameSoundService.buttonTap();
+      } else {
+        // Seat taken by another user
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Mic Seat ${seatIndex + 1} is currently in use by ${_seats[seatIndex].userName}'),
+            backgroundColor: AppColors.surfaceLight,
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
+    });
+  }
+
+  void _sendMessage(String text) {
+    final clean = text.trim();
+    if (clean.isEmpty) return;
+    final user = AuthService().currentUser;
+    final senderName = user?.name ?? 'Player';
+
+    setState(() {
+      _messages.add(
+        RoomChatMessage(
+          id: 'msg_${DateTime.now().millisecondsSinceEpoch}',
+          senderName: senderName,
+          senderPhoto: user?.profilePhoto,
+          senderColor: user?.avatarColor ?? AppColors.primaryPurple,
+          level: user?.level ?? 1,
+          message: clean,
+        ),
+      );
+    });
+    _chatInputCtrl.clear();
+    _scrollToBottom();
+    GameSoundService.buttonTap();
+  }
+
+  void _sendGift(GiftItem gift) {
+    final auth = AuthService();
+    final user = auth.currentUser;
+    if (user == null) return;
+
+    final hasDeducted = auth.spendCoins(gift.cost);
+    if (!hasDeducted) {
+      // Insufficient coins dialog with recharge bonus prompt
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppColors.surfaceDark,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              Icon(Icons.monetization_on_rounded, color: AppColors.coinAmber, size: 26),
+              SizedBox(width: 8),
+              Text('Need More Coins!'),
+            ],
+          ),
+          content: Text(
+            'Sending ${gift.icon} ${gift.name} costs ${gift.cost} coins. Your balance is ${user.coins} coins.\n\nClaim your +1,000 Free Daily Recharge Bonus now?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.card_giftcard_rounded, size: 18),
+              label: const Text('Claim +1,000 Coins Bonus'),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.coinAmber, foregroundColor: Colors.black),
+              onPressed: () {
+                auth.addCoins(1000);
+                Navigator.of(ctx).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('🎉 Claimed +1,000 Recharge Bonus Coins!'),
+                    backgroundColor: AppColors.onlineGreen,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // Trigger celebration sound & haptics
+    GameSoundService.giftSent();
+
+    setState(() {
+      _charmPoints += gift.cost;
+      _activeGiftOverlay = gift;
+      _activeGiftSender = user.name;
+      _messages.add(
+        RoomChatMessage(
+          id: 'gift_${DateTime.now().millisecondsSinceEpoch}',
+          senderName: user.name,
+          senderPhoto: user.profilePhoto,
+          senderColor: user.avatarColor,
+          level: user.level,
+          message: 'showered ${widget.room.hostName} with ${gift.icon} ${gift.name}!',
+          isGiftAnnouncement: true,
+          gift: gift,
+          recipientName: widget.room.hostName,
+        ),
+      );
+    });
+
+    _giftAnimCtrl.forward(from: 0.0).then((_) {
+      if (mounted) {
+        setState(() {
+          _activeGiftOverlay = null;
+        });
+      }
+    });
+
+    _scrollToBottom();
+  }
+
+  void _addFloatingReaction(String emoji) {
+    final startX = 0.6 + Random().nextDouble() * 0.35;
+    final reaction = FloatingReaction(emoji: emoji, startX: startX, key: UniqueKey());
+    setState(() {
+      _reactions.add(reaction);
+    });
+    Timer(const Duration(milliseconds: 1800), () {
+      if (mounted) {
+        setState(() {
+          _reactions.remove(reaction);
+        });
+      }
+    });
+  }
+
+  void _showGiftDrawer() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF16192E),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        return ListenableBuilder(
+          listenable: AuthService(),
+          builder: (context, _) {
+            final coins = AuthService().currentUser?.coins ?? 0;
+
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 18,
+                right: 18,
+                top: 20,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.card_giftcard_rounded, color: AppColors.trophyGold, size: 24),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Send Room Gift',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                          ),
+                          const SizedBox(width: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEC4899).withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFEC4899)),
+                            ),
+                            child: const Text(
+                              'Chalo Talk Style',
+                              style: TextStyle(fontSize: 10, color: Color(0xFFEC4899), fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceLight,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.monetization_on_rounded, color: AppColors.coinAmber, size: 16),
+                            const SizedBox(width: 4),
+                            Text(
+                              '$coins',
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.coinAmber),
+                            ),
+                            const SizedBox(width: 6),
+                            GestureDetector(
+                              onTap: () {
+                                AuthService().addCoins(500);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Claimed +500 Coins Recharge Bonus!'),
+                                    backgroundColor: AppColors.onlineGreen,
+                                  ),
+                                );
+                              },
+                              child: const Text(
+                                '+Recharge',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.accentCyan,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Gifts Grid
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 0.82,
+                    ),
+                    itemCount: kRoomGifts.length,
+                    itemBuilder: (context, i) {
+                      final gift = kRoomGifts[i];
+                      final canAfford = coins >= gift.cost;
+
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () {
+                          Navigator.of(ctx).pop();
+                          _sendGift(gift);
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E2342),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: gift.glowColor.withValues(alpha: canAfford ? 0.6 : 0.2),
+                              width: canAfford ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(gift.icon, style: const TextStyle(fontSize: 32)),
+                              const SizedBox(height: 6),
+                              Text(
+                                gift.name,
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.monetization_on_rounded, color: AppColors.coinAmber, size: 12),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    '${gift.cost}',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: canAfford ? AppColors.coinAmber : AppColors.textMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _launchRoomGame() {
+    Widget targetScreen;
+    if (widget.room.gameTitle.contains('Ludo')) {
+      targetScreen = const LudoGameScreen();
+    } else if (widget.room.gameTitle.contains('Carrom')) {
+      targetScreen = const CarromGameScreen();
+    } else {
+      targetScreen = const TicTacToeScreen();
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => targetScreen),
+    );
+  }
+
+  ImageProvider? _resolveAvatarImage(String? photo) {
+    if (photo == null || photo.isEmpty) return null;
+    if (photo.startsWith('data:image')) {
+      try {
+        return MemoryImage(base64Decode(photo.split(',')[1]));
+      } catch (_) {
+        return null;
+      }
+    }
+    if (photo.startsWith('http://') || photo.startsWith('https://')) {
+      return NetworkImage(photo);
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final music = InAppMusicService();
+    final currentTrack = music.currentTrack;
+
+    return Scaffold(
+      body: Stack(
+        children: [
+          // 1. Dusk Twilight Cityscape / Party Gradient Background
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Color(0xFF151838), // Night indigo
+                  Color(0xFF231A47), // Deep violet
+                  Color(0xFF381A4C), // Dusk purple
+                  Color(0xFF261234), // Warm night horizon
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+          ),
+
+          // Ambient Stars / City Glow Details
+          Positioned(
+            top: 60,
+            left: 20,
+            child: Icon(Icons.star_rounded, size: 8, color: Colors.white.withValues(alpha: 0.3)),
+          ),
+          Positioned(
+            top: 120,
+            right: 40,
+            child: Icon(Icons.star_rounded, size: 10, color: Colors.white.withValues(alpha: 0.4)),
+          ),
+          Positioned(
+            top: 220,
+            left: 50,
+            child: Icon(Icons.star_rounded, size: 6, color: Colors.white.withValues(alpha: 0.2)),
+          ),
+
+          // Main Room Content
+          SafeArea(
+            child: Column(
+              children: [
+                // 2. Room Top Header Bar
+                _buildTopHeader(),
+
+                const SizedBox(height: 10),
+
+                // 3. Multi-Mic Seats Grid (Host + 7 Guest Seats)
+                _buildMicSeatGrid(),
+
+                const SizedBox(height: 10),
+
+                // 4. Floating Vinyl Record DJ Music Player (Ahchat / Chalo Talk style)
+                if (_isVinylPlayerVisible) _buildVinylRecordPlayer(currentTrack, music),
+
+                // 5. Live Room Chat Stream & Welcome Notices
+                Expanded(
+                  child: _buildChatStream(),
+                ),
+
+                // 6. Bottom Control & Action Bar (Speaker, Mic, Emoji, Chat, Gift, Game)
+                _buildBottomActionBar(),
+              ],
+            ),
+          ),
+
+          // 7. Full-Screen Floating Emoji Reactions
+          ..._reactions.map((r) => _buildAnimatedReaction(r)),
+
+          // 8. Full-Screen Celebratory Gift Overlay
+          if (_activeGiftOverlay != null) _buildGiftCelebrationOverlay(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopHeader() {
+    final hostPhoto = widget.room.hostPhoto ?? AuthService().currentUser?.profilePhoto;
+    final hostImage = _resolveAvatarImage(hostPhoto);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      child: Row(
+        children: [
+          // Host Profile Pill with Room Title and ID
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: AppColors.primaryPurple,
+                  backgroundImage: hostImage,
+                  child: hostImage != null
+                      ? null
+                      : Text(
+                          widget.room.hostName.isNotEmpty ? widget.room.hostName[0] : 'H',
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
+                        ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.room.gameTitle,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                    Text(
+                      'ID: ${widget.room.roomCode}',
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 10),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 8),
+                // Charm Score Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.trophyGold.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.emoji_events_rounded, size: 12, color: AppColors.trophyGold),
+                      const SizedBox(width: 3),
+                      Text(
+                        '$_charmPoints',
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.trophyGold),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const Spacer(),
+
+          // Spectators Count & Avatars Pill (> 100 person capacity according to level!)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.people_alt_rounded, size: 14, color: AppColors.accentCyan),
+                const SizedBox(width: 4),
+                Text(
+                  '$_activeSpectators/${widget.room.maxPlayers}',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(width: 6),
+
+          // Exit / Close Room Button
+          IconButton(
+            icon: const Icon(Icons.power_settings_new_rounded, color: Colors.white, size: 24),
+            tooltip: 'Leave Room',
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMicSeatGrid() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        children: [
+          // Row 1: Seats 1 to 4
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: List.generate(4, (i) => _buildSeatItem(_seats[i], i)),
+          ),
+          const SizedBox(height: 12),
+          // Row 2: Seats 5 to 8
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: List.generate(4, (i) => _buildSeatItem(_seats[i + 4], i + 4)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSeatItem(MicSeatData seat, int index) {
+    final isOccupied = seat.userName != null;
+    final avatarImage = _resolveAvatarImage(seat.userPhoto);
+
+    return GestureDetector(
+      onTap: () => _toggleMicSeat(index),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              // Speaking Wave Glow Animation
+              if (seat.isSpeaking && !seat.isMuted)
+                Container(
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFF06B6D4), width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF06B6D4).withValues(alpha: 0.45),
+                        blurRadius: 10,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                ),
+
+              // Circle Seat Avatar / Empty Mic Icon
+              CircleAvatar(
+                radius: 23,
+                backgroundColor: isOccupied ? (seat.userColor ?? AppColors.primaryPurple) : Colors.white.withValues(alpha: 0.12),
+                backgroundImage: avatarImage,
+                child: isOccupied
+                    ? (avatarImage != null
+                        ? null
+                        : Text(
+                            seat.userName!.isNotEmpty ? seat.userName![0] : 'U',
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16),
+                          ))
+                    : const Icon(Icons.mic_none_rounded, color: Colors.white54, size: 20),
+              ),
+
+              // Status Badge (Muted or Mic Number)
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: seat.isMuted ? Colors.redAccent : Colors.black87,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    seat.isMuted
+                        ? Icons.mic_off_rounded
+                        : (isOccupied ? Icons.mic_rounded : Icons.add_rounded),
+                    size: 11,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          // Seat Label or Username
+          SizedBox(
+            width: 60,
+            child: Text(
+              isOccupied ? seat.userName! : '${seat.seatIndex}',
+              style: TextStyle(
+                fontSize: 10,
+                color: isOccupied ? Colors.white : Colors.white54,
+                fontWeight: isOccupied ? FontWeight.bold : FontWeight.normal,
+              ),
+              maxLines: 1,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Floating Vinyl Record DJ Music Player (Identical to user's uploaded screenshot)
+  Widget _buildVinylRecordPlayer(MusicTrack currentTrack, InAppMusicService music) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E284A).withValues(alpha: 0.88),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: currentTrack.accentColor.withValues(alpha: 0.4), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // 1. Spinning Vinyl Turntable Disc Animation
+          RotationTransition(
+            turns: music.isPlaying ? _vinylAnimCtrl : const AlwaysStoppedAnimation(0.0),
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const RadialGradient(
+                  colors: [
+                    Color(0xFFE2E8F0),
+                    Color(0xFF1E293B),
+                    Color(0xFF0F172A),
+                    Color(0xFF020617),
+                  ],
+                  stops: [0.15, 0.45, 0.85, 1.0],
+                ),
+                border: Border.all(color: currentTrack.accentColor, width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: currentTrack.accentColor.withValues(alpha: 0.4),
+                    blurRadius: 8,
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Container(
+                  width: 14,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: currentTrack.accentColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 10),
+
+          // 2. Track Title & Room Live Audio Status
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        currentTrack.title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (currentTrack.isUserUploaded) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEC4899),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text('PHONE MP3', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white)),
+                      ),
+                    ],
+                  ],
+                ),
+                Text(
+                  music.isPlaying ? '🎵 Playing Live in Room for all members' : 'Room music paused',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: music.isPlaying ? currentTrack.accentColor : AppColors.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 3. Play / Pause Button
+          IconButton(
+            icon: Icon(
+              music.isPlaying ? Icons.pause_circle_filled_rounded : Icons.play_circle_fill_rounded,
+              color: Colors.white,
+              size: 32,
+            ),
+            onPressed: () => music.toggleMusic(),
+          ),
+
+          // 4. Next Track Button
+          IconButton(
+            icon: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 26),
+            onPressed: () {
+              final nextIndex = (music.currentTrackIndex + 1) % music.tracks.length;
+              music.selectTrack(nextIndex);
+            },
+          ),
+
+          // 5. Music Store & Upload Menu
+          IconButton(
+            icon: const Icon(Icons.queue_music_rounded, color: AppColors.accentCyan, size: 24),
+            tooltip: 'Choose / Upload Music',
+            onPressed: () => MusicPlayerSheet.show(context),
+          ),
+
+          // 6. Close / Minimize Button
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _isVinylPlayerVisible = false;
+              });
+            },
+            child: const Icon(Icons.close_rounded, color: Colors.white54, size: 18),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChatStream() {
+    return ListView.builder(
+      controller: _chatScrollCtrl,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      itemCount: _messages.length,
+      itemBuilder: (context, i) {
+        final msg = _messages[i];
+
+        // 1. Join Room Notice Banner (Chalo Talk style)
+        if (msg.isJoinAnnouncement) {
+          return Container(
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor: msg.senderColor,
+                  child: Text(
+                    msg.senderName.isNotEmpty ? msg.senderName[0] : 'U',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Text(
+                        msg.senderName,
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 12),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        msg.message,
+                        style: const TextStyle(color: Color(0xFFFDE047), fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                // Invite to Mic button
+                InkWell(
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Invited ${msg.senderName} to Mic Seat!'),
+                        backgroundColor: AppColors.surfaceLight,
+                        duration: const Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.mic_none_rounded, size: 12, color: Colors.white),
+                        SizedBox(width: 3),
+                        Text('Invite', style: TextStyle(fontSize: 10, color: Colors.white)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // 2. Gift Announcement Banner (Golden Chalo Talk banner)
+        if (msg.isGiftAnnouncement) {
+          return Container(
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFFF59E0B).withValues(alpha: 0.35),
+                  const Color(0xFFEC4899).withValues(alpha: 0.25),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.trophyGold.withValues(alpha: 0.6)),
+            ),
+            child: Row(
+              children: [
+                Text(msg.gift?.icon ?? '🎁', style: const TextStyle(fontSize: 22)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: RichText(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: '${msg.senderName} ',
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.trophyGold, fontSize: 12),
+                        ),
+                        TextSpan(
+                          text: msg.message,
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // 3. Regular Player Chat Bubble
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 12,
+                backgroundColor: msg.senderColor,
+                child: Text(
+                  msg.senderName.isNotEmpty ? msg.senderName[0] : 'P',
+                  style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          msg.senderName,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.white70),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryPurple,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'Lv.${msg.level}',
+                            style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        msg.message,
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBottomActionBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      color: Colors.black.withValues(alpha: 0.5),
+      child: Row(
+        children: [
+          // 1. Speaker Toggle (Mute/Unmute Room Audio)
+          IconButton(
+            icon: Icon(
+              _isRoomAudioMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+              color: _isRoomAudioMuted ? Colors.redAccent : Colors.white,
+              size: 24,
+            ),
+            tooltip: 'Room Audio',
+            onPressed: () {
+              setState(() {
+                _isRoomAudioMuted = !_isRoomAudioMuted;
+                InAppMusicService().setVolume(_isRoomAudioMuted ? 0.0 : 0.8);
+              });
+            },
+          ),
+
+          // 2. Microphone Mute / Unmute Toggle
+          IconButton(
+            icon: Icon(
+              _isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
+              color: _isMicMuted ? Colors.redAccent : AppColors.accentCyan,
+              size: 24,
+            ),
+            tooltip: 'My Mic',
+            onPressed: () {
+              setState(() {
+                _isMicMuted = !_isMicMuted;
+                final user = AuthService().currentUser;
+                final myIdx = _seats.indexWhere((s) => s.userName == user?.name);
+                if (myIdx != -1) {
+                  _seats[myIdx] = _seats[myIdx].copyWith(isMuted: _isMicMuted, isSpeaking: !_isMicMuted);
+                }
+              });
+              GameSoundService.buttonTap();
+            },
+          ),
+
+          // 3. Emoji Reactions Button
+          IconButton(
+            icon: const Icon(Icons.mood_rounded, color: Color(0xFFFDE047), size: 24),
+            tooltip: 'Reactions',
+            onPressed: () {
+              _addFloatingReaction(['❤️', '🔥', '🎉', '🎲', '👑'][Random().nextInt(5)]);
+            },
+          ),
+
+          // 4. Chat Input Field
+          Expanded(
+            child: Container(
+              height: 38,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: TextField(
+                controller: _chatInputCtrl,
+                style: const TextStyle(fontSize: 12, color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Say something in room...',
+                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11),
+                  border: InputBorder.none,
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.send_rounded, size: 16, color: AppColors.accentCyan),
+                    onPressed: () => _sendMessage(_chatInputCtrl.text),
+                  ),
+                ),
+                onSubmitted: _sendMessage,
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 6),
+
+          // 5. Gifts Shop Button with Bonus Badge (Chalo Talk style)
+          GestureDetector(
+            onTap: _showGiftDrawer,
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                gradient: const RadialGradient(
+                  colors: [Color(0xFFF59E0B), Color(0xFFEC4899)],
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFEC4899).withValues(alpha: 0.5),
+                    blurRadius: 8,
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 22),
+            ),
+          ),
+
+          const SizedBox(width: 6),
+
+          // 6. Mini-Game Launcher Button (Play Tic-Tac-Toe, Ludo, Carrom directly in room!)
+          IconButton(
+            icon: const Icon(Icons.casino_rounded, color: AppColors.coinAmber, size: 26),
+            tooltip: 'Launch ${widget.room.gameTitle}',
+            onPressed: _launchRoomGame,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnimatedReaction(FloatingReaction reaction) {
+    return TweenAnimationBuilder<double>(
+      key: reaction.key,
+      tween: Tween<double>(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 1800),
+      builder: (context, val, _) {
+        final screenHeight = MediaQuery.of(context).size.height;
+        final screenWidth = MediaQuery.of(context).size.width;
+        final dy = screenHeight * (0.85 - val * 0.6);
+        final dx = screenWidth * reaction.startX + sin(val * pi * 3) * 15;
+        final opacity = (1.0 - val).clamp(0.0, 1.0);
+
+        return Positioned(
+          top: dy,
+          left: dx,
+          child: Opacity(
+            opacity: opacity,
+            child: Transform.scale(
+              scale: 0.8 + val * 0.6,
+              child: Text(reaction.emoji, style: const TextStyle(fontSize: 28)),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildGiftCelebrationOverlay() {
+    final gift = _activeGiftOverlay!;
+    final sender = _activeGiftSender ?? 'Player';
+
+    return IgnorePointer(
+      child: Center(
+        child: AnimatedBuilder(
+          animation: _giftAnimCtrl,
+          builder: (context, _) {
+            final t = _giftAnimCtrl.value;
+            final scale = (sin(t * pi) * 1.3).clamp(0.0, 1.6);
+            final opacity = (sin(t * pi) * 1.5).clamp(0.0, 1.0);
+
+            return Opacity(
+              opacity: opacity,
+              child: Transform.scale(
+                scale: scale,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 30),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        gift.glowColor.withValues(alpha: 0.95),
+                        const Color(0xFF1E1B4B).withValues(alpha: 0.95),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(32),
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: gift.glowColor.withValues(alpha: 0.7),
+                        blurRadius: 30,
+                        spreadRadius: 8,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(gift.icon, style: const TextStyle(fontSize: 72)),
+                      const SizedBox(height: 10),
+                      Text(
+                        gift.name.toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '$sender showered ${widget.room.hostName}!',
+                        style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}

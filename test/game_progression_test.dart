@@ -149,5 +149,46 @@ void main() {
       expect(musicService.currentTrack.title, 'Cyberpunk Synthwave Beat');
       expect(musicService.isPlaying, isTrue);
     });
+
+    test('User can spend coins for room gifts and recharge bonus', () {
+      final auth = AuthService();
+      auth.resetStatsForTesting();
+      expect(auth.currentUser?.coins, 500);
+
+      // Spend 100 coins for Lucky Dice gift
+      final success = auth.spendCoins(100);
+      expect(success, isTrue);
+      expect(auth.currentUser?.coins, 400);
+
+      // Insufficient coins test
+      final failed = auth.spendCoins(1000);
+      expect(failed, isFalse);
+      expect(auth.currentUser?.coins, 400);
+
+      // Claim recharge bonus
+      auth.addCoins(1000);
+      expect(auth.currentUser?.coins, 1400);
+    });
+
+    test('Party rooms support capacities over 100 people and gift points', () {
+      final auth = AuthService();
+      const megaRoom = RoomModel(
+        id: 'r_mega_1',
+        roomCode: 'PF-5555',
+        gameTitle: '🎵 Mega Chalo Party',
+        hostName: 'DJ Star',
+        currentPlayers: 120,
+        maxPlayers: 500,
+        isPrivate: false,
+        status: 'Live Voice Party',
+        giftPoints: 4500,
+      );
+
+      auth.addRoom(megaRoom);
+      expect(auth.activeRooms.any((r) => r.roomCode == 'PF-5555'), isTrue);
+      final retrieved = auth.activeRooms.firstWhere((r) => r.roomCode == 'PF-5555');
+      expect(retrieved.maxPlayers, 500);
+      expect(retrieved.giftPoints, 4500);
+    });
   });
 }

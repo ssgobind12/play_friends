@@ -134,6 +134,15 @@ class GameSoundService {
     await SystemSound.play(SystemSoundType.click);
   }
 
+  /// Gift sent celebration sound and haptics
+  static Future<void> giftSent() async {
+    if (!soundEnabled) return;
+    _playNative('win');
+    await HapticFeedback.heavyImpact();
+    await Future.delayed(const Duration(milliseconds: 120));
+    await HapticFeedback.mediumImpact();
+  }
+
   static Future<void> errorFeedback() async {
     if (!soundEnabled) return;
     _playNative('draw');

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/room_model.dart';
@@ -6,13 +5,7 @@ import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/room_card.dart';
 import '../widgets/music_player_sheet.dart';
-import '../services/in_app_music_service.dart';
-import 'carrom_game_screen.dart';
-import 'ludo_game_screen.dart';
-import 'space_dodge_screen.dart';
-import 'tic_tac_toe_screen.dart';
-import 'neon_arena_brawl_screen.dart';
-import 'word_rush_screen.dart';
+import 'voice_party_room_screen.dart';
 
 class RoomsScreen extends StatefulWidget {
   const RoomsScreen({super.key});
@@ -27,6 +20,11 @@ class _RoomsScreenState extends State<RoomsScreen> {
   @override
   void initState() {
     super.initState();
+    if (AuthService().activeRooms.isEmpty) {
+      for (final r in AuthService.defaultPartyRooms) {
+        AuthService().addRoom(r);
+      }
+    }
     _rooms = List.from(AuthService().activeRooms);
   }
 
@@ -38,21 +36,37 @@ class _RoomsScreenState extends State<RoomsScreen> {
 
   void _handleCreateRoom() {
     final userLevel = AuthService().currentUser?.level ?? 1;
-    // Room member formula: Level 20 -> 10 members. Level 1 -> 2 members.
-    final maxAllowedMembers = (userLevel / 2).floor().clamp(2, 50);
+    // Room capacity scales by player level (> 100 persons):
+    // Level 1: up to 100 persons
+    // Level 5: up to 150 persons
+    // Level 10: up to 250 persons
+    // Level 20: up to 500 persons
+    // Level 50+: up to 1,000 persons!
+    int maxAllowedMembers = 100;
+    if (userLevel >= 50) {
+      maxAllowedMembers = 1000;
+    } else if (userLevel >= 20) {
+      maxAllowedMembers = 500;
+    } else if (userLevel >= 10) {
+      maxAllowedMembers = 250;
+    } else if (userLevel >= 5) {
+      maxAllowedMembers = 150;
+    } else {
+      maxAllowedMembers = 100;
+    }
 
     String selectedGame = 'Tic-Tac-Toe Duel';
-    int maxPlayers = 2;
+    int maxPlayers = min(100, maxAllowedMembers);
     bool isPrivate = false;
 
     // Available member options based on host level
     final availableCounts = <int>[];
-    for (final c in [2, 4, 6, 8, 10, 16, 24, 32, 50]) {
+    for (final c in [10, 25, 50, 100, 150, 250, 500, 1000]) {
       if (c <= maxAllowedMembers) {
         availableCounts.add(c);
       }
     }
-    if (availableCounts.isEmpty) availableCounts.add(2);
+    if (availableCounts.isEmpty) availableCounts.add(100);
 
     showModalBottomSheet(
       context: context,
@@ -99,7 +113,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Your Level: $userLevel • Room capacity: Max $maxAllowedMembers players\n(Win matches to level up & invite more members!)',
+                            'Your Level: $userLevel • Room capacity: Max $maxAllowedMembers persons\n(Level 1 = 100, Lvl 5 = 150, Lvl 10 = 250, Lvl 20 = 500, Lvl 50 = 1,000+!)',
                             style: const TextStyle(fontSize: 11, color: Colors.white, height: 1.3),
                           ),
                         ),
@@ -215,16 +229,17 @@ class _RoomsScreenState extends State<RoomsScreen> {
                           roomCode: randomCode,
                           gameTitle: selectedGame,
                           hostName: AuthService().currentUser?.name ?? 'Player 1',
+                          hostPhoto: AuthService().currentUser?.profilePhoto,
                           currentPlayers: 1,
                           maxPlayers: maxPlayers,
                           isPrivate: isPrivate,
-                          status: 'Waiting for players',
+                          status: 'Live Voice Party',
                         );
                         AuthService().addRoom(newRoom);
                         _refreshRooms();
                         _openRoomLobby(newRoom);
                       },
-                      child: const Text('Create & Open Lobby'),
+                      child: const Text('Create & Enter Voice Party Room'),
                     ),
                   ),
                 ],
@@ -307,391 +322,9 @@ class _RoomsScreenState extends State<RoomsScreen> {
   }
 
   void _openRoomLobby(RoomModel room) {
-    bool isReady = false;
-    InAppMusicService().playMusic();
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setLobbyState) {
-            return Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceLight,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          room.roomCode,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primaryBlueLight,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          room.gameTitle,
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: () => Navigator.of(ctx).pop(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Room Music Live Player & Upload Bar
-                  ListenableBuilder(
-                    listenable: InAppMusicService(),
-                    builder: (context, _) {
-                      final music = InAppMusicService();
-                      final track = music.currentTrack;
-
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 14),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: track.accentColor.withValues(alpha: 0.16),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: track.accentColor.withValues(alpha: 0.4)),
-                        ),
-                        child: Row(
-                          children: [
-                            IconButton(
-                              icon: Icon(
-                                music.isPlaying ? Icons.pause_circle_filled_rounded : Icons.play_circle_fill_rounded,
-                                color: track.accentColor,
-                                size: 34,
-                              ),
-                              onPressed: () => music.toggleMusic(),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Flexible(
-                                        child: Text(
-                                          'Room Music: ${track.title}',
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      if (track.isUserUploaded) ...[
-                                        const SizedBox(width: 6),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFEC4899),
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          child: const Text('UPLOADED', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold)),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                  Text(
-                                    music.isPlaying ? 'Playing live in room lobby 🎵' : 'Room music paused',
-                                    style: TextStyle(fontSize: 11, color: track.accentColor),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            ElevatedButton.icon(
-                              icon: const Icon(Icons.cloud_upload_rounded, size: 14),
-                              label: const Text('Upload', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: track.accentColor,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
-                              onPressed: () => MusicPlayerSheet.show(context),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-
-                  const Text('Players in Lobby:', style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  // Slot 1 (Host)
-                  _buildLobbySlot(
-                    name: room.hostName,
-                    isHost: true,
-                    isReady: true,
-                    avatarColor: AppColors.primaryPurple,
-                  ),
-                  const SizedBox(height: 8),
-                  // Slot 2
-                  _buildLobbySlot(
-                    name: AuthService().currentUser?.name ?? 'Player 2',
-                    isHost: false,
-                    isReady: isReady,
-                    avatarColor: AuthService().currentUser?.avatarColor ?? AppColors.primaryBlue,
-                    profilePhoto: AuthService().currentUser?.profilePhoto,
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(
-                              color: isReady ? AppColors.onlineGreen : AppColors.cardBorder,
-                            ),
-                          ),
-                          onPressed: () {
-                            setLobbyState(() => isReady = !isReady);
-                          },
-                          child: Text(
-                            isReady ? 'Ready ✓' : 'Set Ready',
-                            style: TextStyle(
-                              color: isReady ? AppColors.onlineGreen : AppColors.textPrimary,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.of(ctx).pop();
-                            _startGameFromLobby(room);
-                          },
-                          child: const Text('Start Game'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  void _startGameFromLobby(RoomModel room) {
-    String gameId = 'tic_tac_toe';
-    if (room.gameTitle.contains('Ludo')) gameId = 'ludo';
-    if (room.gameTitle.contains('Carrom')) gameId = 'carrom';
-    if (room.gameTitle.contains('Space')) gameId = 'space_dodge';
-    if (room.gameTitle.contains('Arena') || room.gameTitle.contains('Brawl')) gameId = 'arena_brawl';
-    if (room.gameTitle.contains('Word') || room.gameTitle.contains('Sprint')) gameId = 'word_rush';
-
-    if (!AuthService().isGameUnlocked(gameId)) {
-      _showLockedGameDialog(context, room.gameTitle, gameId);
-      return;
-    }
-
-    Widget screen;
-    switch (gameId) {
-      case 'ludo':
-        screen = const LudoGameScreen();
-        break;
-      case 'carrom':
-        screen = const CarromGameScreen();
-        break;
-      case 'space_dodge':
-        screen = const SpaceDodgeScreen();
-        break;
-      case 'arena_brawl':
-        screen = const NeonArenaBrawlScreen();
-        break;
-      case 'word_rush':
-        screen = const WordRushScreen();
-        break;
-      default:
-        screen = const TicTacToeScreen();
-        break;
-    }
-
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
-  }
-
-  void _showLockedGameDialog(BuildContext context, String gameTitle, String gameId) {
-    final user = AuthService().currentUser;
-    int reqLevel = 5;
-    int reqWins = 20;
-    if (gameId == 'carrom') {
-      reqLevel = 10;
-      reqWins = 40;
-    } else if (gameId == 'space_dodge') {
-      reqLevel = 15;
-      reqWins = 60;
-    } else if (gameId == 'arena_brawl') {
-      reqLevel = 20;
-      reqWins = 80;
-    } else if (gameId == 'word_rush') {
-      reqLevel = 25;
-      reqWins = 100;
-    }
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.lock_rounded, color: AppColors.coinAmber),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '$gameTitle Locked',
-                style: const TextStyle(fontSize: 18),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Unlock requirement: Level $reqLevel OR $reqWins Match Wins in Play Friends.\n\nCurrent Level: ${user?.level ?? 1} | Wins: ${user?.totalWins ?? 0}/$reqWins',
-              style: const TextStyle(fontSize: 14, height: 1.4),
-            ),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: ((user?.totalWins ?? 0) / reqWins).clamp(0.0, 1.0),
-                backgroundColor: AppColors.surfaceLight,
-                valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryPurpleLight),
-                minHeight: 8,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close', style: TextStyle(color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const TicTacToeScreen()),
-              );
-            },
-            child: const Text('Play & Level Up'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLobbySlot({
-    required String name,
-    required bool isHost,
-    required bool isReady,
-    required Color avatarColor,
-    String? profilePhoto,
-  }) {
-    final isBase64 = profilePhoto != null && profilePhoto.startsWith('data:image');
-    final isNet = profilePhoto != null &&
-        (profilePhoto.startsWith('http://') || profilePhoto.startsWith('https://'));
-    ImageProvider? lobbyAvatarImage;
-    if (isBase64) {
-      lobbyAvatarImage = MemoryImage(base64Decode(profilePhoto.split(',')[1]));
-    } else if (isNet) {
-      lobbyAvatarImage = NetworkImage(profilePhoto);
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.cardBg,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: avatarColor,
-            backgroundImage: lobbyAvatarImage,
-            child: lobbyAvatarImage != null
-                ? null
-                : Text(
-                    name.isNotEmpty ? name[0] : 'P',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                  ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    name,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (isHost) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: AppColors.trophyGold.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text(
-                      'HOST',
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.trophyGold,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: isReady
-                  ? AppColors.onlineGreen.withValues(alpha: 0.2)
-                  : AppColors.textMuted.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              isReady ? 'READY' : 'WAITING',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: isReady ? AppColors.onlineGreen : AppColors.textMuted,
-              ),
-            ),
-          ),
-        ],
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => VoicePartyRoomScreen(room: room),
       ),
     );
   }
