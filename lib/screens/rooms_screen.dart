@@ -4,10 +4,13 @@ import '../models/room_model.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/room_card.dart';
+import '../widgets/music_player_sheet.dart';
 import 'carrom_game_screen.dart';
 import 'ludo_game_screen.dart';
 import 'space_dodge_screen.dart';
 import 'tic_tac_toe_screen.dart';
+import 'neon_arena_brawl_screen.dart';
+import 'word_rush_screen.dart';
 
 class RoomsScreen extends StatefulWidget {
   const RoomsScreen({super.key});
@@ -32,9 +35,22 @@ class _RoomsScreenState extends State<RoomsScreen> {
   }
 
   void _handleCreateRoom() {
+    final userLevel = AuthService().currentUser?.level ?? 1;
+    // Room member formula: Level 20 -> 10 members. Level 1 -> 2 members.
+    final maxAllowedMembers = (userLevel / 2).floor().clamp(2, 50);
+
     String selectedGame = 'Tic-Tac-Toe Duel';
     int maxPlayers = 2;
     bool isPrivate = false;
+
+    // Available member options based on host level
+    final availableCounts = <int>[];
+    for (final c in [2, 4, 6, 8, 10, 16, 24, 32, 50]) {
+      if (c <= maxAllowedMembers) {
+        availableCounts.add(c);
+      }
+    }
+    if (availableCounts.isEmpty) availableCounts.add(2);
 
     showModalBottomSheet(
       context: context,
@@ -67,7 +83,28 @@ class _RoomsScreenState extends State<RoomsScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryPurple.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.primaryPurple.withValues(alpha: 0.4)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.military_tech_rounded, color: AppColors.coinAmber, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Your Level: $userLevel • Room capacity: Max $maxAllowedMembers players\n(Win matches to level up & invite more members!)',
+                            style: const TextStyle(fontSize: 11, color: Colors.white, height: 1.3),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
                   const Text('Select Game:', style: TextStyle(fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
@@ -92,46 +129,47 @@ class _RoomsScreenState extends State<RoomsScreen> {
                         child: Text('Carrom Clash (Unlocked at Lvl 10 / 40 Wins)'),
                       ),
                       DropdownMenuItem(
-                        value: 'Space Dodge',
-                        child: Text('Space Dodge (Unlocked at Lvl 15 / 60 Wins)'),
+                        value: 'Cyber Space Dodge',
+                        child: Text('Cyber Space Dodge (Unlocked at Lvl 15 / 60 Wins)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Neon Arena Brawl',
+                        child: Text('Neon Arena Brawl (Unlocked at Lvl 20 / 80 Wins)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'Word Sprint Rush',
+                        child: Text('Word Sprint Rush (Unlocked at Lvl 25 / 100 Wins)'),
                       ),
                     ],
                     onChanged: (val) {
                       if (val != null) {
                         setModalState(() {
                           selectedGame = val;
-                          if (val.contains('Tic-Tac-Toe') || val.contains('Carrom') || val.contains('Space')) {
-                            maxPlayers = 2;
-                          } else {
-                            maxPlayers = 4;
-                          }
                         });
                       }
                     },
                   ),
                   const SizedBox(height: 16),
-                  const Text('Max Players:', style: TextStyle(fontWeight: FontWeight.w600)),
+                  Text('Max Players (Capacity limited by Level $userLevel):', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 8),
-                  Row(
-                    children: [2, 4].map((count) {
+                  Wrap(
+                    spacing: 8,
+                    children: availableCounts.map((count) {
                       final isSelected = maxPlayers == count;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 12),
-                        child: ChoiceChip(
-                          selected: isSelected,
-                          label: Text('$count Players'),
-                          selectedColor: AppColors.primaryPurple,
-                          backgroundColor: AppColors.cardBg,
-                          labelStyle: TextStyle(
-                            color: isSelected ? Colors.white : AppColors.textSecondary,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                          ),
-                          onSelected: (val) {
-                            if (val) {
-                              setModalState(() => maxPlayers = count);
-                            }
-                          },
+                      return ChoiceChip(
+                        selected: isSelected,
+                        label: Text('$count Players'),
+                        selectedColor: AppColors.primaryPurple,
+                        backgroundColor: AppColors.cardBg,
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.white : AppColors.textSecondary,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                         ),
+                        onSelected: (val) {
+                          if (val) {
+                            setModalState(() => maxPlayers = count);
+                          }
+                        },
                       );
                     }).toList(),
                   ),
@@ -381,6 +419,8 @@ class _RoomsScreenState extends State<RoomsScreen> {
     if (room.gameTitle.contains('Ludo')) gameId = 'ludo';
     if (room.gameTitle.contains('Carrom')) gameId = 'carrom';
     if (room.gameTitle.contains('Space')) gameId = 'space_dodge';
+    if (room.gameTitle.contains('Arena') || room.gameTitle.contains('Brawl')) gameId = 'arena_brawl';
+    if (room.gameTitle.contains('Word') || room.gameTitle.contains('Sprint')) gameId = 'word_rush';
 
     if (!AuthService().isGameUnlocked(gameId)) {
       _showLockedGameDialog(context, room.gameTitle, gameId);
@@ -397,6 +437,12 @@ class _RoomsScreenState extends State<RoomsScreen> {
         break;
       case 'space_dodge':
         screen = const SpaceDodgeScreen();
+        break;
+      case 'arena_brawl':
+        screen = const NeonArenaBrawlScreen();
+        break;
+      case 'word_rush':
+        screen = const WordRushScreen();
         break;
       default:
         screen = const TicTacToeScreen();
@@ -416,6 +462,12 @@ class _RoomsScreenState extends State<RoomsScreen> {
     } else if (gameId == 'space_dodge') {
       reqLevel = 15;
       reqWins = 60;
+    } else if (gameId == 'arena_brawl') {
+      reqLevel = 20;
+      reqWins = 80;
+    } else if (gameId == 'word_rush') {
+      reqLevel = 25;
+      reqWins = 100;
     }
 
     showDialog(
@@ -456,18 +508,8 @@ class _RoomsScreenState extends State<RoomsScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.of(ctx).pop();
-              AuthService().unlockAllGames();
-              _refreshRooms();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('🎉 All games unlocked! Starting $gameTitle...'),
-                  backgroundColor: AppColors.surfaceLight,
-                ),
-              );
-            },
-            child: const Text('Quick Unlock', style: TextStyle(color: AppColors.coinAmber)),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close', style: TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -476,7 +518,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
                 MaterialPageRoute(builder: (_) => const TicTacToeScreen()),
               );
             },
-            child: const Text('Play Tic-Tac-Toe to Level Up'),
+            child: const Text('Play & Level Up'),
           ),
         ],
       ),
@@ -564,6 +606,13 @@ class _RoomsScreenState extends State<RoomsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Game Rooms & Lobbies'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.music_note_rounded, color: AppColors.accentCyan),
+            tooltip: 'Room Music Store',
+            onPressed: () => MusicPlayerSheet.show(context),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(

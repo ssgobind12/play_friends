@@ -8,6 +8,9 @@ import 'tic_tac_toe_screen.dart';
 import 'ludo_game_screen.dart';
 import 'carrom_game_screen.dart';
 import 'space_dodge_screen.dart';
+import 'neon_arena_brawl_screen.dart';
+import 'word_rush_screen.dart';
+import '../widgets/music_player_sheet.dart';
 
 class HomeScreen extends StatelessWidget {
   final Function(int) onNavigateTab;
@@ -36,6 +39,12 @@ class HomeScreen extends StatelessWidget {
           break;
         case 'space_dodge':
           screen = const SpaceDodgeGameScreen();
+          break;
+        case 'arena_brawl':
+          screen = const NeonArenaBrawlScreen();
+          break;
+        case 'word_rush':
+          screen = const WordRushScreen();
           break;
         case 'tic_tac_toe':
         default:
@@ -108,17 +117,8 @@ class HomeScreen extends StatelessWidget {
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                auth.unlockAllGames();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('🎉 ${game.title} unlocked!'),
-                    backgroundColor: AppColors.onlineGreen,
-                  ),
-                );
-              },
-              child: const Text('Quick Unlock', style: TextStyle(color: AppColors.accentCyan)),
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Close', style: TextStyle(color: AppColors.textSecondary)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryPurple),
@@ -126,7 +126,7 @@ class HomeScreen extends StatelessWidget {
                 Navigator.of(ctx).pop();
                 Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TicTacToeScreen()));
               },
-              child: const Text('Play Tic-Tac-Toe', style: TextStyle(color: Colors.white)),
+              child: const Text('Play & Level Up', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -325,6 +325,12 @@ class HomeScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.music_note_rounded),
+                          color: AppColors.primaryBlueLight,
+                          tooltip: 'In-App Music',
+                          onPressed: () => MusicPlayerSheet.show(context),
+                        ),
                         IconButton(
                           icon: const Icon(Icons.chat_bubble_outline_rounded),
                           color: AppColors.primaryPurpleLight,

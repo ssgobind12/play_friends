@@ -82,5 +82,33 @@ void main() {
       expect(auth.activeRooms.length, initialRooms + 1);
       expect(auth.activeRooms.any((r) => r.roomCode == 'PF-9999'), isTrue);
     });
+
+    test('Admin user has all games unlocked and starts with 01 ID', () {
+      final auth = AuthService();
+      final err = auth.login('ssgobind12@gamil.com', 'Shubham@003');
+      expect(err, isNull);
+      expect(auth.currentUser?.isAdmin, isTrue);
+      expect(auth.currentUser?.id.startsWith('01'), isTrue);
+      expect(auth.isGameUnlocked('tic_tac_toe'), isTrue);
+      expect(auth.isGameUnlocked('ludo'), isTrue);
+      expect(auth.isGameUnlocked('carrom'), isTrue);
+      expect(auth.isGameUnlocked('space_dodge'), isTrue);
+      expect(auth.isGameUnlocked('arena_brawl'), isTrue);
+      expect(auth.isGameUnlocked('word_rush'), isTrue);
+    });
+
+    test('Delete current user removes only their own account', () {
+      final auth = AuthService();
+      auth.resetStatsForTesting();
+      final testUserId = auth.currentUser!.id;
+      expect(auth.currentUser, isNotNull);
+
+      final success = auth.deleteCurrentUser();
+      expect(success, isTrue);
+      expect(auth.currentUser, isNull);
+      expect(auth.registeredUsers.any((u) => u.id == testUserId), isFalse);
+      // Admin still remains in registered users
+      expect(auth.registeredUsers.any((u) => u.id == AuthService.adminUser.id), isTrue);
+    });
   });
 }

@@ -22,6 +22,8 @@ class UserModel {
   final List<String> unlockedGameIds;
   final List<FriendModel> friends;
   final bool isGuest;
+  final bool isAdmin;
+  final String? profilePhoto;
 
   const UserModel({
     required this.id,
@@ -44,6 +46,8 @@ class UserModel {
     this.unlockedGameIds = const ['tic_tac_toe'],
     this.friends = const [],
     this.isGuest = false,
+    this.isAdmin = false,
+    this.profilePhoto,
   });
 
   UserModel copyWith({
@@ -66,6 +70,8 @@ class UserModel {
     List<String>? unlockedGameIds,
     List<FriendModel>? friends,
     bool? isGuest,
+    bool? isAdmin,
+    String? profilePhoto,
   }) {
     return UserModel(
       id: id,
@@ -88,6 +94,8 @@ class UserModel {
       unlockedGameIds: unlockedGameIds ?? this.unlockedGameIds,
       friends: friends ?? this.friends,
       isGuest: isGuest ?? this.isGuest,
+      isAdmin: isAdmin ?? this.isAdmin,
+      profilePhoto: profilePhoto ?? this.profilePhoto,
     );
   }
 }

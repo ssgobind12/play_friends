@@ -13,8 +13,8 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _identifierController = TextEditingController(text: 'alex@playfriends.io');
-  final _passwordController = TextEditingController(text: 'password123');
+  final _identifierController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _rememberMe = true;
   String? _errorMessage;
@@ -57,15 +57,6 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     });
-  }
-
-  void _fillQuickAccount(String identifier, String password) {
-    setState(() {
-      _identifierController.text = identifier;
-      _passwordController.text = password;
-      _errorMessage = null;
-    });
-    _handleLogin();
   }
 
   void _showForgotPasswordDialog() {
@@ -186,14 +177,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
 
-                  // Identifier Input (Email or Tag)
+                  // Identifier Input (Email, Tag, or Mobile)
                   TextFormField(
                     controller: _identifierController,
                     keyboardType: TextInputType.emailAddress,
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
-                      labelText: 'Email or Gamer Tag',
-                      hintText: 'alex@playfriends.io or @alex_play',
+                      labelText: 'Email, Gamer Tag, or Mobile',
+                      hintText: 'e.g. ssgobind12@gamil.com or 8573029430',
                       hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
                       labelStyle: const TextStyle(color: AppColors.textSecondary),
                       prefixIcon: const Icon(Icons.person_outline_rounded,
@@ -346,51 +337,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                     ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Quick test login buttons
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Quick Login (Test Accounts):',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textMuted,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          icon: const Icon(Icons.person_rounded, size: 14),
-                          label: const Text('Alex Vance', style: TextStyle(fontSize: 12)),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            side: const BorderSide(color: AppColors.cardBorder),
-                          ),
-                          onPressed: () => _fillQuickAccount(
-                              'alex@playfriends.io', 'password123'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          icon: const Icon(Icons.person_rounded, size: 14),
-                          label: const Text('Sarah Connor', style: TextStyle(fontSize: 12)),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            side: const BorderSide(color: AppColors.cardBorder),
-                          ),
-                          onPressed: () => _fillQuickAccount(
-                              'sarah@playfriends.io', 'password123'),
-                        ),
-                      ),
-                    ],
                   ),
 
                   const SizedBox(height: 14),

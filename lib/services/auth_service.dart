@@ -29,34 +29,33 @@ class AuthService extends ChangeNotifier {
   static final AuthService _instance = AuthService._internal();
   factory AuthService() => _instance;
 
-  AuthService._internal() {
-    // Default clean users
-    _registeredUsers = [
-      const UserModel(
-        id: 'u_alex',
-        name: 'Alex Vance',
-        tag: '@alex_play',
-        email: 'alex@playfriends.io',
-        password: 'password123',
-        phoneNumber: '9876543210',
-        countryCode: '+91',
-        countryFlag: '🇮🇳',
-        avatarColor: AppColors.primaryPurple,
-        avatarInitial: 'A',
-        level: 1,
-        coins: 500,
-        trophies: 0,
-        winRate: 0.0,
-        totalMatches: 0,
-        totalWins: 0,
-        xp: 0,
-        unlockedGameIds: ['tic_tac_toe'],
-        friends: [],
-      ),
-    ];
+  static const UserModel adminUser = UserModel(
+    id: '010001',
+    name: 'Shubham Singh',
+    tag: '@ssgobind12',
+    email: 'ssgobind12@gamil.com',
+    password: 'Shubham@003',
+    phoneNumber: '8573029430',
+    countryCode: '+91',
+    countryFlag: '🇮🇳',
+    avatarColor: AppColors.primaryPurple,
+    avatarInitial: 'S',
+    level: 50,
+    coins: 99999,
+    trophies: 999,
+    winRate: 100.0,
+    totalMatches: 200,
+    totalWins: 200,
+    xp: 20000,
+    isAdmin: true,
+    unlockedGameIds: ['tic_tac_toe', 'ludo', 'carrom', 'space_dodge', 'arena_brawl', 'word_rush'],
+    friends: [],
+  );
 
-    // Start with Alex Vance logged in by default, but user can log out anytime
-    _currentUser = _registeredUsers.first;
+  AuthService._internal() {
+    // Only the official Admin user pre-exists; all other users register with security ID starting with '01'
+    _registeredUsers = [adminUser];
+    _currentUser = adminUser;
   }
 
   late List<UserModel> _registeredUsers;
@@ -75,6 +74,17 @@ class AuthService extends ChangeNotifier {
     final rng = Random();
     final number = 100000 + rng.nextInt(900000);
     return number.toString();
+  }
+
+  /// Generates a unique security ID starting with '01'
+  String _generateSecurityId() {
+    final rng = Random();
+    String newId;
+    do {
+      final num = 100000 + rng.nextInt(900000);
+      newId = '01$num';
+    } while (_registeredUsers.any((u) => u.id == newId));
+    return newId;
   }
 
   /// Generates and records a 6-digit one-time OTP for email registration
@@ -239,12 +249,33 @@ class AuthService extends ChangeNotifier {
   String? login(String identifier, String password) {
     final cleanId = identifier.trim().toLowerCase();
     final cleanTag = cleanId.startsWith('@') ? cleanId : '@$cleanId';
+    final cleanPhone = identifier.replaceAll(RegExp(r'\D'), '');
+
+    // 1. Direct Admin User Login
+    final isAdminMatch = cleanId == 'ssgobind12@gamil.com' ||
+        cleanId == 'ssgobind12@gmail.com' ||
+        cleanPhone == '8573029430' ||
+        cleanTag == '@ssgobind12';
+
+    if (isAdminMatch) {
+      if (password == 'Shubham@003') {
+        _currentUser = adminUser;
+        if (!_registeredUsers.any((u) => u.id == adminUser.id)) {
+          _registeredUsers.add(adminUser);
+        }
+        notifyListeners();
+        return null; // Success
+      } else {
+        return 'Incorrect password for Admin account.';
+      }
+    }
 
     UserModel? matchedUser;
     for (final user in _registeredUsers) {
       if (user.email.toLowerCase() == cleanId ||
           user.tag.toLowerCase() == cleanId ||
-          user.tag.toLowerCase() == cleanTag) {
+          user.tag.toLowerCase() == cleanTag ||
+          (user.phoneNumber != null && user.phoneNumber!.replaceAll(RegExp(r'\D'), '') == cleanPhone)) {
         matchedUser = user;
         break;
       }
@@ -366,8 +397,14 @@ class AuthService extends ChangeNotifier {
     final formattedTag = tag.trim().startsWith('@') ? tag.trim().toLowerCase() : '@${tag.trim().toLowerCase()}';
 
     final initial = cleanName.isNotEmpty ? cleanName[0].toUpperCase() : 'G';
+    final cleanPhone = phoneNumber.replaceAll(RegExp(r'\D'), '');
+    final newId = _generateSecurityId();
+    final isAdmin = cleanEmail == 'ssgobind12@gamil.com' ||
+        cleanEmail == 'ssgobind12@gmail.com' ||
+        cleanPhone == '8573029430';
+
     final newUser = UserModel(
-      id: 'u_${DateTime.now().millisecondsSinceEpoch}',
+      id: newId,
       name: cleanName,
       tag: formattedTag,
       email: cleanEmail,
@@ -377,11 +414,17 @@ class AuthService extends ChangeNotifier {
       countryFlag: countryFlag,
       avatarColor: avatarColor,
       avatarInitial: initial,
-      level: 1,
-      coins: 500, // Starter coins
-      trophies: 5,
+      level: isAdmin ? 50 : 1,
+      coins: isAdmin ? 99999 : 500, // Starter coins
+      trophies: isAdmin ? 999 : 5,
       winRate: 0.0,
       totalMatches: 0,
+      totalWins: isAdmin ? 200 : 0,
+      xp: isAdmin ? 20000 : 0,
+      isAdmin: isAdmin,
+      unlockedGameIds: isAdmin
+          ? const ['tic_tac_toe', 'ludo', 'carrom', 'space_dodge', 'arena_brawl', 'word_rush']
+          : const ['tic_tac_toe'],
     );
 
     _registeredUsers.add(newUser);
@@ -470,6 +513,16 @@ class AuthService extends ChangeNotifier {
       updatedUnlockedGames.add('space_dodge');
       newlyUnlockedTitle ??= 'Cyber Space Dodge';
     }
+    // Game 5: Neon Arena Brawl unlocks at Level 20 or 80 wins!
+    if ((newLevel >= 20 || newWins >= 80) && !updatedUnlockedGames.contains('arena_brawl')) {
+      updatedUnlockedGames.add('arena_brawl');
+      newlyUnlockedTitle ??= 'Neon Arena Brawl';
+    }
+    // Game 6: Word Sprint Rush unlocks at Level 25 or 100 wins!
+    if ((newLevel >= 25 || newWins >= 100) && !updatedUnlockedGames.contains('word_rush')) {
+      updatedUnlockedGames.add('word_rush');
+      newlyUnlockedTitle ??= 'Word Sprint';
+    }
 
     _currentUser = user.copyWith(
       totalMatches: newMatches,
@@ -489,15 +542,19 @@ class AuthService extends ChangeNotifier {
   /// Checks if a specific game is unlocked for the current player
   bool isGameUnlocked(String gameId) {
     if (_currentUser == null) return gameId == 'tic_tac_toe';
+    // Admin user has all games unlocked by default!
+    if (_currentUser!.isAdmin) return true;
     if (_currentUser!.unlockedGameIds.contains(gameId)) return true;
     if (gameId == 'tic_tac_toe') return true;
     if (gameId == 'ludo') return _currentUser!.level >= 5 || _currentUser!.totalWins >= 20;
     if (gameId == 'carrom') return _currentUser!.level >= 10 || _currentUser!.totalWins >= 40;
     if (gameId == 'space_dodge') return _currentUser!.level >= 15 || _currentUser!.totalWins >= 60;
+    if (gameId == 'arena_brawl') return _currentUser!.level >= 20 || _currentUser!.totalWins >= 80;
+    if (gameId == 'word_rush') return _currentUser!.level >= 25 || _currentUser!.totalWins >= 100;
     return false;
   }
 
-  /// Instantly unlocks all games (useful for testing and instant play)
+  /// Instantly unlocks all games (useful for testing and admin play)
   void unlockAllGames() {
     if (_currentUser == null) return;
     final allGames = ['tic_tac_toe', 'ludo', 'carrom', 'space_dodge', 'arena_brawl', 'word_rush'];
@@ -507,6 +564,45 @@ class AuthService extends ChangeNotifier {
       totalWins: _currentUser!.totalWins < 20 ? 20 : _currentUser!.totalWins,
     );
     notifyListeners();
+  }
+
+  /// Update active player profile photo or avatar preset
+  void updateProfilePhoto(String? photo) {
+    if (_currentUser == null) return;
+    _currentUser = _currentUser!.copyWith(profilePhoto: photo);
+    final idx = _registeredUsers.indexWhere((u) => u.id == _currentUser!.id);
+    if (idx != -1) {
+      _registeredUsers[idx] = _currentUser!;
+    }
+    notifyListeners();
+  }
+
+  /// Update active player display name and gamer tag
+  void updateProfileDetails({required String name, required String tag}) {
+    if (_currentUser == null) return;
+    final cleanName = name.trim();
+    final cleanTag = tag.trim().startsWith('@') ? tag.trim().toLowerCase() : '@${tag.trim().toLowerCase()}';
+    final initial = cleanName.isNotEmpty ? cleanName[0].toUpperCase() : _currentUser!.avatarInitial;
+    _currentUser = _currentUser!.copyWith(
+      name: cleanName,
+      tag: cleanTag,
+      avatarInitial: initial,
+    );
+    final idx = _registeredUsers.indexWhere((u) => u.id == _currentUser!.id);
+    if (idx != -1) {
+      _registeredUsers[idx] = _currentUser!;
+    }
+    notifyListeners();
+  }
+
+  /// Permanently deletes only the active user's own account
+  bool deleteCurrentUser() {
+    if (_currentUser == null) return false;
+    final currentUserId = _currentUser!.id;
+    _registeredUsers.removeWhere((u) => u.id == currentUserId);
+    _currentUser = null;
+    notifyListeners();
+    return true;
   }
 
   // --------------------------------------------------------------------------
@@ -573,10 +669,11 @@ class AuthService extends ChangeNotifier {
   }
 
   void resetStatsForTesting() {
-    _currentUser = const UserModel(
-      id: 'u_alex',
+    const testAlex = UserModel(
+      id: '010002',
       email: 'alex@playfriends.io',
       password: 'password123',
+      phoneNumber: '9876543210',
       name: 'Alex Vance',
       tag: '@alex_play',
       avatarColor: Color(0xFF8B5CF6),
@@ -591,8 +688,11 @@ class AuthService extends ChangeNotifier {
       unlockedGameIds: ['tic_tac_toe'],
       friends: [],
     );
+    _currentUser = testAlex;
+    _registeredUsers = [adminUser, testAlex];
     _activeRooms.clear();
     _localFriends.clear();
+    _otpRecords.clear();
     notifyListeners();
   }
 }

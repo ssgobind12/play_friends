@@ -5,6 +5,10 @@ import 'package:play_friends/screens/tic_tac_toe_screen.dart';
 import 'package:play_friends/services/auth_service.dart';
 
 void main() {
+  setUp(() {
+    AuthService().resetStatsForTesting();
+  });
+
   testWidgets('App renders Home screen with BottomNavigationBar', (WidgetTester tester) async {
     AuthService().login('alex@playfriends.io', 'password123');
     await tester.pumpWidget(const PlayFriendsApp());

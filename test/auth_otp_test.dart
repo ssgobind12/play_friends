@@ -5,6 +5,10 @@ import 'package:play_friends/models/country_code.dart';
 import 'package:play_friends/services/auth_service.dart';
 
 void main() {
+  setUp(() {
+    AuthService().resetStatsForTesting();
+  });
+
   group('AuthService OTP & Phone Registration Tests', () {
     final auth = AuthService();
 
