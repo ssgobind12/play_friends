@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'phone_media_picker_service.dart';
 
 class MusicTrack {
   final int id;
@@ -113,13 +114,22 @@ class InAppMusicService extends ChangeNotifier {
       _currentTrackIndex = trackIndex;
     }
     _isPlaying = true;
-    _startMelodyLoop();
+    _loopTimer?.cancel();
+
+    final track = currentTrack;
+    if (track.audioSource != null && (track.audioSource!.startsWith('/') || track.audioSource!.contains('.'))) {
+      PhoneMediaPickerService.playAudioFile(track.audioSource!, volume: _volume);
+    } else {
+      PhoneMediaPickerService.stopAudioFile();
+      _startMelodyLoop();
+    }
     notifyListeners();
   }
 
   void pauseMusic() {
     _isPlaying = false;
     _loopTimer?.cancel();
+    PhoneMediaPickerService.pauseAudioFile();
     notifyListeners();
   }
 
@@ -134,14 +144,14 @@ class InAppMusicService extends ChangeNotifier {
   void selectTrack(int index) {
     _currentTrackIndex = index.clamp(0, _tracks.length - 1);
     if (_isPlaying) {
-      _loopTimer?.cancel();
-      _startMelodyLoop();
+      playMusic(_currentTrackIndex);
     }
     notifyListeners();
   }
 
   void setVolume(double val) {
     _volume = val.clamp(0.0, 1.0);
+    PhoneMediaPickerService.setMusicVolume(_volume);
     notifyListeners();
   }
 

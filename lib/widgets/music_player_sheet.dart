@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/in_app_music_service.dart';
+import '../services/phone_media_picker_service.dart';
 import '../theme/app_theme.dart';
 
 class MusicPlayerSheet extends StatelessWidget {
@@ -44,7 +45,7 @@ class MusicPlayerSheet extends StatelessWidget {
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Upload Music to Store',
+                    'Upload Music from Phone',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                   ),
                 ),
@@ -55,9 +56,53 @@ class MusicPlayerSheet extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Select or browse audio file from device storage:',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  // Primary Phone Storage Picker
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.folder_open_rounded, size: 20),
+                      label: const Text(
+                        'Browse Phone Audio Files (.mp3)',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF06B6D4),
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      onPressed: () async {
+                        final picked = await PhoneMediaPickerService.pickMusicFromPhoneStorage();
+                        if (picked != null) {
+                          final title = picked['title'] ?? 'Uploaded Song';
+                          final path = picked['path'] ?? '';
+                          final newTrack = InAppMusicService().uploadCustomMusic(
+                            title: title,
+                            genre: 'Phone Audio',
+                            bpm: '128 BPM',
+                            audioPathOrUrl: path,
+                          );
+                          if (ctx.mounted) {
+                            Navigator.of(ctx).pop();
+                          }
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Uploaded "${newTrack.title}" from Phone! Now playing in room.'),
+                                backgroundColor: AppColors.onlineGreen,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Center(
+                    child: Text(
+                      '— OR SELECT LOCAL PRESET FILE —',
+                      style: TextStyle(fontSize: 10, color: AppColors.textMuted, fontWeight: FontWeight.bold),
+                    ),
                   ),
                   const SizedBox(height: 10),
                   // File selector dropdown
@@ -141,7 +186,7 @@ class MusicPlayerSheet extends StatelessWidget {
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Uploaded tracks will be added to your in-app local store and playable in rooms & games!',
+                            'Uploaded tracks will play live in room lobbies and multiplayer games!',
                             style: TextStyle(fontSize: 11, color: Colors.white70),
                           ),
                         ),
@@ -158,7 +203,7 @@ class MusicPlayerSheet extends StatelessWidget {
               ),
               ElevatedButton.icon(
                 icon: const Icon(Icons.upload_file_rounded, size: 18),
-                label: const Text('Upload & Play'),
+                label: const Text('Upload & Play in Room'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryPurple,
                   foregroundColor: Colors.white,
@@ -186,7 +231,7 @@ class MusicPlayerSheet extends StatelessWidget {
                           const Icon(Icons.music_note_rounded, color: AppColors.onlineGreen),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: Text('Uploaded "${newTrack.title}" to local store! Now Playing.'),
+                            child: Text('Uploaded "${newTrack.title}" from Phone! Playing in room.'),
                           ),
                         ],
                       ),
@@ -236,7 +281,7 @@ class MusicPlayerSheet extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('Game & Room Music Store', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          Text('Local ambient tracks for play sessions', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                          Text('Upload and play music live in rooms', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                         ],
                       ),
                     ],
@@ -253,27 +298,69 @@ class MusicPlayerSheet extends StatelessWidget {
               ),
               const SizedBox(height: 14),
 
-              // Prominent "Upload Custom Music" Action Button
+              // Button 1: Direct Phone Audio / MP3 File Picker
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  icon: const Icon(Icons.cloud_upload_rounded, size: 20),
+                  icon: const Icon(Icons.audio_file_rounded, size: 20, color: Colors.black),
                   label: const Text(
-                    'Upload Custom Music to Store',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    '📁 Upload Music from Phone Storage (.mp3)',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF8B5CF6),
-                    foregroundColor: Colors.white,
+                    backgroundColor: const Color(0xFF06B6D4),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     elevation: 3,
+                  ),
+                  onPressed: () async {
+                    final picked = await PhoneMediaPickerService.pickMusicFromPhoneStorage();
+                    if (picked != null) {
+                      final title = picked['title'] ?? 'Uploaded Song';
+                      final path = picked['path'] ?? '';
+                      InAppMusicService().uploadCustomMusic(
+                        title: title,
+                        genre: 'Phone Audio',
+                        bpm: '128 BPM',
+                        audioPathOrUrl: path,
+                      );
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Uploaded "$title" from Phone! Now playing in room.'),
+                            backgroundColor: AppColors.onlineGreen,
+                          ),
+                        );
+                      }
+                    } else {
+                      if (context.mounted) {
+                        _showUploadMusicDialog(context);
+                      }
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Button 2: Track details & Presets modal
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.tune_rounded, size: 18),
+                  label: const Text(
+                    'Custom Track Details / Local Presets',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppColors.cardBorder),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                   onPressed: () => _showUploadMusicDialog(context),
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
               // Volume slider
               Row(
@@ -306,7 +393,7 @@ class MusicPlayerSheet extends StatelessWidget {
               // Track list
               ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.35,
+                  maxHeight: MediaQuery.of(context).size.height * 0.32,
                 ),
                 child: ListView.builder(
                   shrinkWrap: true,

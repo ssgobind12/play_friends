@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/game_sound_service.dart';
+import '../services/phone_media_picker_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/music_player_sheet.dart';
 
@@ -52,9 +54,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final levelTargetWins = currentLevel * 4;
         final winProgress = (currentWins % 4) / 4.0;
         final profilePhoto = user?.profilePhoto;
+        final isBase64Photo = profilePhoto != null && profilePhoto.startsWith('data:image');
         final hasNetworkPhoto = profilePhoto != null &&
             (profilePhoto.startsWith('http://') || profilePhoto.startsWith('https://'));
         final hasIconPhoto = profilePhoto != null && profilePhoto.startsWith('icon:');
+        ImageProvider? profileImageProvider;
+        if (isBase64Photo) {
+          profileImageProvider = MemoryImage(base64Decode(profilePhoto.split(',')[1]));
+        } else if (hasNetworkPhoto) {
+          profileImageProvider = NetworkImage(profilePhoto);
+        }
 
         return Scaffold(
           appBar: AppBar(
@@ -105,8 +114,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               child: CircleAvatar(
                                 radius: 46,
                                 backgroundColor: user?.avatarColor ?? AppColors.primaryPurple,
-                                backgroundImage: hasNetworkPhoto ? NetworkImage(profilePhoto) : null,
-                                child: hasNetworkPhoto
+                                backgroundImage: profileImageProvider,
+                                child: profileImageProvider != null
                                     ? null
                                     : hasIconPhoto
                                         ? Icon(
@@ -688,6 +697,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
               ),
               const SizedBox(height: 16),
+
+              // Button: Pick Photo from Phone Gallery directly
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.photo_library_rounded, size: 22, color: Colors.black),
+                  label: const Text(
+                    '📸 Pick Photo from Phone Gallery',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF06B6D4),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: 3,
+                  ),
+                  onPressed: () async {
+                    Navigator.of(ctx).pop();
+                    final photoUri = await PhoneMediaPickerService.pickPhotoFromPhoneGallery();
+                    if (photoUri != null && photoUri.isNotEmpty) {
+                      AuthService().updateProfilePhoto(photoUri);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Profile photo uploaded from Gallery successfully!'),
+                            backgroundColor: AppColors.onlineGreen,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 18),
 
               // Section 1: Gallery Upload Options
               const Text(

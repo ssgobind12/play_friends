@@ -124,11 +124,14 @@ void main() {
       auth.updateProfilePhoto('icon:ninja');
       expect(auth.currentUser?.profilePhoto, 'icon:ninja');
 
+      auth.updateProfilePhoto('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD');
+      expect(auth.currentUser?.profilePhoto?.startsWith('data:image'), isTrue);
+
       auth.updateProfilePhoto(null);
       expect(auth.currentUser?.profilePhoto, isNull);
     });
 
-    test('User can upload custom music to in-app music store', () {
+    test('User can upload custom music to in-app music store and phone local audio', () {
       final musicService = InAppMusicService();
       final initialCount = musicService.tracks.length;
 
@@ -136,12 +139,13 @@ void main() {
         title: 'Cyberpunk Synthwave Beat',
         genre: 'Synthwave',
         bpm: '130 BPM',
-        audioPathOrUrl: '🎵 Cyberpunk.mp3',
+        audioPathOrUrl: '/storage/emulated/0/Music/Cyberpunk.mp3',
       );
 
       expect(musicService.tracks.length, initialCount + 1);
       expect(uploaded.title, 'Cyberpunk Synthwave Beat');
       expect(uploaded.isUserUploaded, isTrue);
+      expect(uploaded.audioSource, '/storage/emulated/0/Music/Cyberpunk.mp3');
       expect(musicService.currentTrack.title, 'Cyberpunk Synthwave Beat');
       expect(musicService.isPlaying, isTrue);
     });

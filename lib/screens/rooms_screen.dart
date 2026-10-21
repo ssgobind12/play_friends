@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/room_model.dart';
@@ -5,6 +6,7 @@ import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/room_card.dart';
 import '../widgets/music_player_sheet.dart';
+import '../services/in_app_music_service.dart';
 import 'carrom_game_screen.dart';
 import 'ludo_game_screen.dart';
 import 'space_dodge_screen.dart';
@@ -306,6 +308,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
 
   void _openRoomLobby(RoomModel room) {
     bool isReady = false;
+    InAppMusicService().playMusic();
 
     showModalBottomSheet(
       context: context,
@@ -354,7 +357,84 @@ class _RoomsScreenState extends State<RoomsScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
+
+                  // Room Music Live Player & Upload Bar
+                  ListenableBuilder(
+                    listenable: InAppMusicService(),
+                    builder: (context, _) {
+                      final music = InAppMusicService();
+                      final track = music.currentTrack;
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 14),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: track.accentColor.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: track.accentColor.withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                music.isPlaying ? Icons.pause_circle_filled_rounded : Icons.play_circle_fill_rounded,
+                                color: track.accentColor,
+                                size: 34,
+                              ),
+                              onPressed: () => music.toggleMusic(),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          'Room Music: ${track.title}',
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (track.isUserUploaded) ...[
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFEC4899),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: const Text('UPLOADED', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold)),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  Text(
+                                    music.isPlaying ? 'Playing live in room lobby 🎵' : 'Room music paused',
+                                    style: TextStyle(fontSize: 11, color: track.accentColor),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            ElevatedButton.icon(
+                              icon: const Icon(Icons.cloud_upload_rounded, size: 14),
+                              label: const Text('Upload', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: track.accentColor,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              onPressed: () => MusicPlayerSheet.show(context),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+
                   const Text('Players in Lobby:', style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 10),
                   // Slot 1 (Host)
@@ -370,7 +450,8 @@ class _RoomsScreenState extends State<RoomsScreen> {
                     name: AuthService().currentUser?.name ?? 'Player 2',
                     isHost: false,
                     isReady: isReady,
-                    avatarColor: AppColors.primaryBlue,
+                    avatarColor: AuthService().currentUser?.avatarColor ?? AppColors.primaryBlue,
+                    profilePhoto: AuthService().currentUser?.profilePhoto,
                   ),
                   const SizedBox(height: 20),
                   Row(
@@ -530,7 +611,18 @@ class _RoomsScreenState extends State<RoomsScreen> {
     required bool isHost,
     required bool isReady,
     required Color avatarColor,
+    String? profilePhoto,
   }) {
+    final isBase64 = profilePhoto != null && profilePhoto.startsWith('data:image');
+    final isNet = profilePhoto != null &&
+        (profilePhoto.startsWith('http://') || profilePhoto.startsWith('https://'));
+    ImageProvider? lobbyAvatarImage;
+    if (isBase64) {
+      lobbyAvatarImage = MemoryImage(base64Decode(profilePhoto.split(',')[1]));
+    } else if (isNet) {
+      lobbyAvatarImage = NetworkImage(profilePhoto);
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -542,10 +634,13 @@ class _RoomsScreenState extends State<RoomsScreen> {
           CircleAvatar(
             radius: 16,
             backgroundColor: avatarColor,
-            child: Text(
-              name.isNotEmpty ? name[0] : 'P',
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
+            backgroundImage: lobbyAvatarImage,
+            child: lobbyAvatarImage != null
+                ? null
+                : Text(
+                    name.isNotEmpty ? name[0] : 'P',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
           ),
           const SizedBox(width: 12),
           Expanded(

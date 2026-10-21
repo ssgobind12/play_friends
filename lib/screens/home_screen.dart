@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../data/sample_data.dart';
 import '../models/game_model.dart';
@@ -217,6 +218,16 @@ class HomeScreen extends StatelessWidget {
         final userName = user?.name.split(' ').first ?? 'Player';
         final userInitial = user?.avatarInitial ?? 'P';
         final userColor = user?.avatarColor ?? AppColors.primaryPurple;
+        final userProfilePhoto = user?.profilePhoto;
+        final isBase64Photo = userProfilePhoto != null && userProfilePhoto.startsWith('data:image');
+        final hasNetworkPhoto = userProfilePhoto != null &&
+            (userProfilePhoto.startsWith('http://') || userProfilePhoto.startsWith('https://'));
+        ImageProvider? topAvatarImage;
+        if (isBase64Photo) {
+          topAvatarImage = MemoryImage(base64Decode(userProfilePhoto.split(',')[1]));
+        } else if (hasNetworkPhoto) {
+          topAvatarImage = NetworkImage(userProfilePhoto);
+        }
         final userLevel = user?.level ?? 1;
         final userCoins = user?.coins ?? 500;
         final friends = auth.friends;
@@ -243,14 +254,17 @@ class HomeScreen extends StatelessWidget {
                               CircleAvatar(
                                 radius: 22,
                                 backgroundColor: userColor,
-                                child: Text(
-                                  userInitial,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
-                                  ),
-                                ),
+                                backgroundImage: topAvatarImage,
+                                child: topAvatarImage != null
+                                    ? null
+                                    : Text(
+                                        userInitial,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 18,
+                                        ),
+                                      ),
                               ),
                               Positioned(
                                 bottom: 0,
