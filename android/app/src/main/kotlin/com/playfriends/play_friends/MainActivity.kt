@@ -1,6 +1,7 @@
 package com.playfriends.play_friends
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
 import android.media.AudioFormat
@@ -95,6 +96,37 @@ class MainActivity : FlutterActivity() {
                         result.success(false)
                     }
                 }
+                "saveLocalData" -> {
+                    val key = call.argument<String>("key") ?: ""
+                    val value = call.argument<String>("value") ?: ""
+                    try {
+                        val prefs = getSharedPreferences("play_friends_storage", Context.MODE_PRIVATE)
+                        prefs.edit().putString(key, value).apply()
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("STORAGE_ERROR", e.message, null)
+                    }
+                }
+                "getLocalData" -> {
+                    val key = call.argument<String>("key") ?: ""
+                    try {
+                        val prefs = getSharedPreferences("play_friends_storage", Context.MODE_PRIVATE)
+                        val value = prefs.getString(key, null)
+                        result.success(value)
+                    } catch (e: Exception) {
+                        result.success(null)
+                    }
+                }
+                "removeLocalData" -> {
+                    val key = call.argument<String>("key") ?: ""
+                    try {
+                        val prefs = getSharedPreferences("play_friends_storage", Context.MODE_PRIVATE)
+                        prefs.edit().remove(key).apply()
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("STORAGE_ERROR", e.message, null)
+                    }
+                }
                 else -> {
                     result.notImplemented()
                 }
@@ -163,7 +195,7 @@ class MainActivity : FlutterActivity() {
                 thread(start = true) {
                     try {
                         val fileName = getFileName(uri) ?: "Uploaded_Music_${System.currentTimeMillis()}.mp3"
-                        val localFile = File(cacheDir, fileName)
+                        val localFile = File(filesDir, fileName)
                         contentResolver.openInputStream(uri)?.use { input ->
                             localFile.outputStream().use { output ->
                                 input.copyTo(output)

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/security_helper.dart';
 import 'friend_model.dart';
 
 class UserModel {
@@ -6,7 +7,7 @@ class UserModel {
   final String name;
   final String tag;
   final String email;
-  final String password;
+  final String passwordHash;
   final Color avatarColor;
   final String avatarInitial;
   final String? phoneNumber;
@@ -30,7 +31,7 @@ class UserModel {
     required this.name,
     required this.tag,
     required this.email,
-    required this.password,
+    this.passwordHash = '',
     required this.avatarColor,
     required this.avatarInitial,
     this.phoneNumber,
@@ -54,7 +55,7 @@ class UserModel {
     String? name,
     String? tag,
     String? email,
-    String? password,
+    String? passwordHash,
     Color? avatarColor,
     String? avatarInitial,
     String? phoneNumber,
@@ -79,7 +80,7 @@ class UserModel {
       name: name ?? this.name,
       tag: tag ?? this.tag,
       email: email ?? this.email,
-      password: password ?? this.password,
+      passwordHash: passwordHash ?? this.passwordHash,
       avatarColor: avatarColor ?? this.avatarColor,
       avatarInitial: avatarInitial ?? this.avatarInitial,
       phoneNumber: phoneNumber ?? this.phoneNumber,
@@ -97,6 +98,74 @@ class UserModel {
       isGuest: isGuest ?? this.isGuest,
       isAdmin: isAdmin ?? this.isAdmin,
       profilePhoto: clearProfilePhoto ? null : (profilePhoto ?? this.profilePhoto),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'tag': tag,
+      'email': email,
+      'passwordHash': passwordHash,
+      'avatarColor': avatarColor.toARGB32(),
+      'avatarInitial': avatarInitial,
+      'phoneNumber': phoneNumber,
+      'countryCode': countryCode,
+      'countryFlag': countryFlag,
+      'level': level,
+      'coins': coins,
+      'trophies': trophies,
+      'winRate': winRate,
+      'totalMatches': totalMatches,
+      'totalWins': totalWins,
+      'xp': xp,
+      'unlockedGameIds': unlockedGameIds,
+      'friends': friends.map((f) => f.toMap()).toList(),
+      'isGuest': isGuest,
+      'isAdmin': isAdmin,
+      'profilePhoto': profilePhoto,
+    };
+  }
+
+  factory UserModel.fromMap(Map<String, dynamic> map) {
+    final rawHash = map['passwordHash']?.toString();
+    final rawLegacyPassword = map['password']?.toString();
+    final effectiveHash = (rawHash != null && rawHash.isNotEmpty)
+        ? rawHash
+        : ((rawLegacyPassword != null && rawLegacyPassword.isNotEmpty)
+            ? SecurityHelper.hashPassword(rawLegacyPassword)
+            : '');
+
+    return UserModel(
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? 'Player',
+      tag: map['tag']?.toString() ?? '@player',
+      email: map['email']?.toString() ?? '',
+      passwordHash: effectiveHash,
+      avatarColor: Color(map['avatarColor'] is int ? map['avatarColor'] as int : 0xFF7C3AED),
+      avatarInitial: map['avatarInitial']?.toString() ?? 'P',
+      phoneNumber: map['phoneNumber']?.toString(),
+      countryCode: map['countryCode']?.toString() ?? '+91',
+      countryFlag: map['countryFlag']?.toString() ?? '🇮🇳',
+      level: map['level'] is int ? map['level'] as int : 1,
+      coins: map['coins'] is int ? map['coins'] as int : 500,
+      trophies: map['trophies'] is int ? map['trophies'] as int : 0,
+      winRate: (map['winRate'] is num) ? (map['winRate'] as num).toDouble() : 0.0,
+      totalMatches: map['totalMatches'] is int ? map['totalMatches'] as int : 0,
+      totalWins: map['totalWins'] is int ? map['totalWins'] as int : 0,
+      xp: map['xp'] is int ? map['xp'] as int : 0,
+      unlockedGameIds: (map['unlockedGameIds'] is List)
+          ? (map['unlockedGameIds'] as List).cast<String>()
+          : const ['tic_tac_toe'],
+      friends: (map['friends'] is List)
+          ? (map['friends'] as List)
+              .map((item) => FriendModel.fromMap(Map<String, dynamic>.from(item as Map)))
+              .toList()
+          : const [],
+      isGuest: map['isGuest'] == true,
+      isAdmin: map['isAdmin'] == true,
+      profilePhoto: map['profilePhoto']?.toString(),
     );
   }
 }

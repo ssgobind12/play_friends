@@ -1,8 +1,13 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:play_friends/models/room_model.dart';
 import 'package:play_friends/models/room_theme_model.dart';
+import 'package:play_friends/models/user_model.dart';
+import 'package:play_friends/screens/voice_party_room_screen.dart';
+import 'package:play_friends/services/auth_service.dart';
 import 'package:play_friends/services/aws_storage_service.dart';
 import 'package:play_friends/services/in_app_music_service.dart';
+import 'package:play_friends/services/local_storage_service.dart';
 import 'package:play_friends/services/privacy_filter_service.dart';
 import 'package:play_friends/services/voice_room_manager.dart';
 
@@ -171,6 +176,128 @@ void main() {
       await AwsStorageService.deleteSongFromServer(userId: userId, songId: 99);
       final remaining = await AwsStorageService.getUserSongsFromServer(userId);
       expect(remaining.any((s) => s['title'] == 'Server Beat 1'), isFalse);
+    });
+  });
+
+  group('LocalStorageService & Offline Persistence Tests', () {
+    setUp(() {
+      LocalStorageService.resetInMemoryForTesting();
+    });
+
+    test('Persists and loads user profile with custom photo across app restart', () async {
+      const testUser = UserModel(
+        id: '019999',
+        name: 'Persistent Tester',
+        tag: '@persistent',
+        email: 'persist@test.com',
+        passwordHash: 'mock_password_hash_xyz',
+        avatarColor: Colors.deepPurple,
+        avatarInitial: 'P',
+        profilePhoto: 'data:image/jpeg;base64,mockSavedPhotoBase64Bytes==',
+        level: 12,
+        coins: 4500,
+      );
+
+      await LocalStorageService.saveCurrentUser(testUser);
+      final loaded = await LocalStorageService.loadCurrentUser();
+
+      expect(loaded, isNotNull);
+      expect(loaded!.id, equals('019999'));
+      expect(loaded.name, equals('Persistent Tester'));
+      expect(loaded.profilePhoto, equals('data:image/jpeg;base64,mockSavedPhotoBase64Bytes=='));
+      expect(loaded.level, equals(12));
+      expect(loaded.coins, equals(4500));
+    });
+
+    test('Persists and loads user-created custom rooms across app restart', () async {
+      final customRooms = [
+        const RoomModel(
+          id: 'custom_room_1',
+          roomCode: 'PF-7788',
+          gameTitle: "Shubham's Chill Lounge 🎧",
+          hostName: 'Shubham Singh',
+          currentPlayers: 1,
+          maxPlayers: 250,
+          isPrivate: false,
+          status: 'Live Voice Party',
+          giftPoints: 1200,
+        ),
+      ];
+
+      await LocalStorageService.saveActiveRooms(customRooms);
+      final loadedRooms = await LocalStorageService.loadActiveRooms();
+
+      expect(loadedRooms.length, equals(1));
+      expect(loadedRooms.first.gameTitle, equals("Shubham's Chill Lounge 🎧"));
+      expect(loadedRooms.first.roomCode, equals('PF-7788'));
+      expect(loadedRooms.first.maxPlayers, equals(250));
+
+      final auth = AuthService();
+      auth.addRoom(customRooms.first);
+      expect(auth.activeRooms.any((r) => r.roomCode == 'PF-7788'), isTrue);
+    });
+
+    test('Persists and loads user uploaded songs across app restart', () async {
+      const userId = '010001';
+      final songs = [
+        {
+          'id': 10,
+          'title': 'My Favorite Track',
+          'genre': 'Bollywood Chill',
+          'bpm': '110 BPM',
+          'audioPathOrUrl': '/storage/emulated/0/Music/track.mp3',
+        }
+      ];
+
+      await LocalStorageService.saveUserSongs(userId, songs);
+      final loadedSongs = await LocalStorageService.loadUserSongs(userId);
+
+      expect(loadedSongs.length, equals(1));
+      expect(loadedSongs.first['title'], equals('My Favorite Track'));
+      expect(loadedSongs.first['genre'], equals('Bollywood Chill'));
+      expect(loadedSongs.first['audioPathOrUrl'], equals('/storage/emulated/0/Music/track.mp3'));
+    });
+  });
+
+  group('Voice Party Room Responsive Layout & Multi-Game Tests', () {
+    testWidgets('VoicePartyRoomScreen renders cleanly on 360x640 mobile screen with zero overflow',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      const partyRoom = RoomModel(
+        id: 'r_resp_1',
+        roomCode: 'PF-9999',
+        gameTitle: 'Super Long Room Title For Testing Layout Auto-Fit',
+        hostName: 'Shubham Singh 👑',
+        currentPlayers: 4,
+        maxPlayers: 500,
+        isPrivate: false,
+        status: 'Live Voice Party',
+        giftPoints: 4200,
+      );
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: VoicePartyRoomScreen(room: partyRoom),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Top bar elements should all be present without any layout errors
+      expect(find.byIcon(Icons.arrow_back_ios_new_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.palette_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.power_settings_new_rounded), findsOneWidget);
+      expect(find.text('+ Follow'), findsOneWidget);
+      expect(find.text('Super Long Room Title For Testing Layout Auto-Fit'), findsOneWidget);
+
+      // Verify no RenderFlex overflow exceptions occurred
+      expect(tester.takeException(), isNull);
     });
   });
 }

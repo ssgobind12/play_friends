@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/aws_config.dart';
 import '../models/user_model.dart';
+import 'local_storage_service.dart';
 
 class AwsCheckResult {
   final bool exists;
@@ -203,7 +204,7 @@ class AwsStorageService {
           'updatedAt': DateTime.now().toIso8601String(),
         };
 
-        final response = await http
+        await http
             .post(uri, headers: headers, body: jsonEncode(payload))
             .timeout(const Duration(seconds: 5));
 
@@ -251,6 +252,9 @@ class AwsStorageService {
     _userUploadedSongsCache[userId]!.removeWhere((s) => s['title'] == title);
     _userUploadedSongsCache[userId]!.add(songData);
 
+    // Persist to local disk so songs survive app restarts
+    LocalStorageService.saveUserSongs(userId, _userUploadedSongsCache[userId]!);
+
     if (AwsConfig.isConfigured) {
       try {
         final uri = Uri.parse(AwsConfig.apiEndpoint);
@@ -284,6 +288,7 @@ class AwsStorageService {
   }) async {
     if (_userUploadedSongsCache.containsKey(userId)) {
       _userUploadedSongsCache[userId]!.removeWhere((s) => s['id'] == songId);
+      LocalStorageService.saveUserSongs(userId, _userUploadedSongsCache[userId]!);
     }
 
     if (AwsConfig.isConfigured) {
@@ -314,7 +319,14 @@ class AwsStorageService {
 
   /// Fetch all songs uploaded by this user from AWS server or cache
   static Future<List<Map<String, dynamic>>> getUserSongsFromServer(String userId) async {
-    final localSongs = _userUploadedSongsCache[userId] ?? [];
+    var localSongs = _userUploadedSongsCache[userId] ?? [];
+    if (localSongs.isEmpty) {
+      final diskSongs = await LocalStorageService.loadUserSongs(userId);
+      if (diskSongs.isNotEmpty) {
+        _userUploadedSongsCache[userId] = diskSongs;
+        localSongs = diskSongs;
+      }
+    }
 
     if (AwsConfig.isConfigured) {
       try {

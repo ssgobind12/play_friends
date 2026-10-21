@@ -266,21 +266,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                         const SizedBox(height: 12),
 
-                        // Prominent "Upload Profile Photo" button right on the header!
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.cloud_upload_rounded, size: 18),
-                          label: const Text(
-                            'Upload Profile Photo',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primaryPurple,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            elevation: 3,
-                          ),
-                          onPressed: () => _showPhotoPicker(context),
+                        // Prominent "Upload Profile Photo" and "Music Store & Upload" buttons right on the header!
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            ElevatedButton.icon(
+                              icon: const Icon(Icons.cloud_upload_rounded, size: 16),
+                              label: const Text(
+                                'Upload Photo',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primaryPurple,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                elevation: 3,
+                              ),
+                              onPressed: () => _showPhotoPicker(context),
+                            ),
+                            ElevatedButton.icon(
+                              icon: const Icon(Icons.library_music_rounded, size: 16, color: AppColors.accentCyan),
+                              label: const Text(
+                                'Music Store & Upload',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF1E1B4B),
+                                foregroundColor: Colors.white,
+                                side: const BorderSide(color: AppColors.accentCyan, width: 1.2),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                elevation: 3,
+                              ),
+                              onPressed: () => MusicPlayerSheet.show(context),
+                            ),
+                          ],
                         ),
 
                         const SizedBox(height: 16),

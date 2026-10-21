@@ -102,6 +102,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
         _makeMove(aiMove, 'O');
       }
 
+      if (!mounted) return;
       setState(() {
         _isAiThinking = false;
       });

@@ -35,6 +35,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
   }
 
   void _handleCreateRoom() {
+    final currentUserName = AuthService().currentUser?.name ?? 'Player';
     final userLevel = AuthService().currentUser?.level ?? 1;
     // Room capacity scales by player level (> 100 persons):
     // Level 1: up to 100 persons
@@ -55,7 +56,8 @@ class _RoomsScreenState extends State<RoomsScreen> {
       maxAllowedMembers = 100;
     }
 
-    String selectedGame = 'Tic-Tac-Toe Duel';
+    final roomNameCtrl = TextEditingController(text: "$currentUserName's Party Lounge 🎧");
+    String selectedGame = 'All-in-One Multi-Game Party';
     int maxPlayers = min(100, maxAllowedMembers);
     bool isPrivate = false;
 
@@ -94,7 +96,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
                       Icon(Icons.add_box_rounded, color: AppColors.primaryBlueLight),
                       SizedBox(width: 10),
                       Text(
-                        'Create Game Room',
+                        'Create Custom Voice Room',
                         style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                     ],
@@ -121,7 +123,21 @@ class _RoomsScreenState extends State<RoomsScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  const Text('Select Game:', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const Text('Custom Room Name:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: roomNameCtrl,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: 'Enter your custom room name',
+                      filled: true,
+                      fillColor: AppColors.cardBg,
+                      prefixIcon: const Icon(Icons.meeting_room_rounded, color: AppColors.accentCyan),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text('Featured Game (You can play ANY game inside!):', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                     initialValue: selectedGame,
@@ -132,6 +148,10 @@ class _RoomsScreenState extends State<RoomsScreen> {
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                     ),
                     items: const [
+                      DropdownMenuItem(
+                        value: 'All-in-One Multi-Game Party',
+                        child: Text('All-in-One Multi-Game Party 🎮'),
+                      ),
                       DropdownMenuItem(
                         value: 'Tic-Tac-Toe Duel',
                         child: Text('Tic-Tac-Toe Duel'),
@@ -224,10 +244,14 @@ class _RoomsScreenState extends State<RoomsScreen> {
                       onPressed: () {
                         Navigator.of(ctx).pop();
                         final randomCode = 'PF-${1000 + Random().nextInt(9000)}';
+                        final roomTitle = roomNameCtrl.text.trim().isNotEmpty
+                            ? roomNameCtrl.text.trim()
+                            : '$currentUserName\'s Party Lounge 🎮';
+
                         final newRoom = RoomModel(
                           id: 'r_${DateTime.now().millisecondsSinceEpoch}',
                           roomCode: randomCode,
-                          gameTitle: selectedGame,
+                          gameTitle: roomTitle,
                           hostName: AuthService().currentUser?.name ?? 'Player 1',
                           hostPhoto: AuthService().currentUser?.profilePhoto,
                           currentPlayers: 1,
@@ -331,121 +355,130 @@ class _RoomsScreenState extends State<RoomsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Game Rooms & Lobbies'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.music_note_rounded, color: AppColors.accentCyan),
-            tooltip: 'Music Store & Upload',
-            onPressed: () => MusicPlayerSheet.show(context),
+    return ListenableBuilder(
+      listenable: AuthService(),
+      builder: (context, _) {
+        final displayRooms = AuthService().activeRooms.isNotEmpty
+            ? AuthService().activeRooms
+            : (_rooms.isNotEmpty ? _rooms : AuthService.defaultPartyRooms);
+
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Game Rooms & Lobbies'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.music_note_rounded, color: AppColors.accentCyan),
+                tooltip: 'Music Store & Upload',
+                onPressed: () => MusicPlayerSheet.show(context),
+              ),
+            ],
           ),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Top action buttons
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.add_circle_outline_rounded),
-                      label: const Text('Create Room'),
-                      onPressed: _handleCreateRoom,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.login_rounded),
-                      label: const Text('Enter PIN'),
-                      onPressed: _handleJoinWithCode,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Section Header
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Active Public Rooms (${_rooms.length})',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.refresh_rounded, size: 20),
-                    tooltip: 'Refresh Rooms',
-                    onPressed: _refreshRooms,
-                  ),
-                ],
-              ),
-            ),
-
-            // Rooms List or Empty State
-            Expanded(
-              child: _rooms.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.meeting_room_outlined,
-                              size: 64,
-                              color: AppColors.textMuted.withValues(alpha: 0.45),
-                            ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'No Active Rooms Yet',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Create a custom game room or enter a PIN to invite your friends!',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-                            ),
-                            const SizedBox(height: 20),
-                            ElevatedButton.icon(
-                              onPressed: _handleCreateRoom,
-                              icon: const Icon(Icons.add_rounded),
-                              label: const Text('Create First Room'),
-                            ),
-                          ],
+          body: SafeArea(
+            child: Column(
+              children: [
+                // Top action buttons
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.add_circle_outline_rounded),
+                          label: const Text('Create Room'),
+                          onPressed: _handleCreateRoom,
                         ),
                       ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                      itemCount: _rooms.length,
-                      itemBuilder: (context, index) {
-                        final room = _rooms[index];
-                        return RoomCard(
-                          room: room,
-                          onJoin: () => _openRoomLobby(room),
-                        );
-                      },
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.login_rounded),
+                          label: const Text('Enter PIN'),
+                          onPressed: _handleJoinWithCode,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Section Header
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Active Public Rooms (${displayRooms.length})',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.refresh_rounded, size: 20),
+                        tooltip: 'Refresh Rooms',
+                        onPressed: _refreshRooms,
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Rooms List or Empty State
+                Expanded(
+                  child: displayRooms.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.meeting_room_outlined,
+                                  size: 64,
+                                  color: AppColors.textMuted.withValues(alpha: 0.45),
+                                ),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'No Active Rooms Yet',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Create a custom game room or enter a PIN to invite your friends!',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                                ),
+                                const SizedBox(height: 20),
+                                ElevatedButton.icon(
+                                  onPressed: _handleCreateRoom,
+                                  icon: const Icon(Icons.add_rounded),
+                                  label: const Text('Create First Room'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                          itemCount: displayRooms.length,
+                          itemBuilder: (context, index) {
+                            final room = displayRooms[index];
+                            return RoomCard(
+                              room: room,
+                              onJoin: () => _openRoomLobby(room),
+                            );
+                          },
+                        ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

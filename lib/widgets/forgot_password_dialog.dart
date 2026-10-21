@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../config/brevo_config.dart';
@@ -343,8 +344,8 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
 
             // STEP 2: ENTER OTP & NEW PASSWORD
             if (_step == 2) ...[
-              // Simulated Email Inbox Notification Banner
-              if (activeOtp != null)
+              // Email Inbox Notification Banner (Debug development mode only; hidden in production)
+              if (kDebugMode && activeOtp != null)
                 Container(
                   margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(12),

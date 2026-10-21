@@ -51,16 +51,21 @@ class BrevoEmailService {
       isRegistration: isRegistration,
     );
 
-    // If Brevo API key is not configured, gracefully simulate delivery
+    // If Brevo API key is not configured, handle safely (never falsely claim success in release)
     if (!BrevoConfig.isConfigured) {
       if (kDebugMode) {
         debugPrint(
-          'Brevo API is not yet configured. Simulated delivery active for OTP: $otpCode -> $recipientEmail',
+          '[DEV MODE] Brevo API is not configured via --dart-define. Simulated delivery for testing: $otpCode -> $recipientEmail',
+        );
+        return const EmailSendResult(
+          success: true,
+          message: 'Local development simulation active (Brevo API key not provided).',
+          usedBrevoLiveApi: false,
         );
       }
       return const EmailSendResult(
-        success: true,
-        message: 'OTP delivered (Demo simulation mode). Add your Brevo API key to enable live SMTP delivery.',
+        success: false,
+        message: 'Transactional email service is not configured on this client.',
         usedBrevoLiveApi: false,
       );
     }

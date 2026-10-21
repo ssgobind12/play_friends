@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../config/brevo_config.dart';
@@ -186,8 +187,8 @@ class _OtpVerificationViewState extends State<OtpVerificationView> {
           ),
           const SizedBox(height: 16),
 
-          // EMAIL DELIVERY STATUS & NOTIFICATION CARD
-          if (activeOtp != null)
+          // EMAIL DELIVERY STATUS & NOTIFICATION CARD (Debug development mode only; hidden in production)
+          if (kDebugMode && activeOtp != null)
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(

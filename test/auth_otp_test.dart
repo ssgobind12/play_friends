@@ -99,13 +99,13 @@ void main() {
       expect(resetOtp, isNotNull);
       expect(resetOtp!.length, 6);
 
-      // Wrong OTP fails
+      // Wrong OTP fails with remaining attempts counter
       final wrongOtpErr = auth.resetPasswordWithOtp(
         email: 'alex@playfriends.io',
         otp: '999999',
         newPassword: 'myNewPassword456',
       );
-      expect(wrongOtpErr, contains('Invalid or expired'));
+      expect(wrongOtpErr, contains('Incorrect OTP code'));
 
       // Correct OTP succeeds
       final success = auth.resetPasswordWithOtp(
@@ -143,13 +143,48 @@ void main() {
       expect(us.flag, '🇺🇸');
     });
 
-    test('BrevoConfig isConfigured check and live config verification', () async {
-      // Config is active with custom domain sender for inbox deliverability
-      expect(BrevoConfig.isConfigured, isTrue);
-      expect(BrevoConfig.apiKey.startsWith('xkeysib-'), isTrue);
+    test('BrevoConfig security audit: no raw credentials hardcoded in codebase', () async {
+      // API Key must not be hardcoded in client source code
+      expect(BrevoConfig.apiKey, isEmpty);
+      expect(BrevoConfig.smtpPassword, isEmpty);
+      expect(BrevoConfig.isConfigured, isFalse);
       expect(BrevoConfig.senderEmail, 'noreply@ssgobind.space');
       expect(BrevoConfig.replyToEmail, 'playgamefriendes@gmail.com');
       expect(BrevoConfig.domain, 'ssgobind.space');
+    });
+
+    test('Security: Max 3 failed OTP attempts invalidates code', () {
+      final code = auth.generateRegistrationOtp('lockout@test.com');
+      expect(auth.verifyRegistrationOtp('lockout@test.com', '111111'), isFalse);
+      expect(auth.verifyRegistrationOtp('lockout@test.com', '222222'), isFalse);
+      expect(auth.verifyRegistrationOtp('lockout@test.com', '333333'), isFalse); // 3rd failed attempt
+
+      // Now even the correct code must fail because max attempts was exceeded
+      expect(auth.verifyRegistrationOtp('lockout@test.com', code), isFalse);
+    });
+
+    test('Security: Passwords stored as salted SHA-256 hash and not plaintext', () {
+      auth.register(
+        name: 'Hash Tester',
+        tag: '@hash_tester',
+        email: 'hash@playfriends.io',
+        password: 'PlaintextPassword#99',
+        phoneNumber: '9123499999',
+        countryCode: '+91',
+        countryFlag: '🇮🇳',
+        avatarColor: const Color(0xFF10B981),
+      );
+
+      final user = auth.currentUser!;
+      // Plaintext password is never stored
+      expect(user.passwordHash, isNotEmpty);
+      expect(user.passwordHash, isNot(contains('PlaintextPassword#99')));
+      expect(user.passwordHash.length, 64); // Standard SHA-256 64-character hex length
+
+      // Serialized map for SharedPreferences & network never contains plaintext password
+      final map = user.toMap();
+      expect(map.containsKey('password'), isFalse);
+      expect(map['passwordHash'], equals(user.passwordHash));
     });
 
     test('AWS Storage checkUserExists blocks duplicate email and mobile number', () async {

@@ -6,7 +6,9 @@ import '../models/room_model.dart';
 import '../services/aws_storage_service.dart';
 import '../services/brevo_email_service.dart';
 import '../services/in_app_music_service.dart';
+import '../services/local_storage_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/security_helper.dart';
 
 class OtpRecord {
   final String email;
@@ -14,6 +16,7 @@ class OtpRecord {
   final DateTime createdAt;
   final String purpose; // 'registration' or 'forgot_password'
   bool isUsed;
+  int failedAttempts;
 
   OtpRecord({
     required this.email,
@@ -21,9 +24,14 @@ class OtpRecord {
     required this.createdAt,
     required this.purpose,
     this.isUsed = false,
+    this.failedAttempts = 0,
   });
 
-  bool get isExpired => DateTime.now().difference(createdAt).inMinutes > 10;
+  /// Configurable strict 5-minute expiry window
+  bool get isExpired => DateTime.now().difference(createdAt).inMinutes >= 5;
+
+  /// Max 3 verification attempts permitted before code invalidation
+  bool get isMaxAttemptsExceeded => failedAttempts >= 3;
 }
 
 class AuthService extends ChangeNotifier {
@@ -35,7 +43,7 @@ class AuthService extends ChangeNotifier {
     name: 'Shubham Singh',
     tag: '@ssgobind12',
     email: 'ssgobind12@gamil.com',
-    password: 'Shubham@003',
+    passwordHash: SecurityHelper.adminPasswordHash,
     phoneNumber: '8573029430',
     countryCode: '+91',
     countryFlag: '🇮🇳',
@@ -62,30 +70,73 @@ class AuthService extends ChangeNotifier {
   late List<UserModel> _registeredUsers;
   UserModel? _currentUser;
   final List<OtpRecord> _otpRecords = [];
+  bool _initialized = false;
 
   UserModel? get currentUser => _currentUser;
   bool get isAuthenticated => _currentUser != null;
   List<UserModel> get registeredUsers => List.unmodifiable(_registeredUsers);
 
+  /// Loads persisted user, registered accounts, custom rooms, and songs from disk
+  Future<void> init() async {
+    if (_initialized) return;
+    _initialized = true;
+
+    try {
+      final savedUsers = await LocalStorageService.loadRegisteredUsers();
+      if (savedUsers.isNotEmpty) {
+        _registeredUsers = savedUsers;
+        if (!_registeredUsers.any((u) => u.id == adminUser.id)) {
+          _registeredUsers.add(adminUser);
+        }
+      }
+
+      final savedCurrent = await LocalStorageService.loadCurrentUser();
+      if (savedCurrent != null) {
+        _currentUser = savedCurrent;
+        final idx = _registeredUsers.indexWhere((u) => u.id == savedCurrent.id);
+        if (idx != -1) {
+          _registeredUsers[idx] = savedCurrent;
+        } else {
+          _registeredUsers.add(savedCurrent);
+        }
+      }
+
+      final savedRooms = await LocalStorageService.loadActiveRooms();
+      if (savedRooms.isNotEmpty) {
+        _activeRooms.clear();
+        _activeRooms.addAll(savedRooms);
+      } else if (_activeRooms.isEmpty) {
+        _activeRooms.addAll(defaultPartyRooms);
+      }
+
+      if (_currentUser != null) {
+        await InAppMusicService().loadUserSongs(_currentUser!.id);
+      }
+    } catch (e) {
+      debugPrint('AuthService init error: $e');
+    }
+    notifyListeners();
+  }
+
+  void _persistState() {
+    LocalStorageService.saveCurrentUser(_currentUser);
+    LocalStorageService.saveRegisteredUsers(_registeredUsers);
+    LocalStorageService.saveActiveRooms(_activeRooms);
+  }
+
+  final Map<String, DateTime> _lastOtpSentTimes = {};
+
   // --------------------------------------------------------------------------
-  // OTP GENERATION & VERIFICATION (6-digit One-Time Codes)
+  // OTP GENERATION & VERIFICATION (Cryptographically Secure 6-digit One-Time Codes)
   // --------------------------------------------------------------------------
 
   String _generate6DigitOtp() {
-    final rng = Random();
-    final number = 100000 + rng.nextInt(900000);
-    return number.toString();
+    return SecurityHelper.generateSecure6DigitOtp();
   }
 
   /// Generates a unique security ID starting with '01'
   String _generateSecurityId() {
-    final rng = Random();
-    String newId;
-    do {
-      final num = 100000 + rng.nextInt(900000);
-      newId = '01$num';
-    } while (_registeredUsers.any((u) => u.id == newId));
-    return newId;
+    return SecurityHelper.generateSecureUserId((id) => _registeredUsers.any((u) => u.id == id));
   }
 
   /// Generates and records a 6-digit one-time OTP for email registration
@@ -107,6 +158,7 @@ class AuthService extends ChangeNotifier {
         purpose: 'registration',
       ),
     );
+    _lastOtpSentTimes[cleanEmail] = DateTime.now();
 
     // Trigger Brevo email delivery asynchronously
     BrevoEmailService.sendOtpEmail(
@@ -119,24 +171,36 @@ class AuthService extends ChangeNotifier {
     return code;
   }
 
-  /// Verifies a 6-digit one-time OTP for registration
+  /// Verifies a 6-digit one-time OTP for registration (Single-use, max 3 attempts, 5-min expiry)
   bool verifyRegistrationOtp(String email, String otp) {
     final cleanEmail = email.trim().toLowerCase();
     final cleanOtp = otp.trim();
 
+    OtpRecord? activeRecord;
     for (int i = _otpRecords.length - 1; i >= 0; i--) {
       final record = _otpRecords[i];
       if (record.email == cleanEmail &&
           record.purpose == 'registration' &&
-          !record.isUsed &&
-          !record.isExpired) {
-        if (record.code == cleanOtp) {
-          record.isUsed = true; // One-time use enforced
-          return true;
-        }
+          !record.isUsed) {
+        activeRecord = record;
+        break;
       }
     }
-    return false;
+
+    if (activeRecord == null || activeRecord.isExpired || activeRecord.isMaxAttemptsExceeded) {
+      return false;
+    }
+
+    if (activeRecord.code == cleanOtp) {
+      activeRecord.isUsed = true; // One-time atomic use enforced
+      return true;
+    } else {
+      activeRecord.failedAttempts++;
+      if (activeRecord.failedAttempts >= 3) {
+        activeRecord.isUsed = true; // Invalidate code after 3 failed attempts
+      }
+      return false;
+    }
   }
 
   /// Generates and sends a 6-digit one-time OTP for forgot password
@@ -148,6 +212,14 @@ class AuthService extends ChangeNotifier {
     if (userIndex == -1) {
       return 'No account found with this email address. Please register.';
     }
+
+    // Cooldown check (60s rate limit)
+    final lastSent = _lastOtpSentTimes[cleanEmail];
+    if (lastSent != null && DateTime.now().difference(lastSent).inSeconds < 60) {
+      final remaining = 60 - DateTime.now().difference(lastSent).inSeconds;
+      return 'Please wait $remaining seconds before requesting another code.';
+    }
+    _lastOtpSentTimes[cleanEmail] = DateTime.now();
 
     final user = _registeredUsers[userIndex];
 
@@ -179,7 +251,7 @@ class AuthService extends ChangeNotifier {
     return null; // Success
   }
 
-  /// Verifies 6-digit OTP and resets user password
+  /// Verifies 6-digit OTP and resets user password with salted hash
   String? resetPasswordWithOtp({
     required String email,
     required String otp,
@@ -197,17 +269,24 @@ class AuthService extends ChangeNotifier {
       final record = _otpRecords[i];
       if (record.email == cleanEmail &&
           record.purpose == 'forgot_password' &&
-          !record.isUsed &&
-          !record.isExpired) {
-        if (record.code == cleanOtp) {
-          validRecord = record;
-          break;
-        }
+          !record.isUsed) {
+        validRecord = record;
+        break;
       }
     }
 
-    if (validRecord == null) {
+    if (validRecord == null || validRecord.isExpired || validRecord.isMaxAttemptsExceeded) {
       return 'Invalid or expired 6-digit OTP. Please request a new code.';
+    }
+
+    if (validRecord.code != cleanOtp) {
+      validRecord.failedAttempts++;
+      if (validRecord.failedAttempts >= 3) {
+        validRecord.isUsed = true;
+        return 'Maximum verification attempts exceeded. Please request a new code.';
+      }
+      final remaining = 3 - validRecord.failedAttempts;
+      return 'Incorrect OTP code. $remaining attempts remaining.';
     }
 
     final userIndex = _registeredUsers.indexWhere((u) => u.email.toLowerCase() == cleanEmail);
@@ -215,20 +294,22 @@ class AuthService extends ChangeNotifier {
       return 'Account not found.';
     }
 
-    // Update password
-    _registeredUsers[userIndex] = _registeredUsers[userIndex].copyWith(password: newPassword);
-    validRecord.isUsed = true; // Enforce one-time OTP consumption
+    // Update password with salted SHA-256 hash
+    final newHash = SecurityHelper.hashPassword(newPassword);
+    _registeredUsers[userIndex] = _registeredUsers[userIndex].copyWith(passwordHash: newHash);
+    validRecord.isUsed = true; // Enforce one-time atomic OTP consumption
 
     // If currently logged in as this user, update active session
     if (_currentUser?.email.toLowerCase() == cleanEmail) {
       _currentUser = _registeredUsers[userIndex];
     }
 
+    _persistState();
     notifyListeners();
     return null; // Success
   }
 
-  /// Helper to get the latest active OTP code for in-app demo email notifications
+  /// Helper to get the latest active OTP code for test/debug verification
   String? getLatestOtpForEmail(String email, {String? purpose}) {
     final cleanEmail = email.trim().toLowerCase();
     for (int i = _otpRecords.length - 1; i >= 0; i--) {
@@ -259,12 +340,13 @@ class AuthService extends ChangeNotifier {
         cleanTag == '@ssgobind12';
 
     if (isAdminMatch) {
-      if (password == 'Shubham@003') {
+      if (SecurityHelper.verifyPassword(password, SecurityHelper.adminPasswordHash)) {
         _currentUser = adminUser;
         if (!_registeredUsers.any((u) => u.id == adminUser.id)) {
           _registeredUsers.add(adminUser);
         }
         InAppMusicService().loadUserSongs(_currentUser!.id);
+        _persistState();
         notifyListeners();
         return null; // Success
       } else {
@@ -287,12 +369,13 @@ class AuthService extends ChangeNotifier {
       return 'Account not found. Please check your username/email or sign up.';
     }
 
-    if (matchedUser.password != password) {
+    if (!SecurityHelper.verifyPassword(password, matchedUser.passwordHash)) {
       return 'Incorrect password. Please try again.';
     }
 
     _currentUser = matchedUser;
     InAppMusicService().loadUserSongs(_currentUser!.id);
+    _persistState();
     notifyListeners();
     return null; // Success
   }
@@ -411,7 +494,7 @@ class AuthService extends ChangeNotifier {
       name: cleanName,
       tag: formattedTag,
       email: cleanEmail,
-      password: password,
+      passwordHash: SecurityHelper.hashPassword(password),
       phoneNumber: phoneNumber.trim(),
       countryCode: countryCode,
       countryFlag: countryFlag,
@@ -436,6 +519,7 @@ class AuthService extends ChangeNotifier {
     // Persist to AWS Cloud Storage / DynamoDB
     AwsStorageService.storeUser(newUser);
 
+    _persistState();
     notifyListeners();
     return null; // Success
   }
@@ -447,7 +531,7 @@ class AuthService extends ChangeNotifier {
       name: 'Guest Player',
       tag: '@guest_$randomDigits',
       email: 'guest$randomDigits@local.demo',
-      password: '',
+      passwordHash: '',
       phoneNumber: null,
       countryCode: '+91',
       countryFlag: '🇮🇳',
@@ -462,11 +546,13 @@ class AuthService extends ChangeNotifier {
     );
 
     _currentUser = guestUser;
+    _persistState();
     notifyListeners();
   }
 
   void logout() {
     _currentUser = null;
+    LocalStorageService.saveCurrentUser(null);
     notifyListeners();
   }
 
@@ -538,6 +624,7 @@ class AuthService extends ChangeNotifier {
       unlockedGameIds: updatedUnlockedGames,
     );
 
+    _persistState();
     notifyListeners();
     return newlyUnlockedTitle;
   }
@@ -566,6 +653,7 @@ class AuthService extends ChangeNotifier {
       level: _currentUser!.level < 5 ? 5 : _currentUser!.level,
       totalWins: _currentUser!.totalWins < 20 ? 20 : _currentUser!.totalWins,
     );
+    _persistState();
     notifyListeners();
   }
 
@@ -591,6 +679,7 @@ class AuthService extends ChangeNotifier {
       profilePhoto: photo,
     );
 
+    _persistState();
     notifyListeners();
   }
 
@@ -609,6 +698,7 @@ class AuthService extends ChangeNotifier {
     if (idx != -1) {
       _registeredUsers[idx] = _currentUser!;
     }
+    _persistState();
     notifyListeners();
   }
 
@@ -627,6 +717,7 @@ class AuthService extends ChangeNotifier {
     );
 
     _currentUser = null;
+    _persistState();
     notifyListeners();
     return true;
   }
@@ -639,6 +730,7 @@ class AuthService extends ChangeNotifier {
     if (idx != -1) {
       _registeredUsers[idx] = _currentUser!;
     }
+    _persistState();
     notifyListeners();
     return true;
   }
@@ -651,6 +743,7 @@ class AuthService extends ChangeNotifier {
     if (idx != -1) {
       _registeredUsers[idx] = _currentUser!;
     }
+    _persistState();
     notifyListeners();
   }
 
@@ -666,6 +759,7 @@ class AuthService extends ChangeNotifier {
     if (idx != -1) {
       _registeredUsers[idx] = _currentUser!;
     }
+    _persistState();
     notifyListeners();
   }
 
@@ -707,6 +801,7 @@ class AuthService extends ChangeNotifier {
     } else {
       _localFriends.add(newFriend);
     }
+    _persistState();
     notifyListeners();
   }
 
@@ -717,6 +812,7 @@ class AuthService extends ChangeNotifier {
     } else {
       _localFriends.removeWhere((f) => f.id == friendId);
     }
+    _persistState();
     notifyListeners();
   }
 
@@ -765,18 +861,20 @@ class AuthService extends ChangeNotifier {
 
   void addRoom(RoomModel room) {
     _activeRooms.insert(0, room);
+    _persistState();
     notifyListeners();
   }
 
   void resetStatsForTesting() {
-    const testAlex = UserModel(
+    LocalStorageService.resetInMemoryForTesting();
+    final testAlex = UserModel(
       id: '010002',
       email: 'alex@playfriends.io',
-      password: 'password123',
+      passwordHash: SecurityHelper.hashPassword('password123'),
       phoneNumber: '9876543210',
       name: 'Alex Vance',
       tag: '@alex_play',
-      avatarColor: Color(0xFF8B5CF6),
+      avatarColor: const Color(0xFF8B5CF6),
       avatarInitial: 'A',
       level: 1,
       xp: 0,
@@ -785,14 +883,15 @@ class AuthService extends ChangeNotifier {
       totalMatches: 0,
       totalWins: 0,
       winRate: 0.0,
-      unlockedGameIds: ['tic_tac_toe'],
-      friends: [],
+      unlockedGameIds: const ['tic_tac_toe'],
+      friends: const [],
     );
     _currentUser = testAlex;
     _registeredUsers = [adminUser, testAlex];
     _activeRooms.clear();
     _localFriends.clear();
     _otpRecords.clear();
+    _persistState();
     notifyListeners();
   }
 }

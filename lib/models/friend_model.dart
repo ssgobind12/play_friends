@@ -22,4 +22,32 @@ class FriendModel {
     required this.statusText,
     required this.favoriteGame,
   });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'tag': tag,
+      'initial': initial,
+      'avatarColor': avatarColor.toARGB32(),
+      'level': level,
+      'isOnline': isOnline,
+      'statusText': statusText,
+      'favoriteGame': favoriteGame,
+    };
+  }
+
+  factory FriendModel.fromMap(Map<String, dynamic> map) {
+    return FriendModel(
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? '',
+      tag: map['tag']?.toString() ?? '',
+      initial: map['initial']?.toString() ?? 'P',
+      avatarColor: Color(map['avatarColor'] is int ? map['avatarColor'] as int : 0xFF7C3AED),
+      level: map['level'] is int ? map['level'] as int : 1,
+      isOnline: map['isOnline'] == true,
+      statusText: map['statusText']?.toString() ?? '',
+      favoriteGame: map['favoriteGame']?.toString() ?? '',
+    );
+  }
 }

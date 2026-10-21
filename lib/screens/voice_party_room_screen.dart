@@ -14,6 +14,9 @@ import '../widgets/music_player_sheet.dart';
 import 'carrom_game_screen.dart';
 import 'ludo_game_screen.dart';
 import 'tic_tac_toe_screen.dart';
+import 'space_dodge_screen.dart';
+import 'neon_arena_brawl_screen.dart';
+import 'word_rush_screen.dart';
 
 // Available animated gifts for voice rooms
 class GiftItem {
@@ -905,17 +908,186 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
   }
 
   void _launchRoomGame() {
-    Widget targetScreen;
-    if (widget.room.gameTitle.contains('Ludo')) {
-      targetScreen = const LudoGameScreen();
-    } else if (widget.room.gameTitle.contains('Carrom')) {
-      targetScreen = const CarromGameScreen();
-    } else {
-      targetScreen = const TicTacToeScreen();
-    }
+    final games = [
+      (
+        id: 'tic_tac_toe',
+        title: 'Tic-Tac-Toe Duel',
+        desc: 'Fast 1v1 grid battle',
+        icon: Icons.grid_3x3_rounded,
+        color: AppColors.primaryPurple,
+        screen: const TicTacToeScreen(),
+      ),
+      (
+        id: 'ludo',
+        title: 'Ludo Friends',
+        desc: '4-Player classic board race (Ludo King style)',
+        icon: Icons.casino_rounded,
+        color: const Color(0xFFF59E0B),
+        screen: const LudoGameScreen(),
+      ),
+      (
+        id: 'carrom',
+        title: 'Carrom Clash',
+        desc: 'Striker disc physics battle',
+        icon: Icons.circle_outlined,
+        color: const Color(0xFFEC4899),
+        screen: const CarromGameScreen(),
+      ),
+      (
+        id: 'space_dodge',
+        title: 'Cyber Space Dodge',
+        desc: 'Retro arcade dodge battle',
+        icon: Icons.rocket_launch_rounded,
+        color: AppColors.accentCyan,
+        screen: const SpaceDodgeGameScreen(),
+      ),
+      (
+        id: 'arena_brawl',
+        title: 'Neon Arena Brawl',
+        desc: 'Neon gladiator combat',
+        icon: Icons.sports_kabaddi_rounded,
+        color: const Color(0xFFEF4444),
+        screen: const NeonArenaBrawlScreen(),
+      ),
+      (
+        id: 'word_rush',
+        title: 'Word Sprint Rush',
+        desc: 'Vocabulary speed challenge',
+        icon: Icons.spellcheck_rounded,
+        color: const Color(0xFF10B981),
+        screen: const WordRushScreen(),
+      ),
+    ];
 
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => targetScreen),
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF131127),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        final auth = AuthService();
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.sports_esports_rounded, color: AppColors.coinAmber, size: 26),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Play Game in this Room',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                        Text(
+                          'Pick any game to launch and play with room members',
+                          style: TextStyle(fontSize: 12, color: Colors.white60),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.white54),
+                    onPressed: () => Navigator.of(ctx).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              ...games.map((g) {
+                final isUnlocked = auth.isGameUnlocked(g.id);
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isUnlocked
+                          ? g.color.withValues(alpha: 0.4)
+                          : Colors.white.withValues(alpha: 0.1),
+                    ),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                    leading: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: g.color.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(g.icon, color: isUnlocked ? g.color : Colors.white38, size: 24),
+                    ),
+                    title: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            g.title,
+                            style: TextStyle(
+                              color: isUnlocked ? Colors.white : Colors.white54,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                        if (widget.room.gameTitle.toLowerCase().contains(g.id.replaceAll('_', ' '))) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.onlineGreen.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text('ROOM GAME', style: TextStyle(color: AppColors.onlineGreen, fontSize: 9, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ],
+                    ),
+                    subtitle: Text(
+                      isUnlocked ? g.desc : '🔒 Unlocks with higher level & wins',
+                      style: TextStyle(
+                        color: isUnlocked ? Colors.white70 : Colors.white38,
+                        fontSize: 11,
+                      ),
+                    ),
+                    trailing: isUnlocked
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: g.color,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text('Play ▶', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                          )
+                        : const Icon(Icons.lock_rounded, color: Colors.white38, size: 18),
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      if (isUnlocked) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => g.screen),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('🔒 ${g.title} is locked. Reach higher level or wins to unlock!'),
+                            backgroundColor: Colors.redAccent,
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1019,195 +1191,212 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
     final hostImage = _resolveAvatarImage(hostPhoto);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      child: Row(
-        children: [
-          // Minimize / Back Button to return to app while floating mini-player stays active
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            tooltip: 'Minimize Room',
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          const SizedBox(width: 8),
-
-          // Host Profile Pill with Room Title and ID
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Minimize / Back Button
+            IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              tooltip: 'Minimize Room',
+              onPressed: () => Navigator.of(context).pop(),
             ),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: AppColors.primaryPurple,
-                  backgroundImage: hostImage,
-                  child: hostImage != null
-                      ? null
-                      : Text(
-                          widget.room.hostName.isNotEmpty ? widget.room.hostName[0] : 'H',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
-                        ),
-                ),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      widget.room.gameTitle,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                    ),
-                    Text(
-                      'ID: ${widget.room.roomCode}',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 10),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 8),
-                // Charm Score Badge
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.trophyGold.withValues(alpha: 0.25),
-                    borderRadius: BorderRadius.circular(10),
+            const SizedBox(width: 8),
+
+            // Host Profile Pill with Room Title and ID
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircleAvatar(
+                    radius: 13,
+                    backgroundColor: AppColors.primaryPurple,
+                    backgroundImage: hostImage,
+                    child: hostImage != null
+                        ? null
+                        : Text(
+                            widget.room.hostName.isNotEmpty ? widget.room.hostName[0] : 'H',
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 11),
+                          ),
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.emoji_events_rounded, size: 12, color: AppColors.trophyGold),
-                      const SizedBox(width: 3),
-                      Text(
-                        '$_charmPoints',
-                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.trophyGold),
+                  const SizedBox(width: 6),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 125),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.room.gameTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                        ),
+                        Text(
+                          'ID: ${widget.room.roomCode}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 9),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // Charm Score Badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.trophyGold.withValues(alpha: 0.25),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.emoji_events_rounded, size: 10, color: AppColors.trophyGold),
+                        const SizedBox(width: 2),
+                        Text(
+                          '$_charmPoints',
+                          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.trophyGold),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  // Room Level Badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryPurple.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Lv.${LevelProgressionService.calculateLevel(_charmPoints)}',
+                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.accentCyan),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(width: 6),
+
+            // Follow Room Button (+ Follow / Following ✓)
+            ListenableBuilder(
+              listenable: VoiceRoomManager(),
+              builder: (context, _) {
+                final isFollowed = VoiceRoomManager().isFollowingRoom(widget.room.roomCode);
+                return GestureDetector(
+                  onTap: () {
+                    VoiceRoomManager().toggleFollowRoom(widget.room.roomCode);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(isFollowed ? 'Unfollowed room' : 'Following room! Added to your Favorites ⭐'),
+                        duration: const Duration(milliseconds: 900),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isFollowed ? AppColors.onlineGreen : AppColors.primaryPurple,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      isFollowed ? 'Following ✓' : '+ Follow',
+                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(width: 4),
+
+            // Spectators Count Pill
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.people_alt_rounded, size: 12, color: AppColors.accentCyan),
+                  const SizedBox(width: 3),
+                  Text(
+                    '$_activeSpectators/${widget.room.maxPlayers}',
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(width: 4),
+
+            // 10 Room Themes Switcher Button
+            IconButton(
+              icon: const Icon(Icons.palette_rounded, color: AppColors.coinAmber, size: 20),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              tooltip: '10 Room Themes',
+              onPressed: () => _showThemeSelectorSheet(context),
+            ),
+
+            const SizedBox(width: 4),
+            IconButton(
+              icon: const Icon(Icons.power_settings_new_rounded, color: Colors.white, size: 22),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              tooltip: 'Leave / Minimize Room',
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    backgroundColor: const Color(0xFF1E1B4B),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    title: const Text('Voice Party Room'),
+                    content: const Text(
+                      'Do you want to minimize this room to the floating mini-player, or leave completely?',
+                      style: TextStyle(fontSize: 13, height: 1.4),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () {
+                          // Minimize: pop screen, keeps room active in background with floating mini-player!
+                          Navigator.of(ctx).pop();
+                          Navigator.of(context).pop();
+                        },
+                        child: const Text('Minimize to Floating Player', style: TextStyle(color: AppColors.accentCyan)),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                        onPressed: () {
+                          // Leave: stop audio, clear active room, pop screen
+                          Navigator.of(ctx).pop();
+                          VoiceRoomManager().leaveRoom();
+                          Navigator.of(context).pop();
+                        },
+                        child: const Text('Leave Room'),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 6),
-                // Room Level Badge (Ahchat style: 1000->Lv2, 3000->Lv3, 5000->Lv4...)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryPurple.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    'Lv.${LevelProgressionService.calculateLevel(_charmPoints)}',
-                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.accentCyan),
-                  ),
-                ),
-              ],
+                );
+              },
             ),
-          ),
-
-          const Spacer(),
-
-          // Follow Room Button (+ Follow / Following ✓)
-          ListenableBuilder(
-            listenable: VoiceRoomManager(),
-            builder: (context, _) {
-              final isFollowed = VoiceRoomManager().isFollowingRoom(widget.room.roomCode);
-              return GestureDetector(
-                onTap: () {
-                  VoiceRoomManager().toggleFollowRoom(widget.room.roomCode);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(isFollowed ? 'Unfollowed room' : 'Following room! Added to your Favorites ⭐'),
-                      duration: const Duration(milliseconds: 900),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: isFollowed ? AppColors.onlineGreen : AppColors.primaryPurple,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    isFollowed ? 'Following ✓' : '+ Follow',
-                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                ),
-              );
-            },
-          ),
-
-          const SizedBox(width: 6),
-
-          // Spectators Count & Avatars Pill (> 100 person capacity according to level!)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.35),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.people_alt_rounded, size: 14, color: AppColors.accentCyan),
-                const SizedBox(width: 4),
-                Text(
-                  '$_activeSpectators/${widget.room.maxPlayers}',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(width: 6),
-
-          // 10 Room Themes Switcher Button
-          IconButton(
-            icon: const Icon(Icons.palette_rounded, color: AppColors.coinAmber, size: 22),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            tooltip: '10 Room Themes',
-            onPressed: () => _showThemeSelectorSheet(context),
-          ),
-
-          const SizedBox(width: 4),
-          IconButton(
-            icon: const Icon(Icons.power_settings_new_rounded, color: Colors.white, size: 24),
-            tooltip: 'Leave / Minimize Room',
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  backgroundColor: const Color(0xFF1E1B4B),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  title: const Text('Voice Party Room'),
-                  content: const Text(
-                    'Do you want to minimize this room to the floating mini-player, or leave completely?',
-                    style: TextStyle(fontSize: 13, height: 1.4),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        // Minimize: pop screen, keeps room active in background with floating mini-player!
-                        Navigator.of(ctx).pop();
-                        Navigator.of(context).pop();
-                      },
-                      child: const Text('Minimize to Floating Player', style: TextStyle(color: AppColors.accentCyan)),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-                      onPressed: () {
-                        // Leave: stop audio, clear active room, pop screen
-                        Navigator.of(ctx).pop();
-                        VoiceRoomManager().leaveRoom();
-                        Navigator.of(context).pop();
-                      },
-                      child: const Text('Leave Room'),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1536,18 +1725,21 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Row(
-                    children: [
-                      Text(
-                        msg.senderName,
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 12),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        msg.message,
-                        style: const TextStyle(color: Color(0xFFFDE047), fontSize: 12),
-                      ),
-                    ],
+                  child: RichText(
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: '${msg.senderName} ',
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 12),
+                        ),
+                        TextSpan(
+                          text: msg.message,
+                          style: const TextStyle(color: Color(0xFFFDE047), fontSize: 12),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 // Invite to Mic button
@@ -1685,16 +1877,18 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
 
   Widget _buildBottomActionBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       color: Colors.black.withValues(alpha: 0.5),
       child: Row(
         children: [
           // 1. Speaker Toggle (Mute/Unmute Room Audio)
           IconButton(
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(),
             icon: Icon(
               _isRoomAudioMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
               color: _isRoomAudioMuted ? Colors.redAccent : Colors.white,
-              size: 24,
+              size: 22,
             ),
             tooltip: 'Room Audio',
             onPressed: () {
@@ -1704,13 +1898,16 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
               });
             },
           ),
+          const SizedBox(width: 4),
 
           // 2. Microphone Mute / Unmute Toggle
           IconButton(
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(),
             icon: Icon(
               _isMicMuted ? Icons.mic_off_rounded : Icons.mic_rounded,
               color: _isMicMuted ? Colors.redAccent : AppColors.accentCyan,
-              size: 24,
+              size: 22,
             ),
             tooltip: 'My Mic',
             onPressed: () {
@@ -1725,15 +1922,19 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
               GameSoundService.buttonTap();
             },
           ),
+          const SizedBox(width: 4),
 
           // 3. Emoji Reactions Button
           IconButton(
-            icon: const Icon(Icons.mood_rounded, color: Color(0xFFFDE047), size: 24),
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(),
+            icon: const Icon(Icons.mood_rounded, color: Color(0xFFFDE047), size: 22),
             tooltip: 'Reactions',
             onPressed: () {
               _addFloatingReaction(['❤️', '🔥', '🎉', '🎲', '👑'][Random().nextInt(5)]);
             },
           ),
+          const SizedBox(width: 6),
 
           // 4. Chat Input Field
           Expanded(

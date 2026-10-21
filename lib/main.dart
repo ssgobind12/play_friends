@@ -11,8 +11,9 @@ import 'services/phone_media_picker_service.dart';
 import 'theme/app_theme.dart';
 import 'widgets/floating_mini_room_player.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AuthService().init();
   runApp(const PlayFriendsApp());
 }
 

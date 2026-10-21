@@ -64,6 +64,7 @@ class _LoginScreenState extends State<LoginScreen> {
       context,
       initialEmail: _identifierController.text.contains('@') ? _identifierController.text : '',
       onPasswordResetSuccess: (email, newPassword) {
+        if (!mounted) return;
         setState(() {
           _identifierController.text = email;
           _passwordController.text = newPassword;

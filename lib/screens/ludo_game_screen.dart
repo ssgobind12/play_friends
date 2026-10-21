@@ -131,6 +131,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       setState(() => _diceValue = 1 + rng.nextInt(6));
     }
 
+    if (!mounted) return;
     setState(() {
       _isRolling = false;
       _hasRolled = true;
@@ -164,6 +165,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       await Future.delayed(const Duration(milliseconds: 400));
       if (mounted) _moveToken(movable.first);
     } else {
+      if (!mounted) return;
       setState(() {
         _statusBanner = "Tap a pulsing token to move";
       });
