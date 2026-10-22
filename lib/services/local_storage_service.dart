@@ -7,11 +7,13 @@ import '../models/user_model.dart';
 /// user-created rooms to Android SharedPreferences and offline local disk.
 /// Retains all state across app minimizations, swipe-aways, and complete restarts.
 class LocalStorageService {
-  static const MethodChannel _channel = MethodChannel('com.playfriends.game_sound');
+  static const MethodChannel _channel =
+      MethodChannel('com.playfriends.game_sound');
   static final Map<String, String> _memoryFallback = {};
 
   static const String keyCurrentUser = 'pf_current_user_v1';
   static const String keyRegisteredUsers = 'pf_registered_users_v1';
+  static const String keyUserCredentials = 'pf_user_credentials_v1';
   static const String keyActiveRooms = 'pf_active_rooms_v1';
   static const String prefixUserSongs = 'pf_user_songs_v1_';
 
@@ -19,7 +21,8 @@ class LocalStorageService {
   static Future<void> setString(String key, String value) async {
     _memoryFallback[key] = value;
     try {
-      await _channel.invokeMethod('saveLocalData', {'key': key, 'value': value});
+      await _channel
+          .invokeMethod('saveLocalData', {'key': key, 'value': value});
     } catch (_) {
       // In test or non-Android environment, use _memoryFallback
     }
@@ -28,7 +31,8 @@ class LocalStorageService {
   /// Get raw string value
   static Future<String?> getString(String key) async {
     try {
-      final res = await _channel.invokeMethod<String>('getLocalData', {'key': key});
+      final res =
+          await _channel.invokeMethod<String>('getLocalData', {'key': key});
       if (res != null && res.isNotEmpty) {
         _memoryFallback[key] = res;
         return res;
@@ -36,6 +40,9 @@ class LocalStorageService {
     } catch (_) {}
     return _memoryFallback[key];
   }
+
+  /// Get cached string synchronously from memory fallback
+  static String? getStringSync(String key) => _memoryFallback[key];
 
   /// Remove key
   static Future<void> remove(String key) async {
@@ -94,6 +101,26 @@ class LocalStorageService {
     return [];
   }
 
+  /// Persists user credentials (email/identifier -> secure password hash)
+  static Future<void> saveUserCredentials(
+      Map<String, String> credentials) async {
+    final jsonStr = jsonEncode(credentials);
+    await setString(keyUserCredentials, jsonStr);
+  }
+
+  /// Loads persisted user credentials
+  static Future<Map<String, String>> loadUserCredentials() async {
+    final raw = await getString(keyUserCredentials);
+    if (raw == null || raw.isEmpty) return {};
+    try {
+      final map = jsonDecode(raw);
+      if (map is Map) {
+        return map.map((k, v) => MapEntry(k.toString(), v.toString()));
+      }
+    } catch (_) {}
+    return {};
+  }
+
   // --------------------------------------------------------------------------
   // USER CREATED ROOMS PERSISTENCE
   // --------------------------------------------------------------------------
@@ -125,7 +152,8 @@ class LocalStorageService {
   // --------------------------------------------------------------------------
 
   /// Persists custom music tracks uploaded by a specific user
-  static Future<void> saveUserSongs(String userId, List<Map<String, dynamic>> songs) async {
+  static Future<void> saveUserSongs(
+      String userId, List<Map<String, dynamic>> songs) async {
     final key = '$prefixUserSongs$userId';
     final jsonStr = jsonEncode(songs);
     await setString(key, jsonStr);

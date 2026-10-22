@@ -130,7 +130,8 @@ class FriendTile extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.chat_bubble_outline_rounded, size: 20),
+                      icon: const Icon(Icons.chat_bubble_outline_rounded,
+                          size: 20),
                       color: AppColors.primaryPurpleLight,
                       tooltip: 'Chat',
                       onPressed: onChat,

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../utils/security_helper.dart';
 import 'friend_model.dart';
 
 class UserModel {
@@ -7,7 +6,6 @@ class UserModel {
   final String name;
   final String tag;
   final String email;
-  final String passwordHash;
   final Color avatarColor;
   final String avatarInitial;
   final String? phoneNumber;
@@ -23,15 +21,19 @@ class UserModel {
   final List<String> unlockedGameIds;
   final List<FriendModel> friends;
   final bool isGuest;
-  final bool isAdmin;
+  final String role; // 'user' or 'admin' (strictly backend authorized)
+  final String? sessionToken;
   final String? profilePhoto;
+
+  /// Returns true only if the user has verified administrator role with a valid session token
+  bool get isAdmin =>
+      role == 'admin' && (sessionToken != null && sessionToken!.isNotEmpty);
 
   const UserModel({
     required this.id,
     required this.name,
     required this.tag,
     required this.email,
-    this.passwordHash = '',
     required this.avatarColor,
     required this.avatarInitial,
     this.phoneNumber,
@@ -47,7 +49,8 @@ class UserModel {
     this.unlockedGameIds = const ['tic_tac_toe'],
     this.friends = const [],
     this.isGuest = false,
-    this.isAdmin = false,
+    this.role = 'user',
+    this.sessionToken,
     this.profilePhoto,
   });
 
@@ -55,7 +58,6 @@ class UserModel {
     String? name,
     String? tag,
     String? email,
-    String? passwordHash,
     Color? avatarColor,
     String? avatarInitial,
     String? phoneNumber,
@@ -71,7 +73,8 @@ class UserModel {
     List<String>? unlockedGameIds,
     List<FriendModel>? friends,
     bool? isGuest,
-    bool? isAdmin,
+    String? role,
+    String? sessionToken,
     String? profilePhoto,
     bool clearProfilePhoto = false,
   }) {
@@ -80,7 +83,6 @@ class UserModel {
       name: name ?? this.name,
       tag: tag ?? this.tag,
       email: email ?? this.email,
-      passwordHash: passwordHash ?? this.passwordHash,
       avatarColor: avatarColor ?? this.avatarColor,
       avatarInitial: avatarInitial ?? this.avatarInitial,
       phoneNumber: phoneNumber ?? this.phoneNumber,
@@ -96,8 +98,10 @@ class UserModel {
       unlockedGameIds: unlockedGameIds ?? this.unlockedGameIds,
       friends: friends ?? this.friends,
       isGuest: isGuest ?? this.isGuest,
-      isAdmin: isAdmin ?? this.isAdmin,
-      profilePhoto: clearProfilePhoto ? null : (profilePhoto ?? this.profilePhoto),
+      role: role ?? this.role,
+      sessionToken: sessionToken ?? this.sessionToken,
+      profilePhoto:
+          clearProfilePhoto ? null : (profilePhoto ?? this.profilePhoto),
     );
   }
 
@@ -107,7 +111,6 @@ class UserModel {
       'name': name,
       'tag': tag,
       'email': email,
-      'passwordHash': passwordHash,
       'avatarColor': avatarColor.toARGB32(),
       'avatarInitial': avatarInitial,
       'phoneNumber': phoneNumber,
@@ -123,27 +126,29 @@ class UserModel {
       'unlockedGameIds': unlockedGameIds,
       'friends': friends.map((f) => f.toMap()).toList(),
       'isGuest': isGuest,
-      'isAdmin': isAdmin,
+      'role': role,
+      'sessionToken': sessionToken,
       'profilePhoto': profilePhoto,
     };
   }
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
-    final rawHash = map['passwordHash']?.toString();
-    final rawLegacyPassword = map['password']?.toString();
-    final effectiveHash = (rawHash != null && rawHash.isNotEmpty)
-        ? rawHash
-        : ((rawLegacyPassword != null && rawLegacyPassword.isNotEmpty)
-            ? SecurityHelper.hashPassword(rawLegacyPassword)
-            : '');
+    final rawToken = map['sessionToken']?.toString();
+    final rawRole =
+        map['role']?.toString() ?? (map['isAdmin'] == true ? 'admin' : 'user');
+    // Tamper protection: Never accept 'admin' role from local storage without a valid session token
+    final validatedRole =
+        (rawRole == 'admin' && rawToken != null && rawToken.isNotEmpty)
+            ? 'admin'
+            : 'user';
 
     return UserModel(
       id: map['id']?.toString() ?? '',
       name: map['name']?.toString() ?? 'Player',
       tag: map['tag']?.toString() ?? '@player',
       email: map['email']?.toString() ?? '',
-      passwordHash: effectiveHash,
-      avatarColor: Color(map['avatarColor'] is int ? map['avatarColor'] as int : 0xFF7C3AED),
+      avatarColor: Color(
+          map['avatarColor'] is int ? map['avatarColor'] as int : 0xFF7C3AED),
       avatarInitial: map['avatarInitial']?.toString() ?? 'P',
       phoneNumber: map['phoneNumber']?.toString(),
       countryCode: map['countryCode']?.toString() ?? '+91',
@@ -151,7 +156,8 @@ class UserModel {
       level: map['level'] is int ? map['level'] as int : 1,
       coins: map['coins'] is int ? map['coins'] as int : 500,
       trophies: map['trophies'] is int ? map['trophies'] as int : 0,
-      winRate: (map['winRate'] is num) ? (map['winRate'] as num).toDouble() : 0.0,
+      winRate:
+          (map['winRate'] is num) ? (map['winRate'] as num).toDouble() : 0.0,
       totalMatches: map['totalMatches'] is int ? map['totalMatches'] as int : 0,
       totalWins: map['totalWins'] is int ? map['totalWins'] as int : 0,
       xp: map['xp'] is int ? map['xp'] as int : 0,
@@ -160,11 +166,13 @@ class UserModel {
           : const ['tic_tac_toe'],
       friends: (map['friends'] is List)
           ? (map['friends'] as List)
-              .map((item) => FriendModel.fromMap(Map<String, dynamic>.from(item as Map)))
+              .map((item) =>
+                  FriendModel.fromMap(Map<String, dynamic>.from(item as Map)))
               .toList()
           : const [],
       isGuest: map['isGuest'] == true,
-      isAdmin: map['isAdmin'] == true,
+      role: validatedRole,
+      sessionToken: rawToken,
       profilePhoto: map['profilePhoto']?.toString(),
     );
   }

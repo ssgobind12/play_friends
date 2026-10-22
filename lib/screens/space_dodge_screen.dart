@@ -12,7 +12,11 @@ class Asteroid {
   double y;
   final double radius;
   final double speed;
-  Asteroid({required this.x, required this.y, required this.radius, required this.speed});
+  Asteroid(
+      {required this.x,
+      required this.y,
+      required this.radius,
+      required this.speed});
 }
 
 class SpaceItem {
@@ -31,7 +35,8 @@ class SpaceDodgeGameScreen extends StatefulWidget {
 
 typedef SpaceDodgeScreen = SpaceDodgeGameScreen;
 
-class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with SingleTickerProviderStateMixin {
+class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _gameLoop;
   double _shipX = 0.5; // normalized 0..1
   double _shipY = 0.8;
@@ -47,7 +52,8 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
   @override
   void initState() {
     super.initState();
-    _gameLoop = AnimationController(vsync: this, duration: const Duration(milliseconds: 16))
+    _gameLoop = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 16))
       ..addListener(_updateGame);
     _startGame();
   }
@@ -194,12 +200,14 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            Icon(won ? Icons.military_tech_rounded : Icons.cancel_rounded, color: won ? AppColors.coinAmber : AppColors.dangerRose),
+            Icon(won ? Icons.military_tech_rounded : Icons.cancel_rounded,
+                color: won ? AppColors.coinAmber : AppColors.dangerRose),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 won ? 'Mission Complete!' : 'Spaceship Down!',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -208,19 +216,27 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Final Score: $_score Points • Survived: ${_secondsSurvived}s', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            Text('Final Score: $_score Points • Survived: ${_secondsSurvived}s',
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text(
-              won ? 'Heroic piloting skills! Target survived.' : 'Asteroid hit! Upgrade your reflexes and try again.',
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              won
+                  ? 'Heroic piloting skills! Target survived.'
+                  : 'Asteroid hit! Upgrade your reflexes and try again.',
+              style:
+                  const TextStyle(color: AppColors.textSecondary, fontSize: 13),
             ),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _rewardBadge(Icons.bolt_rounded, won ? '+100 XP' : '+30 XP', AppColors.primaryBlueLight),
-                _rewardBadge(Icons.monetization_on_rounded, won ? '+50 Coins' : '+15 Coins', AppColors.coinAmber),
-                _rewardBadge(Icons.timer_rounded, '${_secondsSurvived}s', AppColors.onlineGreen),
+                _rewardBadge(Icons.bolt_rounded, won ? '+100 XP' : '+30 XP',
+                    AppColors.primaryBlueLight),
+                _rewardBadge(Icons.monetization_on_rounded,
+                    won ? '+50 Coins' : '+15 Coins', AppColors.coinAmber),
+                _rewardBadge(Icons.timer_rounded, '${_secondsSurvived}s',
+                    AppColors.onlineGreen),
               ],
             ),
             if (unlockedTitle != null) ...[
@@ -228,10 +244,15 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [AppColors.primaryPurple, AppColors.accentCyan]),
+                  gradient: const LinearGradient(
+                      colors: [AppColors.primaryPurple, AppColors.accentCyan]),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text('🎉 NEW GAME UNLOCKED: $unlockedTitle!', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                child: Text('🎉 NEW GAME UNLOCKED: $unlockedTitle!',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12)),
               ),
             ],
           ],
@@ -242,15 +263,18 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
               Navigator.of(ctx).pop();
               Navigator.of(context).pop();
             },
-            child: const Text('Exit Arcade', style: TextStyle(color: AppColors.textSecondary)),
+            child: const Text('Exit Arcade',
+                style: TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryPurple),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryPurple),
             onPressed: () {
               Navigator.of(ctx).pop();
               _startGame();
             },
-            child: const Text('Play Again', style: TextStyle(color: Colors.white)),
+            child:
+                const Text('Play Again', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -262,7 +286,9 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
       children: [
         Icon(icon, color: color, size: 20),
         const SizedBox(height: 4),
-        Text(text, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+        Text(text,
+            style: TextStyle(
+                color: color, fontWeight: FontWeight.bold, fontSize: 12)),
       ],
     );
   }
@@ -274,7 +300,8 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Cyber Space Dodge', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Cyber Space Dodge',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           PopupMenuButton<SpaceDifficulty>(
             icon: const Icon(Icons.tune_rounded),
@@ -299,7 +326,8 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
                   children: [
                     const Icon(Icons.speed_rounded, color: Colors.green),
                     const SizedBox(width: 8),
-                    Text('Easy ${_difficulty == SpaceDifficulty.easy ? "✓" : ""}'),
+                    Text(
+                        'Easy ${_difficulty == SpaceDifficulty.easy ? "✓" : ""}'),
                   ],
                 ),
               ),
@@ -309,7 +337,8 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
                   children: [
                     const Icon(Icons.speed_rounded, color: Colors.amber),
                     const SizedBox(width: 8),
-                    Text('Medium ${_difficulty == SpaceDifficulty.medium ? "✓" : ""}'),
+                    Text(
+                        'Medium ${_difficulty == SpaceDifficulty.medium ? "✓" : ""}'),
                   ],
                 ),
               ),
@@ -319,7 +348,8 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
                   children: [
                     const Icon(Icons.speed_rounded, color: Colors.redAccent),
                     const SizedBox(width: 8),
-                    Text('Hard ${_difficulty == SpaceDifficulty.hard ? "✓" : ""}'),
+                    Text(
+                        'Hard ${_difficulty == SpaceDifficulty.hard ? "✓" : ""}'),
                   ],
                 ),
               ),
@@ -340,18 +370,28 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Score: $_score', style: const TextStyle(color: AppColors.coinAmber, fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text('Score: $_score',
+                      style: const TextStyle(
+                          color: AppColors.coinAmber,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16)),
                   Row(
                     children: List.generate(
                       3,
                       (i) => Icon(
-                        i < _lives ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        i < _lives
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
                         color: Colors.redAccent,
                         size: 20,
                       ),
                     ),
                   ),
-                  Text('Time: ${_secondsSurvived}s', style: const TextStyle(color: AppColors.accentCyan, fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text('Time: ${_secondsSurvived}s',
+                      style: const TextStyle(
+                          color: AppColors.accentCyan,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14)),
                 ],
               ),
             ),
@@ -361,8 +401,12 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
                   final renderBox = context.findRenderObject() as RenderBox?;
                   if (renderBox != null) {
                     setState(() {
-                      _shipX = (details.globalPosition.dx / renderBox.size.width).clamp(0.08, 0.92);
-                      _shipY = ((details.globalPosition.dy - 100) / (renderBox.size.height - 180)).clamp(0.1, 0.9);
+                      _shipX =
+                          (details.globalPosition.dx / renderBox.size.width)
+                              .clamp(0.08, 0.92);
+                      _shipY = ((details.globalPosition.dy - 100) /
+                              (renderBox.size.height - 180))
+                          .clamp(0.1, 0.9);
                     });
                   }
                 },
@@ -371,7 +415,8 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
                   decoration: BoxDecoration(
                     color: const Color(0xFF0B1124),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.primaryPurple.withValues(alpha: 0.4)),
+                    border: Border.all(
+                        color: AppColors.primaryPurple.withValues(alpha: 0.4)),
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(20),
@@ -390,8 +435,13 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
                                 height: a.radius * 2,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  gradient: const RadialGradient(colors: [Color(0xFF64748B), Color(0xFF334155)]),
-                                  border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.6)),
+                                  gradient: const RadialGradient(colors: [
+                                    Color(0xFF64748B),
+                                    Color(0xFF334155)
+                                  ]),
+                                  border: Border.all(
+                                      color: Colors.orangeAccent
+                                          .withValues(alpha: 0.6)),
                                 ),
                               ),
                             )),
@@ -400,8 +450,12 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
                               left: item.x * 320,
                               top: item.y * 500,
                               child: Icon(
-                                item.isStar ? Icons.star_rounded : Icons.diamond_rounded,
-                                color: item.isStar ? Colors.amber : AppColors.accentCyan,
+                                item.isStar
+                                    ? Icons.star_rounded
+                                    : Icons.diamond_rounded,
+                                color: item.isStar
+                                    ? Colors.amber
+                                    : AppColors.accentCyan,
                                 size: 22,
                               ),
                             )),
@@ -414,13 +468,20 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
                             height: 40,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              gradient: const RadialGradient(colors: [AppColors.accentCyan, AppColors.primaryPurple]),
+                              gradient: const RadialGradient(colors: [
+                                AppColors.accentCyan,
+                                AppColors.primaryPurple
+                              ]),
                               boxShadow: [
-                                BoxShadow(color: AppColors.accentCyan.withValues(alpha: 0.7), blurRadius: 12),
+                                BoxShadow(
+                                    color: AppColors.accentCyan
+                                        .withValues(alpha: 0.7),
+                                    blurRadius: 12),
                               ],
                             ),
                             child: const Center(
-                              child: Icon(Icons.navigation_rounded, color: Colors.white, size: 24),
+                              child: Icon(Icons.navigation_rounded,
+                                  color: Colors.white, size: 24),
                             ),
                           ),
                         ),
@@ -432,7 +493,10 @@ class _SpaceDodgeGameScreenState extends State<SpaceDodgeGameScreen> with Single
             ),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              child: Text('Drag across the screen to steer spaceship & dodge asteroids!', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+              child: Text(
+                  'Drag across the screen to steer spaceship & dodge asteroids!',
+                  style:
+                      TextStyle(color: AppColors.textSecondary, fontSize: 12)),
             ),
           ],
         ),
@@ -447,7 +511,10 @@ class _StarFieldPainter extends CustomPainter {
     final rnd = Random(42);
     final paint = Paint()..color = Colors.white24;
     for (int i = 0; i < 40; i++) {
-      canvas.drawCircle(Offset(rnd.nextDouble() * size.width, rnd.nextDouble() * size.height), 1.2, paint);
+      canvas.drawCircle(
+          Offset(rnd.nextDouble() * size.width, rnd.nextDouble() * size.height),
+          1.2,
+          paint);
     }
   }
 

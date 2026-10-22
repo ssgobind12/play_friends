@@ -6,41 +6,87 @@ import 'package:play_friends/models/user_model.dart';
 import 'package:play_friends/screens/voice_party_room_screen.dart';
 import 'package:play_friends/services/auth_service.dart';
 import 'package:play_friends/services/aws_storage_service.dart';
+import 'package:play_friends/services/backend_api_service.dart';
 import 'package:play_friends/services/in_app_music_service.dart';
 import 'package:play_friends/services/local_storage_service.dart';
 import 'package:play_friends/services/privacy_filter_service.dart';
 import 'package:play_friends/services/voice_room_manager.dart';
 
 void main() {
+  setUp(() {
+    BackendApiService.isTestMode = true;
+    AwsStorageService.mockMode = true;
+  });
+
   group('PrivacyFilterService Tests', () {
     test('Allows safe room messages', () {
-      expect(PrivacyFilterService.checkMessage('Hey everyone, welcome to the voice room!').isAllowed, isTrue);
-      expect(PrivacyFilterService.checkMessage('Let us play Ludo and Word Rush!').isAllowed, isTrue);
-      expect(PrivacyFilterService.checkMessage('GG nice game!').isAllowed, isTrue);
+      expect(
+          PrivacyFilterService.checkMessage(
+                  'Hey everyone, welcome to the voice room!')
+              .isAllowed,
+          isTrue);
+      expect(
+          PrivacyFilterService.checkMessage('Let us play Ludo and Word Rush!')
+              .isAllowed,
+          isTrue);
+      expect(
+          PrivacyFilterService.checkMessage('GG nice game!').isAllowed, isTrue);
     });
 
     test('Blocks phone numbers', () {
-      expect(PrivacyFilterService.checkMessage('Call me on 9876543210').isAllowed, isFalse);
-      expect(PrivacyFilterService.checkMessage('My number is 85730 29430').isAllowed, isFalse);
-      expect(PrivacyFilterService.checkMessage('+91-9876543210 WhatsApp me').isAllowed, isFalse);
+      expect(
+          PrivacyFilterService.checkMessage('Call me on 9876543210').isAllowed,
+          isFalse);
+      expect(
+          PrivacyFilterService.checkMessage('My number is 85730 29430')
+              .isAllowed,
+          isFalse);
+      expect(
+          PrivacyFilterService.checkMessage('+91-9876543210 WhatsApp me')
+              .isAllowed,
+          isFalse);
     });
 
     test('Blocks email addresses', () {
-      expect(PrivacyFilterService.checkMessage('Email me at ssgobind12@gmail.com').isAllowed, isFalse);
-      expect(PrivacyFilterService.checkMessage('Contact: user@domain.com').isAllowed, isFalse);
+      expect(
+          PrivacyFilterService.checkMessage('Email me at ssgobind12@gmail.com')
+              .isAllowed,
+          isFalse);
+      expect(
+          PrivacyFilterService.checkMessage('Contact: user@domain.com')
+              .isAllowed,
+          isFalse);
     });
 
     test('Blocks external social media handles', () {
-      expect(PrivacyFilterService.checkMessage('My insta id is @cool_gamer').isAllowed, isFalse);
-      expect(PrivacyFilterService.checkMessage('Follow my instagram: gamer123').isAllowed, isFalse);
-      expect(PrivacyFilterService.checkMessage('Add me on telegram: t.me/myhandle').isAllowed, isFalse);
-      expect(PrivacyFilterService.checkMessage('Join my whatsapp group: chat.whatsapp.com/xyz').isAllowed, isFalse);
-      expect(PrivacyFilterService.checkMessage('My snapchat is coolguy_99').isAllowed, isFalse);
+      expect(
+          PrivacyFilterService.checkMessage('My insta id is @cool_gamer')
+              .isAllowed,
+          isFalse);
+      expect(
+          PrivacyFilterService.checkMessage('Follow my instagram: gamer123')
+              .isAllowed,
+          isFalse);
+      expect(
+          PrivacyFilterService.checkMessage('Add me on telegram: t.me/myhandle')
+              .isAllowed,
+          isFalse);
+      expect(
+          PrivacyFilterService.checkMessage(
+                  'Join my whatsapp group: chat.whatsapp.com/xyz')
+              .isAllowed,
+          isFalse);
+      expect(
+          PrivacyFilterService.checkMessage('My snapchat is coolguy_99')
+              .isAllowed,
+          isFalse);
     });
   });
 
   group('LevelProgressionService Tests', () {
-    test('Calculates level based on coin thresholds (1000, 3000, 5000, 8000, 12000)', () {
+    test(
+        'Calculates level based on coin thresholds (1000, 3000, 5000, 8000, 12000)',
+        () {
       expect(LevelProgressionService.calculateLevel(0), equals(1));
       expect(LevelProgressionService.calculateLevel(500), equals(1));
       expect(LevelProgressionService.calculateLevel(999), equals(1));
@@ -184,13 +230,13 @@ void main() {
       LocalStorageService.resetInMemoryForTesting();
     });
 
-    test('Persists and loads user profile with custom photo across app restart', () async {
+    test('Persists and loads user profile with custom photo across app restart',
+        () async {
       const testUser = UserModel(
         id: '019999',
         name: 'Persistent Tester',
         tag: '@persistent',
         email: 'persist@test.com',
-        passwordHash: 'mock_password_hash_xyz',
         avatarColor: Colors.deepPurple,
         avatarInitial: 'P',
         profilePhoto: 'data:image/jpeg;base64,mockSavedPhotoBase64Bytes==',
@@ -204,12 +250,14 @@ void main() {
       expect(loaded, isNotNull);
       expect(loaded!.id, equals('019999'));
       expect(loaded.name, equals('Persistent Tester'));
-      expect(loaded.profilePhoto, equals('data:image/jpeg;base64,mockSavedPhotoBase64Bytes=='));
+      expect(loaded.profilePhoto,
+          equals('data:image/jpeg;base64,mockSavedPhotoBase64Bytes=='));
       expect(loaded.level, equals(12));
       expect(loaded.coins, equals(4500));
     });
 
-    test('Persists and loads user-created custom rooms across app restart', () async {
+    test('Persists and loads user-created custom rooms across app restart',
+        () async {
       final customRooms = [
         const RoomModel(
           id: 'custom_room_1',
@@ -255,12 +303,14 @@ void main() {
       expect(loadedSongs.length, equals(1));
       expect(loadedSongs.first['title'], equals('My Favorite Track'));
       expect(loadedSongs.first['genre'], equals('Bollywood Chill'));
-      expect(loadedSongs.first['audioPathOrUrl'], equals('/storage/emulated/0/Music/track.mp3'));
+      expect(loadedSongs.first['audioPathOrUrl'],
+          equals('/storage/emulated/0/Music/track.mp3'));
     });
   });
 
   group('Voice Party Room Responsive Layout & Multi-Game Tests', () {
-    testWidgets('VoicePartyRoomScreen renders cleanly on 360x640 mobile screen with zero overflow',
+    testWidgets(
+        'VoicePartyRoomScreen renders cleanly on 360x640 mobile screen with zero overflow',
         (WidgetTester tester) async {
       tester.view.physicalSize = const Size(360, 640);
       tester.view.devicePixelRatio = 1.0;
@@ -294,7 +344,8 @@ void main() {
       expect(find.byIcon(Icons.palette_rounded), findsOneWidget);
       expect(find.byIcon(Icons.power_settings_new_rounded), findsOneWidget);
       expect(find.text('+ Follow'), findsOneWidget);
-      expect(find.text('Super Long Room Title For Testing Layout Auto-Fit'), findsOneWidget);
+      expect(find.text('Super Long Room Title For Testing Layout Auto-Fit'),
+          findsOneWidget);
 
       // Verify no RenderFlex overflow exceptions occurred
       expect(tester.takeException(), isNull);

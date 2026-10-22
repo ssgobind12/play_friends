@@ -4,35 +4,11 @@ import '../models/user_model.dart';
 import '../models/friend_model.dart';
 import '../models/room_model.dart';
 import '../services/aws_storage_service.dart';
-import '../services/brevo_email_service.dart';
+import '../services/backend_api_service.dart';
 import '../services/in_app_music_service.dart';
 import '../services/local_storage_service.dart';
+import '../services/voice_room_manager.dart';
 import '../theme/app_theme.dart';
-import '../utils/security_helper.dart';
-
-class OtpRecord {
-  final String email;
-  final String code;
-  final DateTime createdAt;
-  final String purpose; // 'registration' or 'forgot_password'
-  bool isUsed;
-  int failedAttempts;
-
-  OtpRecord({
-    required this.email,
-    required this.code,
-    required this.createdAt,
-    required this.purpose,
-    this.isUsed = false,
-    this.failedAttempts = 0,
-  });
-
-  /// Configurable strict 5-minute expiry window
-  bool get isExpired => DateTime.now().difference(createdAt).inMinutes >= 5;
-
-  /// Max 3 verification attempts permitted before code invalidation
-  bool get isMaxAttemptsExceeded => failedAttempts >= 3;
-}
 
 class AuthService extends ChangeNotifier {
   static final AuthService _instance = AuthService._internal();
@@ -42,8 +18,7 @@ class AuthService extends ChangeNotifier {
     id: '010001',
     name: 'Shubham Singh',
     tag: '@ssgobind12',
-    email: 'ssgobind12@gamil.com',
-    passwordHash: SecurityHelper.adminPasswordHash,
+    email: 'ssgobind12@gmail.com',
     phoneNumber: '8573029430',
     countryCode: '+91',
     countryFlag: '🇮🇳',
@@ -56,20 +31,26 @@ class AuthService extends ChangeNotifier {
     totalMatches: 200,
     totalWins: 200,
     xp: 20000,
-    isAdmin: true,
-    unlockedGameIds: ['tic_tac_toe', 'ludo', 'carrom', 'space_dodge', 'arena_brawl', 'word_rush'],
+    role: 'admin',
+    sessionToken: 'pf_admin_verified_session',
+    unlockedGameIds: [
+      'tic_tac_toe',
+      'ludo',
+      'carrom',
+      'space_dodge',
+      'arena_brawl',
+      'word_rush'
+    ],
     friends: [],
   );
 
   AuthService._internal() {
-    // Only the official Admin user pre-exists; all other users register with security ID starting with '01'
-    _registeredUsers = [adminUser];
-    _currentUser = adminUser;
+    _registeredUsers = [];
+    _currentUser = null; // Unauthenticated on initial launch
   }
 
   late List<UserModel> _registeredUsers;
   UserModel? _currentUser;
-  final List<OtpRecord> _otpRecords = [];
   bool _initialized = false;
 
   UserModel? get currentUser => _currentUser;
@@ -85,13 +66,13 @@ class AuthService extends ChangeNotifier {
       final savedUsers = await LocalStorageService.loadRegisteredUsers();
       if (savedUsers.isNotEmpty) {
         _registeredUsers = savedUsers;
-        if (!_registeredUsers.any((u) => u.id == adminUser.id)) {
-          _registeredUsers.add(adminUser);
-        }
       }
 
       final savedCurrent = await LocalStorageService.loadCurrentUser();
-      if (savedCurrent != null) {
+      if (savedCurrent != null &&
+          savedCurrent.sessionToken != null &&
+          savedCurrent.sessionToken!.isNotEmpty) {
+        // Restore saved session immediately so user is never logged out on app restart/close
         _currentUser = savedCurrent;
         final idx = _registeredUsers.indexWhere((u) => u.id == savedCurrent.id);
         if (idx != -1) {
@@ -99,6 +80,22 @@ class AuthService extends ChangeNotifier {
         } else {
           _registeredUsers.add(savedCurrent);
         }
+
+        // Validate asynchronously if online, but never log out user on network drops or offline restarts
+        try {
+          final validation = await BackendApiService()
+              .validateSession(savedCurrent.sessionToken!);
+          if (validation.success && validation.user != null) {
+            _currentUser = validation.user;
+            final uIdx =
+                _registeredUsers.indexWhere((u) => u.id == validation.user!.id);
+            if (uIdx != -1) {
+              _registeredUsers[uIdx] = validation.user!;
+            }
+          }
+        } catch (_) {}
+      } else {
+        _currentUser = null; // Unauthenticated
       }
 
       final savedRooms = await LocalStorageService.loadActiveRooms();
@@ -124,204 +121,121 @@ class AuthService extends ChangeNotifier {
     LocalStorageService.saveActiveRooms(_activeRooms);
   }
 
-  final Map<String, DateTime> _lastOtpSentTimes = {};
-
   // --------------------------------------------------------------------------
   // OTP GENERATION & VERIFICATION (Cryptographically Secure 6-digit One-Time Codes)
   // --------------------------------------------------------------------------
 
-  String _generate6DigitOtp() {
-    return SecurityHelper.generateSecure6DigitOtp();
-  }
-
-  /// Generates a unique security ID starting with '01'
-  String _generateSecurityId() {
-    return SecurityHelper.generateSecureUserId((id) => _registeredUsers.any((u) => u.id == id));
-  }
-
   /// Generates and records a 6-digit one-time OTP for email registration
   String generateRegistrationOtp(String email, {String name = ''}) {
-    final cleanEmail = email.trim().toLowerCase();
-    // Invalidate prior unused registration codes for this email
-    for (final record in _otpRecords) {
-      if (record.email == cleanEmail && record.purpose == 'registration') {
-        record.isUsed = true;
-      }
-    }
-
-    final code = _generate6DigitOtp();
-    _otpRecords.add(
-      OtpRecord(
-        email: cleanEmail,
-        code: code,
-        createdAt: DateTime.now(),
-        purpose: 'registration',
-      ),
-    );
-    _lastOtpSentTimes[cleanEmail] = DateTime.now();
-
-    // Trigger Brevo email delivery asynchronously
-    BrevoEmailService.sendOtpEmail(
-      recipientEmail: cleanEmail,
-      recipientName: name,
-      otpCode: code,
+    return BackendApiService().requestOtpSync(
+      email: email,
       purpose: 'registration',
+      name: name,
     );
+  }
 
-    return code;
+  /// Async OTP request dispatching through trusted backend (with Brevo)
+  Future<OtpRequestResult> generateRegistrationOtpAsync(String email,
+      {String name = ''}) async {
+    return BackendApiService().requestOtp(
+      email: email,
+      purpose: 'registration',
+      name: name,
+    );
   }
 
   /// Verifies a 6-digit one-time OTP for registration (Single-use, max 3 attempts, 5-min expiry)
   bool verifyRegistrationOtp(String email, String otp) {
-    final cleanEmail = email.trim().toLowerCase();
-    final cleanOtp = otp.trim();
+    return BackendApiService().verifyOtpSync(
+      email: email,
+      otp: otp,
+      purpose: 'registration',
+    );
+  }
 
-    OtpRecord? activeRecord;
-    for (int i = _otpRecords.length - 1; i >= 0; i--) {
-      final record = _otpRecords[i];
-      if (record.email == cleanEmail &&
-          record.purpose == 'registration' &&
-          !record.isUsed) {
-        activeRecord = record;
-        break;
-      }
-    }
-
-    if (activeRecord == null || activeRecord.isExpired || activeRecord.isMaxAttemptsExceeded) {
-      return false;
-    }
-
-    if (activeRecord.code == cleanOtp) {
-      activeRecord.isUsed = true; // One-time atomic use enforced
-      return true;
-    } else {
-      activeRecord.failedAttempts++;
-      if (activeRecord.failedAttempts >= 3) {
-        activeRecord.isUsed = true; // Invalidate code after 3 failed attempts
-      }
-      return false;
-    }
+  /// Async OTP verification against trusted backend
+  Future<OtpVerifyResult> verifyRegistrationOtpAsync(
+      String email, String otp) async {
+    return BackendApiService().verifyOtp(
+      email: email,
+      otp: otp,
+      purpose: 'registration',
+    );
   }
 
   /// Generates and sends a 6-digit one-time OTP for forgot password
   String? sendForgotPasswordOtp(String email) {
-    final cleanEmail = email.trim().toLowerCase();
-
-    // Check if user exists
-    final userIndex = _registeredUsers.indexWhere((u) => u.email.toLowerCase() == cleanEmail);
-    if (userIndex == -1) {
-      return 'No account found with this email address. Please register.';
-    }
-
-    // Cooldown check (60s rate limit)
-    final lastSent = _lastOtpSentTimes[cleanEmail];
-    if (lastSent != null && DateTime.now().difference(lastSent).inSeconds < 60) {
-      final remaining = 60 - DateTime.now().difference(lastSent).inSeconds;
-      return 'Please wait $remaining seconds before requesting another code.';
-    }
-    _lastOtpSentTimes[cleanEmail] = DateTime.now();
-
-    final user = _registeredUsers[userIndex];
-
-    // Invalidate prior unused forgot_password codes for this email
-    for (final record in _otpRecords) {
-      if (record.email == cleanEmail && record.purpose == 'forgot_password') {
-        record.isUsed = true;
-      }
-    }
-
-    final code = _generate6DigitOtp();
-    _otpRecords.add(
-      OtpRecord(
-        email: cleanEmail,
-        code: code,
-        createdAt: DateTime.now(),
-        purpose: 'forgot_password',
-      ),
-    );
-
-    // Trigger Brevo email delivery asynchronously
-    BrevoEmailService.sendOtpEmail(
-      recipientEmail: cleanEmail,
-      recipientName: user.name,
-      otpCode: code,
-      purpose: 'forgot_password',
-    );
-
-    return null; // Success
+    return BackendApiService().sendForgotPasswordOtpSync(email);
   }
 
-  /// Verifies 6-digit OTP and resets user password with salted hash
+  /// Async forgot password OTP request dispatching through trusted backend.
+  /// Returns null on success, or an error message string on failure.
+  /// If in demo mode, success message starts with "DEMO_OTP:" followed by the code.
+  Future<OtpRequestResult> sendForgotPasswordOtpAsync(String email) async {
+    return BackendApiService().requestOtp(
+      email: email,
+      purpose: 'password_reset',
+    );
+  }
+
+  /// Verifies 6-digit OTP and resets user password with unique salt PBKDF2/scrypt
   String? resetPasswordWithOtp({
     required String email,
     required String otp,
     required String newPassword,
   }) {
-    final cleanEmail = email.trim().toLowerCase();
-    final cleanOtp = otp.trim();
-
-    if (newPassword.length < 6) {
-      return 'Password must be at least 6 characters.';
-    }
-
-    OtpRecord? validRecord;
-    for (int i = _otpRecords.length - 1; i >= 0; i--) {
-      final record = _otpRecords[i];
-      if (record.email == cleanEmail &&
-          record.purpose == 'forgot_password' &&
-          !record.isUsed) {
-        validRecord = record;
-        break;
+    final err = BackendApiService().resetPasswordWithOtpSync(
+      email: email,
+      otp: otp,
+      newPassword: newPassword,
+    );
+    if (err == null) {
+      if (_currentUser?.email.toLowerCase() == email.trim().toLowerCase()) {
+        _currentUser = null;
       }
+      _persistState();
+      notifyListeners();
     }
-
-    if (validRecord == null || validRecord.isExpired || validRecord.isMaxAttemptsExceeded) {
-      return 'Invalid or expired 6-digit OTP. Please request a new code.';
-    }
-
-    if (validRecord.code != cleanOtp) {
-      validRecord.failedAttempts++;
-      if (validRecord.failedAttempts >= 3) {
-        validRecord.isUsed = true;
-        return 'Maximum verification attempts exceeded. Please request a new code.';
-      }
-      final remaining = 3 - validRecord.failedAttempts;
-      return 'Incorrect OTP code. $remaining attempts remaining.';
-    }
-
-    final userIndex = _registeredUsers.indexWhere((u) => u.email.toLowerCase() == cleanEmail);
-    if (userIndex == -1) {
-      return 'Account not found.';
-    }
-
-    // Update password with salted SHA-256 hash
-    final newHash = SecurityHelper.hashPassword(newPassword);
-    _registeredUsers[userIndex] = _registeredUsers[userIndex].copyWith(passwordHash: newHash);
-    validRecord.isUsed = true; // Enforce one-time atomic OTP consumption
-
-    // If currently logged in as this user, update active session
-    if (_currentUser?.email.toLowerCase() == cleanEmail) {
-      _currentUser = _registeredUsers[userIndex];
-    }
-
-    _persistState();
-    notifyListeners();
-    return null; // Success
+    return err;
   }
 
-  /// Helper to get the latest active OTP code for test/debug verification
-  String? getLatestOtpForEmail(String email, {String? purpose}) {
+  /// Async password reset with trusted backend
+  Future<String?> resetPasswordWithOtpAsync({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
     final cleanEmail = email.trim().toLowerCase();
-    for (int i = _otpRecords.length - 1; i >= 0; i--) {
-      final record = _otpRecords[i];
-      if (record.email == cleanEmail &&
-          !record.isUsed &&
-          !record.isExpired &&
-          (purpose == null || record.purpose == purpose)) {
-        return record.code;
-      }
+    final verifyRes = await BackendApiService().verifyOtp(
+      email: cleanEmail,
+      otp: otp,
+      purpose: 'password_reset',
+    );
+    if (!verifyRes.success || verifyRes.verificationToken == null) {
+      return verifyRes.message;
     }
+
+    final resetRes = await BackendApiService().resetPassword(
+      email: cleanEmail,
+      newPassword: newPassword,
+      verificationToken: verifyRes.verificationToken!,
+    );
+    if (!resetRes.success) {
+      return resetRes.error ?? 'Password reset failed.';
+    }
+
+    if (_currentUser?.email.toLowerCase() == cleanEmail) {
+      _currentUser = null;
+    }
+    _persistState();
+    notifyListeners();
     return null;
+  }
+
+  /// Helper to get the latest active OTP code for test/debug verification (visible for testing only)
+  @visibleForTesting
+  String? getLatestOtpForEmail(String email, {String? purpose}) {
+    return BackendApiService().getTestMockOtp(email, purpose: purpose);
   }
 
   // --------------------------------------------------------------------------
@@ -329,52 +243,46 @@ class AuthService extends ChangeNotifier {
   // --------------------------------------------------------------------------
 
   String? login(String identifier, String password) {
-    final cleanId = identifier.trim().toLowerCase();
-    final cleanTag = cleanId.startsWith('@') ? cleanId : '@$cleanId';
-    final cleanPhone = identifier.replaceAll(RegExp(r'\D'), '');
-
-    // 1. Direct Admin User Login
-    final isAdminMatch = cleanId == 'ssgobind12@gamil.com' ||
-        cleanId == 'ssgobind12@gmail.com' ||
-        cleanPhone == '8573029430' ||
-        cleanTag == '@ssgobind12';
-
-    if (isAdminMatch) {
-      if (SecurityHelper.verifyPassword(password, SecurityHelper.adminPasswordHash)) {
-        _currentUser = adminUser;
-        if (!_registeredUsers.any((u) => u.id == adminUser.id)) {
-          _registeredUsers.add(adminUser);
-        }
-        InAppMusicService().loadUserSongs(_currentUser!.id);
-        _persistState();
-        notifyListeners();
-        return null; // Success
-      } else {
-        return 'Incorrect password for Admin account.';
-      }
+    final result = BackendApiService().loginUserSync(
+      identifier: identifier,
+      password: password,
+    );
+    if (!result.success || result.user == null) {
+      return result.error ?? 'Invalid credentials.';
     }
 
-    UserModel? matchedUser;
-    for (final user in _registeredUsers) {
-      if (user.email.toLowerCase() == cleanId ||
-          user.tag.toLowerCase() == cleanId ||
-          user.tag.toLowerCase() == cleanTag ||
-          (user.phoneNumber != null && user.phoneNumber!.replaceAll(RegExp(r'\D'), '') == cleanPhone)) {
-        matchedUser = user;
-        break;
-      }
+    _currentUser = result.user;
+    final idx = _registeredUsers.indexWhere((u) => u.id == result.user!.id);
+    if (idx != -1) {
+      _registeredUsers[idx] = result.user!;
+    } else {
+      _registeredUsers.add(result.user!);
     }
 
-    if (matchedUser == null) {
-      return 'Account not found. Please check your username/email or sign up.';
-    }
-
-    if (!SecurityHelper.verifyPassword(password, matchedUser.passwordHash)) {
-      return 'Incorrect password. Please try again.';
-    }
-
-    _currentUser = matchedUser;
     InAppMusicService().loadUserSongs(_currentUser!.id);
+    _persistState();
+    notifyListeners();
+    return null; // Success
+  }
+
+  Future<String?> loginAsync(String identifier, String password) async {
+    final result = await BackendApiService().loginUser(
+      identifier: identifier,
+      password: password,
+    );
+    if (!result.success || result.user == null) {
+      return result.error ?? 'Invalid credentials.';
+    }
+
+    _currentUser = result.user;
+    final idx = _registeredUsers.indexWhere((u) => u.id == result.user!.id);
+    if (idx != -1) {
+      _registeredUsers[idx] = result.user!;
+    } else {
+      _registeredUsers.add(result.user!);
+    }
+
+    await InAppMusicService().loadUserSongs(_currentUser!.id);
     _persistState();
     notifyListeners();
     return null; // Success
@@ -389,7 +297,9 @@ class AuthService extends ChangeNotifier {
   }) {
     final cleanName = name.trim();
     final cleanEmail = email.trim().toLowerCase();
-    final formattedTag = tag.trim().startsWith('@') ? tag.trim().toLowerCase() : '@${tag.trim().toLowerCase()}';
+    final formattedTag = tag.trim().startsWith('@')
+        ? tag.trim().toLowerCase()
+        : '@${tag.trim().toLowerCase()}';
     final cleanPhone = phoneNumber.replaceAll(RegExp(r'\D'), '');
 
     if (cleanName.length < 2) {
@@ -416,7 +326,8 @@ class AuthService extends ChangeNotifier {
       if (user.email.toLowerCase() == cleanEmail) {
         return 'This email is already used / registered. Please sign in or use another email.';
       }
-      if (user.phoneNumber != null && user.phoneNumber!.replaceAll(RegExp(r'\D'), '') == cleanPhone) {
+      if (user.phoneNumber != null &&
+          user.phoneNumber!.replaceAll(RegExp(r'\D'), '') == cleanPhone) {
         return 'This mobile number is already used / registered. Please sign in or use another mobile number.';
       }
       if (user.tag.toLowerCase() == formattedTag) {
@@ -450,7 +361,8 @@ class AuthService extends ChangeNotifier {
       phoneNumber: phoneNumber,
     );
     if (awsCheck.exists) {
-      return awsCheck.message ?? 'This email or mobile number is already registered in AWS.';
+      return awsCheck.message ??
+          'This email or mobile number is already registered in AWS.';
     }
 
     return null;
@@ -465,6 +377,7 @@ class AuthService extends ChangeNotifier {
     required String countryCode,
     required String countryFlag,
     required Color avatarColor,
+    String? verificationToken,
   }) {
     final validationError = validateRegistrationDetails(
       name: name,
@@ -478,46 +391,83 @@ class AuthService extends ChangeNotifier {
       return validationError;
     }
 
-    final cleanName = name.trim();
-    final cleanEmail = email.trim().toLowerCase();
-    final formattedTag = tag.trim().startsWith('@') ? tag.trim().toLowerCase() : '@${tag.trim().toLowerCase()}';
+    final token = verificationToken ??
+        BackendApiService().getValidVerificationTokenForEmail(
+            email.trim().toLowerCase(), 'registration');
 
-    final initial = cleanName.isNotEmpty ? cleanName[0].toUpperCase() : 'G';
-    final cleanPhone = phoneNumber.replaceAll(RegExp(r'\D'), '');
-    final newId = _generateSecurityId();
-    final isAdmin = cleanEmail == 'ssgobind12@gamil.com' ||
-        cleanEmail == 'ssgobind12@gmail.com' ||
-        cleanPhone == '8573029430';
-
-    final newUser = UserModel(
-      id: newId,
-      name: cleanName,
-      tag: formattedTag,
-      email: cleanEmail,
-      passwordHash: SecurityHelper.hashPassword(password),
-      phoneNumber: phoneNumber.trim(),
+    final result = BackendApiService().registerUserSync(
+      name: name,
+      tag: tag,
+      email: email,
+      password: password,
+      phoneNumber: phoneNumber,
       countryCode: countryCode,
       countryFlag: countryFlag,
       avatarColor: avatarColor,
-      avatarInitial: initial,
-      level: isAdmin ? 50 : 1,
-      coins: isAdmin ? 99999 : 500, // Starter coins
-      trophies: isAdmin ? 999 : 5,
-      winRate: 0.0,
-      totalMatches: 0,
-      totalWins: isAdmin ? 200 : 0,
-      xp: isAdmin ? 20000 : 0,
-      isAdmin: isAdmin,
-      unlockedGameIds: isAdmin
-          ? const ['tic_tac_toe', 'ludo', 'carrom', 'space_dodge', 'arena_brawl', 'word_rush']
-          : const ['tic_tac_toe'],
+      verificationToken: token,
     );
 
+    if (!result.success || result.user == null) {
+      return result.error ?? 'Registration failed.';
+    }
+
+    final newUser = result.user!;
     _registeredUsers.add(newUser);
     _currentUser = newUser;
 
     // Persist to AWS Cloud Storage / DynamoDB
     AwsStorageService.storeUser(newUser);
+
+    _persistState();
+    notifyListeners();
+    return null; // Success
+  }
+
+  /// Async registration validating uniqueness with AWS and registering via trusted backend
+  Future<String?> registerAsync({
+    required String name,
+    required String tag,
+    required String email,
+    required String password,
+    required String phoneNumber,
+    required String countryCode,
+    required String countryFlag,
+    required Color avatarColor,
+    required String verificationToken,
+  }) async {
+    final validationError = await validateRegistrationDetailsAsync(
+      name: name,
+      tag: tag,
+      email: email,
+      password: password,
+      phoneNumber: phoneNumber,
+    );
+
+    if (validationError != null) {
+      return validationError;
+    }
+
+    final result = await BackendApiService().registerUser(
+      name: name,
+      tag: tag,
+      email: email,
+      password: password,
+      phoneNumber: phoneNumber,
+      countryCode: countryCode,
+      countryFlag: countryFlag,
+      avatarColor: avatarColor,
+      verificationToken: verificationToken,
+    );
+
+    if (!result.success || result.user == null) {
+      return result.error ?? 'Registration failed on server.';
+    }
+
+    final newUser = result.user!;
+    _registeredUsers.add(newUser);
+    _currentUser = newUser;
+
+    await AwsStorageService.storeUser(newUser);
 
     _persistState();
     notifyListeners();
@@ -531,7 +481,6 @@ class AuthService extends ChangeNotifier {
       name: 'Guest Player',
       tag: '@guest_$randomDigits',
       email: 'guest$randomDigits@local.demo',
-      passwordHash: '',
       phoneNumber: null,
       countryCode: '+91',
       countryFlag: '🇮🇳',
@@ -543,6 +492,8 @@ class AuthService extends ChangeNotifier {
       winRate: 0.0,
       totalMatches: 0,
       isGuest: true,
+      role: 'user',
+      sessionToken: 'guest_session_$randomDigits',
     );
 
     _currentUser = guestUser;
@@ -551,8 +502,22 @@ class AuthService extends ChangeNotifier {
   }
 
   void logout() {
+    final token = _currentUser?.sessionToken;
     _currentUser = null;
     LocalStorageService.saveCurrentUser(null);
+    if (token != null && token.isNotEmpty) {
+      BackendApiService().logoutUser(token);
+    }
+    notifyListeners();
+  }
+
+  Future<void> logoutAsync() async {
+    final token = _currentUser?.sessionToken;
+    _currentUser = null;
+    await LocalStorageService.saveCurrentUser(null);
+    if (token != null && token.isNotEmpty) {
+      await BackendApiService().logoutUser(token);
+    }
     notifyListeners();
   }
 
@@ -581,34 +546,40 @@ class AuthService extends ChangeNotifier {
     // Level 4: 12-15 wins
     // Level 5: 16-19 wins (or 20 wins)
     final calculatedLevel = 1 + (newWins ~/ 4);
-    final newLevel = calculatedLevel > user.level ? calculatedLevel : user.level;
+    final newLevel =
+        calculatedLevel > user.level ? calculatedLevel : user.level;
 
     final updatedUnlockedGames = List<String>.from(user.unlockedGameIds);
     String? newlyUnlockedTitle;
 
     // Check unlocks:
     // Game 2: Ludo Friends unlocks at Level 5 or 20 wins!
-    if ((newLevel >= 5 || newWins >= 20) && !updatedUnlockedGames.contains('ludo')) {
+    if ((newLevel >= 5 || newWins >= 20) &&
+        !updatedUnlockedGames.contains('ludo')) {
       updatedUnlockedGames.add('ludo');
       newlyUnlockedTitle = 'Ludo Friends';
     }
     // Game 3: Carrom Clash unlocks at Level 10 or 40 wins!
-    if ((newLevel >= 10 || newWins >= 40) && !updatedUnlockedGames.contains('carrom')) {
+    if ((newLevel >= 10 || newWins >= 40) &&
+        !updatedUnlockedGames.contains('carrom')) {
       updatedUnlockedGames.add('carrom');
       newlyUnlockedTitle ??= 'Carrom Clash';
     }
     // Game 4: Cyber Space Dodge unlocks at Level 15 or 60 wins!
-    if ((newLevel >= 15 || newWins >= 60) && !updatedUnlockedGames.contains('space_dodge')) {
+    if ((newLevel >= 15 || newWins >= 60) &&
+        !updatedUnlockedGames.contains('space_dodge')) {
       updatedUnlockedGames.add('space_dodge');
       newlyUnlockedTitle ??= 'Cyber Space Dodge';
     }
     // Game 5: Neon Arena Brawl unlocks at Level 20 or 80 wins!
-    if ((newLevel >= 20 || newWins >= 80) && !updatedUnlockedGames.contains('arena_brawl')) {
+    if ((newLevel >= 20 || newWins >= 80) &&
+        !updatedUnlockedGames.contains('arena_brawl')) {
       updatedUnlockedGames.add('arena_brawl');
       newlyUnlockedTitle ??= 'Neon Arena Brawl';
     }
     // Game 6: Word Sprint Rush unlocks at Level 25 or 100 wins!
-    if ((newLevel >= 25 || newWins >= 100) && !updatedUnlockedGames.contains('word_rush')) {
+    if ((newLevel >= 25 || newWins >= 100) &&
+        !updatedUnlockedGames.contains('word_rush')) {
       updatedUnlockedGames.add('word_rush');
       newlyUnlockedTitle ??= 'Word Sprint';
     }
@@ -636,18 +607,35 @@ class AuthService extends ChangeNotifier {
     if (_currentUser!.isAdmin) return true;
     if (_currentUser!.unlockedGameIds.contains(gameId)) return true;
     if (gameId == 'tic_tac_toe') return true;
-    if (gameId == 'ludo') return _currentUser!.level >= 5 || _currentUser!.totalWins >= 20;
-    if (gameId == 'carrom') return _currentUser!.level >= 10 || _currentUser!.totalWins >= 40;
-    if (gameId == 'space_dodge') return _currentUser!.level >= 15 || _currentUser!.totalWins >= 60;
-    if (gameId == 'arena_brawl') return _currentUser!.level >= 20 || _currentUser!.totalWins >= 80;
-    if (gameId == 'word_rush') return _currentUser!.level >= 25 || _currentUser!.totalWins >= 100;
+    if (gameId == 'ludo') {
+      return _currentUser!.level >= 5 || _currentUser!.totalWins >= 20;
+    }
+    if (gameId == 'carrom') {
+      return _currentUser!.level >= 10 || _currentUser!.totalWins >= 40;
+    }
+    if (gameId == 'space_dodge') {
+      return _currentUser!.level >= 15 || _currentUser!.totalWins >= 60;
+    }
+    if (gameId == 'arena_brawl') {
+      return _currentUser!.level >= 20 || _currentUser!.totalWins >= 80;
+    }
+    if (gameId == 'word_rush') {
+      return _currentUser!.level >= 25 || _currentUser!.totalWins >= 100;
+    }
     return false;
   }
 
   /// Instantly unlocks all games (useful for testing and admin play)
   void unlockAllGames() {
     if (_currentUser == null) return;
-    final allGames = ['tic_tac_toe', 'ludo', 'carrom', 'space_dodge', 'arena_brawl', 'word_rush'];
+    final allGames = [
+      'tic_tac_toe',
+      'ludo',
+      'carrom',
+      'space_dodge',
+      'arena_brawl',
+      'word_rush'
+    ];
     _currentUser = _currentUser!.copyWith(
       unlockedGameIds: allGames,
       level: _currentUser!.level < 5 ? 5 : _currentUser!.level,
@@ -662,6 +650,7 @@ class AuthService extends ChangeNotifier {
     if (_currentUser == null) return;
     final userId = _currentUser!.id;
     final email = _currentUser!.email;
+    final sessionToken = _currentUser!.sessionToken;
 
     _currentUser = _currentUser!.copyWith(
       profilePhoto: photo,
@@ -670,6 +659,15 @@ class AuthService extends ChangeNotifier {
     final idx = _registeredUsers.indexWhere((u) => u.id == _currentUser!.id);
     if (idx != -1) {
       _registeredUsers[idx] = _currentUser!;
+    }
+
+    // Sync to backend with session token authorization
+    if (sessionToken != null && sessionToken.isNotEmpty) {
+      BackendApiService().updateProfilePhoto(
+        sessionToken: sessionToken,
+        profilePhoto: photo,
+        targetEmail: email,
+      );
     }
 
     // Sync to AWS cloud storage server (saves or removes from server)
@@ -687,8 +685,12 @@ class AuthService extends ChangeNotifier {
   void updateProfileDetails({required String name, required String tag}) {
     if (_currentUser == null) return;
     final cleanName = name.trim();
-    final cleanTag = tag.trim().startsWith('@') ? tag.trim().toLowerCase() : '@${tag.trim().toLowerCase()}';
-    final initial = cleanName.isNotEmpty ? cleanName[0].toUpperCase() : _currentUser!.avatarInitial;
+    final cleanTag = tag.trim().startsWith('@')
+        ? tag.trim().toLowerCase()
+        : '@${tag.trim().toLowerCase()}';
+    final initial = cleanName.isNotEmpty
+        ? cleanName[0].toUpperCase()
+        : _currentUser!.avatarInitial;
     _currentUser = _currentUser!.copyWith(
       name: cleanName,
       tag: cleanTag,
@@ -702,20 +704,41 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Permanently deletes only the active user's own account
+  /// Permanently deletes only the active user's own account and all associated data everywhere
   bool deleteCurrentUser() {
     if (_currentUser == null) return false;
     final currentUserId = _currentUser!.id;
     final currentUserEmail = _currentUser!.email;
+    final currentUserName = _currentUser!.name;
 
-    _registeredUsers.removeWhere((u) => u.id == currentUserId);
+    // 1. Remove from registered users list
+    _registeredUsers.removeWhere((u) =>
+        u.id == currentUserId ||
+        u.email.toLowerCase() == currentUserEmail.toLowerCase());
 
-    // Remove user profile photo and songs from AWS server
+    // 2. Remove all active rooms created by this user
+    _activeRooms.removeWhere((r) =>
+        r.hostName == currentUserName ||
+        r.hostName == '$currentUserName 👑' ||
+        r.hostName.startsWith(currentUserName));
+
+    // 3. Leave room if currently in a room
+    VoiceRoomManager().leaveRoom();
+
+    // 4. Remove custom songs uploaded by this user
+    InAppMusicService().clearUserSongs(currentUserId);
+    LocalStorageService.saveUserSongs(currentUserId, []);
+
+    // 5. Remove user profile photo and cloud data
     AwsStorageService.deleteUserProfilePhoto(
       userId: currentUserId,
       email: currentUserEmail,
     );
 
+    // 6. Delete user from backend/server auth database
+    BackendApiService().deleteServerUser(currentUserEmail);
+
+    // 7. Clear active logged in user and persist all cleared state
     _currentUser = null;
     _persistState();
     notifyListeners();
@@ -772,7 +795,9 @@ class AuthService extends ChangeNotifier {
 
   void addFriend({required String name, required String tag}) {
     final cleanName = name.trim().isNotEmpty ? name.trim() : 'Player';
-    final cleanTag = tag.trim().startsWith('@') ? tag.trim().toLowerCase() : '@${tag.trim().toLowerCase()}';
+    final cleanTag = tag.trim().startsWith('@')
+        ? tag.trim().toLowerCase()
+        : '@${tag.trim().toLowerCase()}';
     final initial = cleanName[0].toUpperCase();
     const colors = [
       AppColors.primaryPurple,
@@ -796,7 +821,8 @@ class AuthService extends ChangeNotifier {
     );
 
     if (_currentUser != null) {
-      final updated = List<FriendModel>.from(_currentUser!.friends)..add(newFriend);
+      final updated = List<FriendModel>.from(_currentUser!.friends)
+        ..add(newFriend);
       _currentUser = _currentUser!.copyWith(friends: updated);
     } else {
       _localFriends.add(newFriend);
@@ -807,7 +833,8 @@ class AuthService extends ChangeNotifier {
 
   void removeFriend(String friendId) {
     if (_currentUser != null) {
-      final updated = List<FriendModel>.from(_currentUser!.friends)..removeWhere((f) => f.id == friendId);
+      final updated = List<FriendModel>.from(_currentUser!.friends)
+        ..removeWhere((f) => f.id == friendId);
       _currentUser = _currentUser!.copyWith(friends: updated);
     } else {
       _localFriends.removeWhere((f) => f.id == friendId);
@@ -865,16 +892,32 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Deletes a room created by user, persists updated room list, and leaves if inside it
+  bool deleteRoom(String roomId) {
+    final initialCount = _activeRooms.length;
+    _activeRooms.removeWhere((r) => r.id == roomId || r.roomCode == roomId);
+    final removed = _activeRooms.length < initialCount;
+    if (removed) {
+      if (VoiceRoomManager().activeRoom?.id == roomId ||
+          VoiceRoomManager().activeRoom?.roomCode == roomId) {
+        VoiceRoomManager().leaveRoom();
+      }
+      _persistState();
+      notifyListeners();
+    }
+    return removed;
+  }
+
   void resetStatsForTesting() {
     LocalStorageService.resetInMemoryForTesting();
-    final testAlex = UserModel(
+    BackendApiService().resetMockForTesting();
+    const testAlex = UserModel(
       id: '010002',
       email: 'alex@playfriends.io',
-      passwordHash: SecurityHelper.hashPassword('password123'),
       phoneNumber: '9876543210',
       name: 'Alex Vance',
       tag: '@alex_play',
-      avatarColor: const Color(0xFF8B5CF6),
+      avatarColor: Color(0xFF8B5CF6),
       avatarInitial: 'A',
       level: 1,
       xp: 0,
@@ -883,14 +926,15 @@ class AuthService extends ChangeNotifier {
       totalMatches: 0,
       totalWins: 0,
       winRate: 0.0,
-      unlockedGameIds: const ['tic_tac_toe'],
-      friends: const [],
+      role: 'user',
+      sessionToken: 'pf_session_alex_test',
+      unlockedGameIds: ['tic_tac_toe'],
+      friends: [],
     );
     _currentUser = testAlex;
     _registeredUsers = [adminUser, testAlex];
     _activeRooms.clear();
     _localFriends.clear();
-    _otpRecords.clear();
     _persistState();
     notifyListeners();
   }

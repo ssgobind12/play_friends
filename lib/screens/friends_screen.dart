@@ -17,7 +17,8 @@ class FriendsScreen extends StatefulWidget {
   State<FriendsScreen> createState() => _FriendsScreenState();
 }
 
-class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProviderStateMixin {
+class _FriendsScreenState extends State<FriendsScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
@@ -85,7 +86,8 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
               children: [
                 // Search Bar
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: TextField(
                     controller: _searchController,
                     onChanged: (val) {
@@ -95,8 +97,10 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
                     },
                     decoration: InputDecoration(
                       hintText: 'Search friends by name or tag...',
-                      hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
-                      prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary),
+                      hintStyle: const TextStyle(
+                          color: AppColors.textMuted, fontSize: 14),
+                      prefixIcon: const Icon(Icons.search_rounded,
+                          color: AppColors.textSecondary),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
                               icon: const Icon(Icons.clear_rounded, size: 18),
@@ -110,18 +114,22 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
                           : null,
                       filled: true,
                       fillColor: AppColors.cardBg,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: AppColors.cardBorder),
+                        borderSide:
+                            const BorderSide(color: AppColors.cardBorder),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: AppColors.cardBorder),
+                        borderSide:
+                            const BorderSide(color: AppColors.cardBorder),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: AppColors.primaryPurple, width: 1.5),
+                        borderSide: const BorderSide(
+                            color: AppColors.primaryPurple, width: 1.5),
                       ),
                     ),
                   ),
@@ -133,7 +141,8 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
                     controller: _tabController,
                     children: [
                       _buildFriendsList(allFriends, 'No friends added yet.'),
-                      _buildFriendsList(onlineFriends, 'No online friends right now.'),
+                      _buildFriendsList(
+                          onlineFriends, 'No online friends right now.'),
                     ],
                   ),
                 ),
@@ -169,13 +178,17 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
               const SizedBox(height: 16),
               const Text(
                 'Squad is Empty',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white),
               ),
               const SizedBox(height: 8),
               Text(
                 emptyMessage,
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                style: const TextStyle(
+                    color: AppColors.textSecondary, fontSize: 13),
               ),
               const SizedBox(height: 20),
               ElevatedButton.icon(
@@ -184,8 +197,10 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryPurple,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
                 onPressed: () => _showAddFriendDialog(context),
               ),
@@ -231,12 +246,20 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
               backgroundColor: friend.avatarColor,
               child: Text(
                 friend.initial,
-                style: const TextStyle(fontSize: 28, color: Colors.white, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                    fontSize: 28,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold),
               ),
             ),
             const SizedBox(height: 12),
-            Text(friend.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-            Text(friend.tag, style: const TextStyle(color: AppColors.textSecondary)),
+            Text(friend.name,
+                style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white)),
+            Text(friend.tag,
+                style: const TextStyle(color: AppColors.textSecondary)),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
@@ -249,14 +272,26 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
                 children: [
                   Column(
                     children: [
-                      const Text('Level', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                      Text('${friend.level}', style: const TextStyle(color: AppColors.trophyGold, fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Text('Level',
+                          style: TextStyle(
+                              color: AppColors.textSecondary, fontSize: 12)),
+                      Text('${friend.level}',
+                          style: const TextStyle(
+                              color: AppColors.trophyGold,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16)),
                     ],
                   ),
                   Column(
                     children: [
-                      const Text('Status', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                      Text(friend.statusText, style: const TextStyle(color: AppColors.onlineGreen, fontWeight: FontWeight.bold, fontSize: 13)),
+                      const Text('Status',
+                          style: TextStyle(
+                              color: AppColors.textSecondary, fontSize: 12)),
+                      Text(friend.statusText,
+                          style: const TextStyle(
+                              color: AppColors.onlineGreen,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13)),
                     ],
                   ),
                 ],
@@ -276,7 +311,9 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
                       AuthService().removeFriend(friend.id);
                       Navigator.of(ctx).pop();
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Removed ${friend.name} from squad.')),
+                        SnackBar(
+                            content:
+                                Text('Removed ${friend.name} from squad.')),
                       );
                     },
                     child: const Text('Remove Friend'),
@@ -292,9 +329,11 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
                     ),
                     onPressed: () {
                       Navigator.of(ctx).pop();
-                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TicTacToeScreen()));
+                      Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => const TicTacToeScreen()));
                     },
-                    child: const Text('Challenge Duel', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: const Text('Challenge Duel',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -318,7 +357,9 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
           children: [
             Icon(Icons.person_add_rounded, color: AppColors.primaryBlueLight),
             SizedBox(width: 10),
-            Text('Add Friend to Squad', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            Text('Add Friend to Squad',
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
           ],
         ),
         content: Column(
@@ -338,7 +379,8 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
                 hintText: 'e.g. Marcus or Sarah',
                 filled: true,
                 fillColor: AppColors.surfaceLight,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
             const SizedBox(height: 10),
@@ -350,7 +392,8 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
                 hintText: 'e.g. @marcus_play',
                 filled: true,
                 fillColor: AppColors.surfaceLight,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ],
@@ -358,10 +401,12 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+            child: const Text('Cancel',
+                style: TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryPurple),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryPurple),
             onPressed: () {
               final name = nameController.text.trim();
               final tag = tagController.text.trim();
@@ -379,7 +424,8 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
                 );
               }
             },
-            child: const Text('Add Friend', style: TextStyle(color: Colors.white)),
+            child:
+                const Text('Add Friend', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

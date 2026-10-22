@@ -4,7 +4,8 @@ class AwsConfig {
   /// AWS API Gateway / Lambda REST Endpoint URL
   static const String apiEndpoint = String.fromEnvironment(
     'AWS_API_ENDPOINT',
-    defaultValue: 'https://6zsqpcfh9j.execute-api.ap-southeast-2.amazonaws.com/users',
+    defaultValue:
+        'https://6zsqpcfh9j.execute-api.ap-southeast-2.amazonaws.com/users',
   );
 
   /// AWS Region
@@ -27,6 +28,5 @@ class AwsConfig {
 
   /// Returns true if an AWS API Gateway endpoint URL has been configured
   static bool get isConfigured =>
-      apiEndpoint.trim().isNotEmpty &&
-      apiEndpoint.trim().startsWith('http');
+      apiEndpoint.trim().isNotEmpty && apiEndpoint.trim().startsWith('http');
 }

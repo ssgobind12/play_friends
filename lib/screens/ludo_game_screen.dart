@@ -43,8 +43,9 @@ class _LudoGameScreenState extends State<LudoGameScreen>
   LudoDifficulty _difficulty = LudoDifficulty.medium;
 
   // Active Players in Turn Order
-  List<String> get _activePlayers =>
-      _playerCount == 2 ? ['Red', 'Yellow'] : ['Red', 'Green', 'Yellow', 'Blue'];
+  List<String> get _activePlayers => _playerCount == 2
+      ? ['Red', 'Yellow']
+      : ['Red', 'Green', 'Yellow', 'Blue'];
 
   int _currentTurnIndex = 0;
   String get _currentTurn => _activePlayers[_currentTurnIndex];
@@ -197,9 +198,17 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           // Only block if destination (non-safe perimeter) has 2+ own tokens already (stacking limit).
           if (newStep < 51) {
             final targetGlobal = _getGlobalPerimeterIndex(player, newStep);
-            final ownOnTarget = _tokens.where(
-              (o) => o.player == player && !o.inYard && !o.isHome && !o.inHomeLane && _getGlobalPerimeterIndex(o.player, o.step) == targetGlobal,
-            ).length;
+            final ownOnTarget = _tokens
+                .where(
+                  (o) =>
+                      o.player == player &&
+                      !o.inYard &&
+                      !o.isHome &&
+                      !o.inHomeLane &&
+                      _getGlobalPerimeterIndex(o.player, o.step) ==
+                          targetGlobal,
+                )
+                .length;
             // Allow stacking on safe spots freely; elsewhere limit to 2 own tokens per cell
             if (_isSafeSpot(targetGlobal) || ownOnTarget < 2) {
               valid.add(t);
@@ -249,7 +258,8 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     if (best == null) {
       for (final t in movable) {
         if (!t.inYard && t.step + _diceValue < 51) {
-          final targetIndex = _getGlobalPerimeterIndex(t.player, t.step + _diceValue);
+          final targetIndex =
+              _getGlobalPerimeterIndex(t.player, t.step + _diceValue);
           if (!_isSafeSpot(targetIndex)) {
             final hasOpponent = _tokens.any(
               (o) =>
@@ -269,7 +279,8 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     }
 
     if (best == null && _diceValue == 6) {
-      final yardToken = movable.firstWhere((t) => t.inYard, orElse: () => movable.first);
+      final yardToken =
+          movable.firstWhere((t) => t.inYard, orElse: () => movable.first);
       if (yardToken.inYard) best = yardToken;
     }
 
@@ -304,14 +315,16 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           final globalPos = _getGlobalPerimeterIndex(token.player, token.step);
 
           if (!_isSafeSpot(globalPos)) {
-            final captured = _tokens.where(
-              (o) =>
-                  o.player != token.player &&
-                  !o.inYard &&
-                  !o.isHome &&
-                  !o.inHomeLane &&
-                  _getGlobalPerimeterIndex(o.player, o.step) == globalPos,
-            ).toList();
+            final captured = _tokens
+                .where(
+                  (o) =>
+                      o.player != token.player &&
+                      !o.inYard &&
+                      !o.isHome &&
+                      !o.inHomeLane &&
+                      _getGlobalPerimeterIndex(o.player, o.step) == globalPos,
+                )
+                .toList();
 
             if (captured.isNotEmpty) {
               for (final victim in captured) {
@@ -326,7 +339,8 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       }
 
       // Check win condition
-      final homeCount = _tokens.where((t) => t.player == token.player && t.isHome).length;
+      final homeCount =
+          _tokens.where((t) => t.player == token.player && t.isHome).length;
       if (homeCount >= _tokensPerPlayer) {
         _winner = token.player;
         _onGameWon(token.player == 'Red');
@@ -404,7 +418,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     Point(4, 8), // 16
     Point(5, 8), // 17
     // Right Arm Top Row (18..23)
-    Point(6, 9),  // 18
+    Point(6, 9), // 18
     Point(6, 10), // 19
     Point(6, 11), // 20
     Point(6, 12), // 21: Yellow Safe Star (SAFE)
@@ -418,9 +432,9 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     Point(8, 12), // 27
     Point(8, 11), // 28
     Point(8, 10), // 29
-    Point(8, 9),  // 30
+    Point(8, 9), // 30
     // Bottom Arm Right Col (31..36)
-    Point(9, 8),  // 31
+    Point(9, 8), // 31
     Point(10, 8), // 32
     Point(11, 8), // 33
     Point(12, 8), // 34: Blue Safe Star (SAFE)
@@ -434,7 +448,7 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     Point(12, 6), // 40
     Point(11, 6), // 41
     Point(10, 6), // 42
-    Point(9, 6),  // 43
+    Point(9, 6), // 43
     // Left Arm Bottom Row (44..49)
     Point(8, 5), // 44
     Point(8, 4), // 45
@@ -566,15 +580,20 @@ class _LudoGameScreenState extends State<LudoGameScreen>
         title: Row(
           children: [
             Icon(
-              isPlayerWinner ? Icons.emoji_events_rounded : Icons.military_tech_rounded,
-              color: isPlayerWinner ? AppColors.coinAmber : AppColors.textSecondary,
+              isPlayerWinner
+                  ? Icons.emoji_events_rounded
+                  : Icons.military_tech_rounded,
+              color: isPlayerWinner
+                  ? AppColors.coinAmber
+                  : AppColors.textSecondary,
               size: 32,
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 isPlayerWinner ? 'VICTORY! You Won!' : 'Match Completed',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
               ),
             ),
           ],
@@ -587,7 +606,8 @@ class _LudoGameScreenState extends State<LudoGameScreen>
               isPlayerWinner
                   ? 'Congratulations! You brought all your tokens home in Ludo Friends!'
                   : '$_winner player finished first. Better luck next match!',
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+              style:
+                  const TextStyle(color: AppColors.textSecondary, fontSize: 14),
             ),
             const SizedBox(height: 16),
             Container(
@@ -595,14 +615,24 @@ class _LudoGameScreenState extends State<LudoGameScreen>
               decoration: BoxDecoration(
                 color: AppColors.cardBg,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.primaryPurple.withValues(alpha: 0.3)),
+                border: Border.all(
+                    color: AppColors.primaryPurple.withValues(alpha: 0.3)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _rewardBadge(Icons.bolt_rounded, isPlayerWinner ? '+120 XP' : '+30 XP', AppColors.primaryBlueLight),
-                  _rewardBadge(Icons.monetization_on_rounded, isPlayerWinner ? '+60 Coins' : '+15 Coins', AppColors.coinAmber),
-                  _rewardBadge(Icons.emoji_events_rounded, isPlayerWinner ? '+1 Win' : '0 Win', AppColors.onlineGreen),
+                  _rewardBadge(
+                      Icons.bolt_rounded,
+                      isPlayerWinner ? '+120 XP' : '+30 XP',
+                      AppColors.primaryBlueLight),
+                  _rewardBadge(
+                      Icons.monetization_on_rounded,
+                      isPlayerWinner ? '+60 Coins' : '+15 Coins',
+                      AppColors.coinAmber),
+                  _rewardBadge(
+                      Icons.emoji_events_rounded,
+                      isPlayerWinner ? '+1 Win' : '0 Win',
+                      AppColors.onlineGreen),
                 ],
               ),
             ),
@@ -611,17 +641,22 @@ class _LudoGameScreenState extends State<LudoGameScreen>
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [AppColors.primaryPurple, AppColors.primaryBlue]),
+                  gradient: const LinearGradient(
+                      colors: [AppColors.primaryPurple, AppColors.primaryBlue]),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.lock_open_rounded, color: Colors.white, size: 24),
+                    const Icon(Icons.lock_open_rounded,
+                        color: Colors.white, size: 24),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         '🎉 NEW GAME UNLOCKED: $unlockedTitle!',
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            fontSize: 13),
                       ),
                     ),
                   ],
@@ -659,7 +694,9 @@ class _LudoGameScreenState extends State<LudoGameScreen>
       children: [
         Icon(icon, color: color, size: 22),
         const SizedBox(height: 4),
-        Text(text, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+        Text(text,
+            style: TextStyle(
+                color: color, fontWeight: FontWeight.bold, fontSize: 12)),
       ],
     );
   }
@@ -670,18 +707,22 @@ class _LudoGameScreenState extends State<LudoGameScreen>
 
   @override
   Widget build(BuildContext context) {
-    final movableTokens = _hasRolled ? _getMovableTokens(_currentTurn, _diceValue) : <LudoToken>[];
+    final movableTokens = _hasRolled
+        ? _getMovableTokens(_currentTurn, _diceValue)
+        : <LudoToken>[];
 
     return Scaffold(
       backgroundColor: const Color(0xFF0B0F19),
       appBar: AppBar(
-        title: const Text('Ludo King Duel', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Ludo King Duel',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF131A2E),
         actions: [
           // Player count toggle (2 or 4 players)
           PopupMenuButton<int>(
             tooltip: 'Players & Tokens',
-            icon: const Icon(Icons.tune_rounded, color: AppColors.primaryBlueLight),
+            icon: const Icon(Icons.tune_rounded,
+                color: AppColors.primaryBlueLight),
             onSelected: (val) {
               setState(() {
                 if (val == 2 || val == 4) {
@@ -705,7 +746,11 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                 value: 2,
                 child: Row(
                   children: [
-                    Icon(_playerCount == 2 ? Icons.check_circle_rounded : Icons.circle_outlined, size: 18),
+                    Icon(
+                        _playerCount == 2
+                            ? Icons.check_circle_rounded
+                            : Icons.circle_outlined,
+                        size: 18),
                     const SizedBox(width: 8),
                     const Text('2 Players Duel (Red vs Yellow)'),
                   ],
@@ -715,7 +760,11 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                 value: 4,
                 child: Row(
                   children: [
-                    Icon(_playerCount == 4 ? Icons.check_circle_rounded : Icons.circle_outlined, size: 18),
+                    Icon(
+                        _playerCount == 4
+                            ? Icons.check_circle_rounded
+                            : Icons.circle_outlined,
+                        size: 18),
                     const SizedBox(width: 8),
                     const Text('4 Players Match (All Colors)'),
                   ],
@@ -726,7 +775,11 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                 value: 20,
                 child: Row(
                   children: [
-                    Icon(_tokensPerPlayer == 2 ? Icons.check_circle_rounded : Icons.circle_outlined, size: 18),
+                    Icon(
+                        _tokensPerPlayer == 2
+                            ? Icons.check_circle_rounded
+                            : Icons.circle_outlined,
+                        size: 18),
                     const SizedBox(width: 8),
                     const Text('Quick Mode (2 Tokens)'),
                   ],
@@ -736,7 +789,11 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                 value: 40,
                 child: Row(
                   children: [
-                    Icon(_tokensPerPlayer == 4 ? Icons.check_circle_rounded : Icons.circle_outlined, size: 18),
+                    Icon(
+                        _tokensPerPlayer == 4
+                            ? Icons.check_circle_rounded
+                            : Icons.circle_outlined,
+                        size: 18),
                     const SizedBox(width: 8),
                     const Text('Classic Mode (4 Tokens)'),
                   ],
@@ -747,7 +804,12 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                 value: 10,
                 child: Row(
                   children: [
-                    Icon(_difficulty == LudoDifficulty.easy ? Icons.check_circle_rounded : Icons.circle_outlined, size: 18, color: Colors.green),
+                    Icon(
+                        _difficulty == LudoDifficulty.easy
+                            ? Icons.check_circle_rounded
+                            : Icons.circle_outlined,
+                        size: 18,
+                        color: Colors.green),
                     const SizedBox(width: 8),
                     const Text('🟢 Easy AI'),
                   ],
@@ -757,7 +819,12 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                 value: 11,
                 child: Row(
                   children: [
-                    Icon(_difficulty == LudoDifficulty.medium ? Icons.check_circle_rounded : Icons.circle_outlined, size: 18, color: Colors.orange),
+                    Icon(
+                        _difficulty == LudoDifficulty.medium
+                            ? Icons.check_circle_rounded
+                            : Icons.circle_outlined,
+                        size: 18,
+                        color: Colors.orange),
                     const SizedBox(width: 8),
                     const Text('🟡 Medium AI'),
                   ],
@@ -767,7 +834,12 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                 value: 12,
                 child: Row(
                   children: [
-                    Icon(_difficulty == LudoDifficulty.hard ? Icons.check_circle_rounded : Icons.circle_outlined, size: 18, color: Colors.red),
+                    Icon(
+                        _difficulty == LudoDifficulty.hard
+                            ? Icons.check_circle_rounded
+                            : Icons.circle_outlined,
+                        size: 18,
+                        color: Colors.red),
                     const SizedBox(width: 8),
                     const Text('🔴 Hard AI'),
                   ],
@@ -777,7 +849,8 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           ),
           IconButton(
             tooltip: _vsAi ? 'Single Player vs AI' : '2-Player Pass & Play',
-            icon: Icon(_vsAi ? Icons.smart_toy_rounded : Icons.people_rounded, color: AppColors.primaryPurpleLight),
+            icon: Icon(_vsAi ? Icons.smart_toy_rounded : Icons.people_rounded,
+                color: AppColors.primaryPurpleLight),
             onPressed: () {
               setState(() {
                 _vsAi = !_vsAi;
@@ -785,7 +858,9 @@ class _LudoGameScreenState extends State<LudoGameScreen>
               });
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(_vsAi ? 'Switched to Single Player vs AI Bot' : 'Switched to Pass & Play with Friends'),
+                  content: Text(_vsAi
+                      ? 'Switched to Single Player vs AI Bot'
+                      : 'Switched to Pass & Play with Friends'),
                   duration: const Duration(seconds: 1),
                   backgroundColor: AppColors.surfaceLight,
                 ),
@@ -832,11 +907,14 @@ class _LudoGameScreenState extends State<LudoGameScreen>
             if (_statusBanner != null)
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
                   color: _getPlayerColor(_currentTurn).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _getPlayerColor(_currentTurn).withValues(alpha: 0.4)),
+                  border: Border.all(
+                      color:
+                          _getPlayerColor(_currentTurn).withValues(alpha: 0.4)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -844,7 +922,9 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                     Container(
                       width: 8,
                       height: 8,
-                      decoration: BoxDecoration(shape: BoxShape.circle, color: _getPlayerColor(_currentTurn)),
+                      decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _getPlayerColor(_currentTurn)),
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -870,7 +950,8 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFD4AF37), width: 3),
+                        border: Border.all(
+                            color: const Color(0xFFD4AF37), width: 3),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.5),
@@ -905,44 +986,72 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                                   }
 
                                   final coords = _getTokenCoordinates(token);
-                                  final isMovable = movableTokens.contains(token);
+                                  final isMovable =
+                                      movableTokens.contains(token);
 
                                   // Calculate multi-token stacking offset on safe/stop points
                                   final visibleTokens = _tokens.where((t) {
-                                    if (_playerCount == 2 && t.player != 'Red' && t.player != 'Yellow') {
+                                    if (_playerCount == 2 &&
+                                        t.player != 'Red' &&
+                                        t.player != 'Yellow') {
                                       return false;
                                     }
                                     return true;
                                   }).toList();
 
-                                  final sameCellTokens = visibleTokens.where((t) {
-                                    if (token.inYard) return t.id == token.id;
-                                    if (t.inYard) return false;
-                                    if (token.isHome) return t.isHome && t.player == token.player;
-                                    if (t.isHome) return false;
-                                    if (token.inHomeLane) {
-                                      return t.inHomeLane && t.player == token.player && t.step == token.step;
+                                  final sameCellTokens =
+                                      visibleTokens.where((t) {
+                                    if (token.inYard) {
+                                      return t.id == token.id;
                                     }
-                                    if (t.inHomeLane) return false;
-                                    return _getGlobalPerimeterIndex(t.player, t.step) ==
-                                        _getGlobalPerimeterIndex(token.player, token.step);
+                                    if (t.inYard) {
+                                      return false;
+                                    }
+                                    if (token.isHome) {
+                                      return t.isHome &&
+                                          t.player == token.player;
+                                    }
+                                    if (t.isHome) {
+                                      return false;
+                                    }
+                                    if (token.inHomeLane) {
+                                      return t.inHomeLane &&
+                                          t.player == token.player &&
+                                          t.step == token.step;
+                                    }
+                                    if (t.inHomeLane) {
+                                      return false;
+                                    }
+                                    return _getGlobalPerimeterIndex(
+                                            t.player, t.step) ==
+                                        _getGlobalPerimeterIndex(
+                                            token.player, token.step);
                                   }).toList();
 
                                   final stackCount = sameCellTokens.length;
-                                  final stackIndex = sameCellTokens.indexOf(token);
+                                  final stackIndex =
+                                      sameCellTokens.indexOf(token);
 
                                   final double tokenSize = stackCount > 1
-                                      ? (stackCount == 2 ? cellSize * 0.62 : cellSize * 0.50)
+                                      ? (stackCount == 2
+                                          ? cellSize * 0.62
+                                          : cellSize * 0.50)
                                       : cellSize * 0.85;
 
-                                  final cellCenterX = (coords.y * cellSize) + (cellSize / 2);
-                                  final cellCenterY = (coords.x * cellSize) + (cellSize / 2);
+                                  final cellCenterX =
+                                      (coords.y * cellSize) + (cellSize / 2);
+                                  final cellCenterY =
+                                      (coords.x * cellSize) + (cellSize / 2);
 
                                   double offX = 0;
                                   double offY = 0;
                                   if (stackCount == 2) {
-                                    offX = stackIndex == 0 ? -cellSize * 0.17 : cellSize * 0.17;
-                                    offY = stackIndex == 0 ? -cellSize * 0.17 : cellSize * 0.17;
+                                    offX = stackIndex == 0
+                                        ? -cellSize * 0.17
+                                        : cellSize * 0.17;
+                                    offY = stackIndex == 0
+                                        ? -cellSize * 0.17
+                                        : cellSize * 0.17;
                                   } else if (stackCount == 3) {
                                     if (stackIndex == 0) {
                                       offX = -cellSize * 0.18;
@@ -977,13 +1086,18 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                                     height: tokenSize,
                                     child: GestureDetector(
                                       behavior: HitTestBehavior.opaque,
-                                      onTap: isMovable ? () => _moveToken(token) : null,
+                                      onTap: isMovable
+                                          ? () => _moveToken(token)
+                                          : null,
                                       child: Center(
                                         child: AnimatedBuilder(
                                           animation: _tokenPulseController,
                                           builder: (context, child) {
                                             final scale = isMovable
-                                                ? 1.0 + (_tokenPulseController.value * 0.22)
+                                                ? 1.0 +
+                                                    (_tokenPulseController
+                                                            .value *
+                                                        0.22)
                                                 : 1.0;
 
                                             return Transform.scale(
@@ -995,25 +1109,42 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                                                   shape: BoxShape.circle,
                                                   gradient: RadialGradient(
                                                     colors: [
-                                                      _getPlayerColor(token.player).withValues(alpha: 0.9),
-                                                      _getPlayerColor(token.player),
+                                                      _getPlayerColor(
+                                                              token.player)
+                                                          .withValues(
+                                                              alpha: 0.9),
+                                                      _getPlayerColor(
+                                                          token.player),
                                                       const Color(0xFF1E293B),
                                                     ],
-                                                    stops: const [0.3, 0.7, 1.0],
+                                                    stops: const [
+                                                      0.3,
+                                                      0.7,
+                                                      1.0
+                                                    ],
                                                   ),
                                                   border: Border.all(
                                                     color: isMovable
                                                         ? Colors.white
-                                                        : const Color(0xFFD4AF37),
-                                                    width: isMovable ? 2.5 : 1.5,
+                                                        : const Color(
+                                                            0xFFD4AF37),
+                                                    width:
+                                                        isMovable ? 2.5 : 1.5,
                                                   ),
                                                   boxShadow: [
                                                     BoxShadow(
                                                       color: isMovable
-                                                          ? _getPlayerColor(token.player).withValues(alpha: 0.8)
-                                                          : Colors.black.withValues(alpha: 0.4),
-                                                      blurRadius: isMovable ? 8 : 4,
-                                                      spreadRadius: isMovable ? 2 : 0,
+                                                          ? _getPlayerColor(
+                                                                  token.player)
+                                                              .withValues(
+                                                                  alpha: 0.8)
+                                                          : Colors.black
+                                                              .withValues(
+                                                                  alpha: 0.4),
+                                                      blurRadius:
+                                                          isMovable ? 8 : 4,
+                                                      spreadRadius:
+                                                          isMovable ? 2 : 0,
                                                     ),
                                                   ],
                                                 ),
@@ -1021,7 +1152,8 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                                                   child: Icon(
                                                     token.isHome
                                                         ? Icons.star_rounded
-                                                        : Icons.workspace_premium_rounded,
+                                                        : Icons
+                                                            .workspace_premium_rounded,
                                                     color: Colors.white,
                                                     size: tokenSize * 0.58,
                                                   ),
@@ -1063,12 +1195,16 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                         height: 44,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: _getPlayerColor(_currentTurn).withValues(alpha: 0.2),
-                          border: Border.all(color: _getPlayerColor(_currentTurn), width: 2),
+                          color: _getPlayerColor(_currentTurn)
+                              .withValues(alpha: 0.2),
+                          border: Border.all(
+                              color: _getPlayerColor(_currentTurn), width: 2),
                         ),
                         child: Center(
                           child: Icon(
-                            _isCurrentPlayerAi() ? Icons.smart_toy_rounded : Icons.person_rounded,
+                            _isCurrentPlayerAi()
+                                ? Icons.smart_toy_rounded
+                                : Icons.person_rounded,
                             color: _getPlayerColor(_currentTurn),
                             size: 24,
                           ),
@@ -1090,8 +1226,11 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                           Text(
                             _isRolling
                                 ? 'Rolling dice...'
-                                : (_hasRolled ? 'Pick token' : 'Tap dice to roll'),
-                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                                : (_hasRolled
+                                    ? 'Pick token'
+                                    : 'Tap dice to roll'),
+                            style: const TextStyle(
+                                color: AppColors.textSecondary, fontSize: 12),
                           ),
                         ],
                       ),
@@ -1100,11 +1239,15 @@ class _LudoGameScreenState extends State<LudoGameScreen>
 
                   // Ludo King 3D Realistic Pip Dice
                   GestureDetector(
-                    onTap: (!_hasRolled && !_isRolling && !_isCurrentPlayerAi()) ? _rollDice : null,
+                    onTap: (!_hasRolled && !_isRolling && !_isCurrentPlayerAi())
+                        ? _rollDice
+                        : null,
                     child: AnimatedBuilder(
                       animation: _diceAnimController,
                       builder: (context, child) {
-                        final angle = _isRolling ? _diceAnimController.value * 2 * pi : 0.0;
+                        final angle = _isRolling
+                            ? _diceAnimController.value * 2 * pi
+                            : 0.0;
 
                         return Transform.rotate(
                           angle: angle,
@@ -1120,13 +1263,15 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: _getPlayerColor(_currentTurn).withValues(alpha: 0.4),
+                                  color: _getPlayerColor(_currentTurn)
+                                      .withValues(alpha: 0.4),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
                                 ),
                               ],
                             ),
-                            child: _buildDicePips(_diceValue, _getPlayerColor(_currentTurn)),
+                            child: _buildDicePips(
+                                _diceValue, _getPlayerColor(_currentTurn)),
                           ),
                         );
                       },
@@ -1138,13 +1283,21 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _getPlayerColor(_currentTurn),
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 18, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
                     ),
-                    onPressed: (!_hasRolled && !_isRolling && !_isCurrentPlayerAi()) ? _rollDice : null,
+                    onPressed:
+                        (!_hasRolled && !_isRolling && !_isCurrentPlayerAi())
+                            ? _rollDice
+                            : null,
                     child: Text(
-                      _isRolling ? 'Rolling' : (_hasRolled ? 'Move' : 'Roll 🎲'),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      _isRolling
+                          ? 'Rolling'
+                          : (_hasRolled ? 'Move' : 'Roll 🎲'),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 14),
                     ),
                   ),
                 ],
@@ -1156,10 +1309,12 @@ class _LudoGameScreenState extends State<LudoGameScreen>
     );
   }
 
-  Widget _buildPlayerCard(String player, String label, IconData icon, {required bool isLeft}) {
+  Widget _buildPlayerCard(String player, String label, IconData icon,
+      {required bool isLeft}) {
     final isTurn = _currentTurn == player;
     final color = _getPlayerColor(player);
-    final homeCount = _tokens.where((t) => t.player == player && t.isHome).length;
+    final homeCount =
+        _tokens.where((t) => t.player == player && t.isHome).length;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1195,7 +1350,8 @@ class _LudoGameScreenState extends State<LudoGameScreen>
                 ),
                 Text(
                   "Home: $homeCount/$_tokensPerPlayer",
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                  style: const TextStyle(
+                      color: AppColors.textSecondary, fontSize: 11),
                 ),
               ],
             ),
@@ -1209,7 +1365,10 @@ class _LudoGameScreenState extends State<LudoGameScreen>
               ),
               child: const Text(
                 'TURN',
-                style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white),
+                style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white),
               ),
             ),
         ],
@@ -1251,8 +1410,12 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [_diceDot(dotColor), _diceDot(dotColor)]),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [_diceDot(dotColor), _diceDot(dotColor)]),
+              Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [_diceDot(dotColor), _diceDot(dotColor)]),
+              Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [_diceDot(dotColor), _diceDot(dotColor)]),
             ],
           ),
         );
@@ -1262,9 +1425,13 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [_diceDot(dotColor), _diceDot(dotColor)]),
+              Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [_diceDot(dotColor), _diceDot(dotColor)]),
               Center(child: _diceDot(dotColor)),
-              Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [_diceDot(dotColor), _diceDot(dotColor)]),
+              Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [_diceDot(dotColor), _diceDot(dotColor)]),
             ],
           ),
         );
@@ -1275,8 +1442,20 @@ class _LudoGameScreenState extends State<LudoGameScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [_diceDot(dotColor), _diceDot(dotColor), _diceDot(dotColor)]),
-              Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [_diceDot(dotColor), _diceDot(dotColor), _diceDot(dotColor)]),
+              Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _diceDot(dotColor),
+                    _diceDot(dotColor),
+                    _diceDot(dotColor)
+                  ]),
+              Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _diceDot(dotColor),
+                    _diceDot(dotColor),
+                    _diceDot(dotColor)
+                  ]),
             ],
           ),
         );
@@ -1313,7 +1492,8 @@ class LudoBoardPainter extends CustomPainter {
     // 1. Draw 4 Corner Yards (6x6 cells each)
     _drawYard(canvas, 0, 0, cell, redColor); // Red (Top-Left)
     _drawYard(canvas, 0, 9 * cell, cell, greenColor); // Green (Top-Right)
-    _drawYard(canvas, 9 * cell, 9 * cell, cell, yellowColor); // Yellow (Bottom-Right)
+    _drawYard(
+        canvas, 9 * cell, 9 * cell, cell, yellowColor); // Yellow (Bottom-Right)
     _drawYard(canvas, 9 * cell, 0, cell, blueColor); // Blue (Bottom-Left)
 
     // 2. Draw Track Grid (15x15 lines)
@@ -1338,36 +1518,52 @@ class LudoBoardPainter extends CustomPainter {
 
     // Red Home Path: Row 7, Cols 1..5
     for (int col = 1; col <= 5; col++) {
-      canvas.drawRect(Rect.fromLTWH(col * cell, 7 * cell, cell, cell), redPaint);
+      canvas.drawRect(
+          Rect.fromLTWH(col * cell, 7 * cell, cell, cell), redPaint);
     }
     // Green Home Path: Col 7, Rows 1..5
     for (int row = 1; row <= 5; row++) {
-      canvas.drawRect(Rect.fromLTWH(7 * cell, row * cell, cell, cell), greenPaint);
+      canvas.drawRect(
+          Rect.fromLTWH(7 * cell, row * cell, cell, cell), greenPaint);
     }
     // Yellow Home Path: Row 7, Cols 9..13
     for (int col = 9; col <= 13; col++) {
-      canvas.drawRect(Rect.fromLTWH(col * cell, 7 * cell, cell, cell), yellowPaint);
+      canvas.drawRect(
+          Rect.fromLTWH(col * cell, 7 * cell, cell, cell), yellowPaint);
     }
     // Blue Home Path: Col 7, Rows 9..13
     for (int row = 9; row <= 13; row++) {
-      canvas.drawRect(Rect.fromLTWH(7 * cell, row * cell, cell, cell), bluePaint);
+      canvas.drawRect(
+          Rect.fromLTWH(7 * cell, row * cell, cell, cell), bluePaint);
     }
 
     // 4. Starting tiles (colored background)
-    canvas.drawRect(Rect.fromLTWH(1 * cell, 6 * cell, cell, cell), redPaint); // Red Start (6, 1)
-    canvas.drawRect(Rect.fromLTWH(8 * cell, 1 * cell, cell, cell), greenPaint); // Green Start (1, 8)
-    canvas.drawRect(Rect.fromLTWH(13 * cell, 8 * cell, cell, cell), yellowPaint); // Yellow Start (8, 13)
-    canvas.drawRect(Rect.fromLTWH(6 * cell, 13 * cell, cell, cell), bluePaint); // Blue Start (13, 6)
+    canvas.drawRect(Rect.fromLTWH(1 * cell, 6 * cell, cell, cell),
+        redPaint); // Red Start (6, 1)
+    canvas.drawRect(Rect.fromLTWH(8 * cell, 1 * cell, cell, cell),
+        greenPaint); // Green Start (1, 8)
+    canvas.drawRect(Rect.fromLTWH(13 * cell, 8 * cell, cell, cell),
+        yellowPaint); // Yellow Start (8, 13)
+    canvas.drawRect(Rect.fromLTWH(6 * cell, 13 * cell, cell, cell),
+        bluePaint); // Blue Start (13, 6)
 
     // 5. Draw 8 Safe Stars (⭐)
-    _drawSafeStar(canvas, 1 * cell + cell / 2, 6 * cell + cell / 2, cell * 0.4, Colors.white); // Red start
-    _drawSafeStar(canvas, 2 * cell + cell / 2, 8 * cell + cell / 2, cell * 0.4, const Color(0xFFD4AF37)); // Red safe
-    _drawSafeStar(canvas, 8 * cell + cell / 2, 1 * cell + cell / 2, cell * 0.4, Colors.white); // Green start
-    _drawSafeStar(canvas, 6 * cell + cell / 2, 2 * cell + cell / 2, cell * 0.4, const Color(0xFFD4AF37)); // Green safe
-    _drawSafeStar(canvas, 13 * cell + cell / 2, 8 * cell + cell / 2, cell * 0.4, Colors.white); // Yellow start
-    _drawSafeStar(canvas, 12 * cell + cell / 2, 6 * cell + cell / 2, cell * 0.4, const Color(0xFFD4AF37)); // Yellow safe
-    _drawSafeStar(canvas, 6 * cell + cell / 2, 13 * cell + cell / 2, cell * 0.4, Colors.white); // Blue start
-    _drawSafeStar(canvas, 8 * cell + cell / 2, 12 * cell + cell / 2, cell * 0.4, const Color(0xFFD4AF37)); // Blue safe
+    _drawSafeStar(canvas, 1 * cell + cell / 2, 6 * cell + cell / 2, cell * 0.4,
+        Colors.white); // Red start
+    _drawSafeStar(canvas, 2 * cell + cell / 2, 8 * cell + cell / 2, cell * 0.4,
+        const Color(0xFFD4AF37)); // Red safe
+    _drawSafeStar(canvas, 8 * cell + cell / 2, 1 * cell + cell / 2, cell * 0.4,
+        Colors.white); // Green start
+    _drawSafeStar(canvas, 6 * cell + cell / 2, 2 * cell + cell / 2, cell * 0.4,
+        const Color(0xFFD4AF37)); // Green safe
+    _drawSafeStar(canvas, 13 * cell + cell / 2, 8 * cell + cell / 2, cell * 0.4,
+        Colors.white); // Yellow start
+    _drawSafeStar(canvas, 12 * cell + cell / 2, 6 * cell + cell / 2, cell * 0.4,
+        const Color(0xFFD4AF37)); // Yellow safe
+    _drawSafeStar(canvas, 6 * cell + cell / 2, 13 * cell + cell / 2, cell * 0.4,
+        Colors.white); // Blue start
+    _drawSafeStar(canvas, 8 * cell + cell / 2, 12 * cell + cell / 2, cell * 0.4,
+        const Color(0xFFD4AF37)); // Blue safe
 
     // 6. Draw Center 3x3 Home Triangle (Rows 6..8, Cols 6..8)
     final centerLeft = 6 * cell;
@@ -1417,7 +1613,8 @@ class LudoBoardPainter extends CustomPainter {
     canvas.drawCircle(Offset(midX, midY), cell * 0.6, ringPaint);
   }
 
-  void _drawYard(Canvas canvas, double top, double left, double cell, Color color) {
+  void _drawYard(
+      Canvas canvas, double top, double left, double cell, Color color) {
     final yardSize = 6 * cell;
 
     // Outer colored block
@@ -1459,7 +1656,8 @@ class LudoBoardPainter extends CustomPainter {
     }
   }
 
-  void _drawSafeStar(Canvas canvas, double cx, double cy, double radius, Color color) {
+  void _drawSafeStar(
+      Canvas canvas, double cx, double cy, double radius, Color color) {
     final path = Path();
     const int points = 5;
     final double innerRadius = radius * 0.45;

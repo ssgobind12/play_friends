@@ -54,7 +54,8 @@ class VoiceRoomManager extends ChangeNotifier {
   Set<String> get followedRoomCodes => Set.unmodifiable(_followedRoomCodes);
   Set<String> get followedUsers => Set.unmodifiable(_followedUsers);
 
-  bool isFollowingRoom(String roomCode) => _followedRoomCodes.contains(roomCode);
+  bool isFollowingRoom(String roomCode) =>
+      _followedRoomCodes.contains(roomCode);
   bool isFollowingUser(String userName) => _followedUsers.contains(userName);
 
   void toggleFollowRoom(String roomCode) {
@@ -139,7 +140,8 @@ class VoiceRoomManager extends ChangeNotifier {
     final user = auth.currentUser;
     if (user != null && user.name == senderName) {
       final updatedXp = user.xp + coins;
-      final calculatedUserLevel = LevelProgressionService.calculateLevel(updatedXp);
+      final calculatedUserLevel =
+          LevelProgressionService.calculateLevel(updatedXp);
       final newLevel = max(user.level, calculatedUserLevel);
 
       auth.promoteLevelFromCoins(coins, newLevel);

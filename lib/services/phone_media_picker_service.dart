@@ -1,13 +1,15 @@
 import 'package:flutter/services.dart';
 
 class PhoneMediaPickerService {
-  static const MethodChannel _channel = MethodChannel('com.playfriends.game_sound');
+  static const MethodChannel _channel =
+      MethodChannel('com.playfriends.game_sound');
 
   /// Launches the native Android phone gallery to pick an actual profile photo.
   /// Returns the image as a Base64 data URI (data:image/jpeg;base64,...), or null if cancelled.
   static Future<String?> pickPhotoFromPhoneGallery() async {
     try {
-      final dynamic result = await _channel.invokeMethod('pickPhotoFromGallery');
+      final dynamic result =
+          await _channel.invokeMethod('pickPhotoFromGallery');
       if (result is String && result.isNotEmpty) {
         return result;
       }
@@ -21,7 +23,8 @@ class PhoneMediaPickerService {
   /// Returns a map with {'title': ..., 'path': ..., 'fileName': ...}, or null if cancelled.
   static Future<Map<String, String>?> pickMusicFromPhoneStorage() async {
     try {
-      final dynamic result = await _channel.invokeMethod('pickMusicFromStorage');
+      final dynamic result =
+          await _channel.invokeMethod('pickMusicFromStorage');
       if (result is Map) {
         return Map<String, String>.from(result);
       }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/room_model.dart';
+import '../services/auth_service.dart';
 import '../services/voice_room_manager.dart';
 import '../theme/app_theme.dart';
 
@@ -18,6 +19,11 @@ class RoomCard extends StatelessWidget {
     final double fillPercentage = room.currentPlayers / room.maxPlayers;
     final bool isFull = room.currentPlayers >= room.maxPlayers;
     final roomLevel = LevelProgressionService.calculateLevel(room.giftPoints);
+    final currentUser = AuthService().currentUser;
+    final bool isHostMe = currentUser != null &&
+        (room.hostName == currentUser.name ||
+            room.hostName == '${currentUser.name} 👑' ||
+            room.hostName.startsWith(currentUser.name));
 
     return ListenableBuilder(
       listenable: VoiceRoomManager(),
@@ -31,7 +37,9 @@ class RoomCard extends StatelessWidget {
             color: AppColors.cardBg,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: isFollowed ? AppColors.accentCyan.withValues(alpha: 0.6) : AppColors.cardBorder,
+              color: isFollowed
+                  ? AppColors.accentCyan.withValues(alpha: 0.6)
+                  : AppColors.cardBorder,
               width: isFollowed ? 1.5 : 1,
             ),
           ),
@@ -41,7 +49,8 @@ class RoomCard extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppColors.surfaceLight,
                       borderRadius: BorderRadius.circular(8),
@@ -63,14 +72,18 @@ class RoomCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   // Room Level Badge
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: AppColors.primaryPurple.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       'Lv.$roomLevel',
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.accentCyan),
+                      style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.accentCyan),
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -87,20 +100,82 @@ class RoomCard extends StatelessWidget {
                       VoiceRoomManager().toggleFollowRoom(room.roomCode);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(isFollowed ? 'Unfollowed ${room.roomCode}' : 'Following ${room.roomCode}! ⭐'),
+                          content: Text(isFollowed
+                              ? 'Unfollowed ${room.roomCode}'
+                              : 'Following ${room.roomCode}! ⭐'),
                           duration: const Duration(milliseconds: 900),
                         ),
                       );
                     },
                     child: Icon(
-                      isFollowed ? Icons.star_rounded : Icons.star_border_rounded,
+                      isFollowed
+                          ? Icons.star_rounded
+                          : Icons.star_border_rounded,
                       color: isFollowed ? AppColors.trophyGold : Colors.white54,
                       size: 22,
                     ),
                   ),
+                  if (isHostMe) ...[
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            backgroundColor: AppColors.cardBg,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16)),
+                            title: const Text('Delete Room',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold)),
+                            content: Text(
+                              'Are you sure you want to delete "${room.gameTitle}" permanently?',
+                              style: const TextStyle(color: Colors.white70),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('Cancel',
+                                    style: TextStyle(color: Colors.white60)),
+                              ),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.dangerRose),
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text('Delete',
+                                    style: TextStyle(color: Colors.white)),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true) {
+                          AuthService().deleteRoom(room.id);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    'Room "${room.gameTitle}" has been deleted.'),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      child: const Tooltip(
+                        message: 'Delete My Room',
+                        child: Icon(
+                          Icons.delete_outline_rounded,
+                          color: AppColors.dangerRose,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: isFull
                           ? AppColors.dangerRose.withValues(alpha: 0.15)
@@ -112,7 +187,9 @@ class RoomCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: isFull ? AppColors.dangerRose : AppColors.onlineGreen,
+                        color: isFull
+                            ? AppColors.dangerRose
+                            : AppColors.onlineGreen,
                       ),
                     ),
                   ),
@@ -138,11 +215,15 @@ class RoomCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  const Icon(Icons.emoji_events_rounded, size: 12, color: AppColors.coinAmber),
+                  const Icon(Icons.emoji_events_rounded,
+                      size: 12, color: AppColors.coinAmber),
                   const SizedBox(width: 3),
                   Text(
                     '${room.giftPoints} Charm',
-                    style: const TextStyle(fontSize: 11, color: AppColors.coinAmber, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.coinAmber,
+                        fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -157,7 +238,9 @@ class RoomCard extends StatelessWidget {
                         value: fillPercentage,
                         backgroundColor: AppColors.surfaceLight,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          isFull ? AppColors.dangerRose : AppColors.primaryPurple,
+                          isFull
+                              ? AppColors.dangerRose
+                              : AppColors.primaryPurple,
                         ),
                         minHeight: 6,
                       ),
@@ -178,13 +261,16 @@ class RoomCard extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryPurple,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       minimumSize: const Size(60, 34),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text('Enter', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    child: const Text('Enter',
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),

@@ -91,7 +91,8 @@ class _CountryPickerDialogState extends State<CountryPickerDialog> {
             padding: EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [
-                Icon(Icons.public_rounded, color: AppColors.primaryBlueLight, size: 22),
+                Icon(Icons.public_rounded,
+                    color: AppColors.primaryBlueLight, size: 22),
                 SizedBox(width: 10),
                 Text(
                   'Select Country / Dial Code',
@@ -113,8 +114,10 @@ class _CountryPickerDialogState extends State<CountryPickerDialog> {
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 hintText: 'Search country or code (+91, India)...',
-                hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
-                prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textMuted),
+                hintStyle:
+                    const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                prefixIcon: const Icon(Icons.search_rounded,
+                    color: AppColors.textMuted),
                 filled: true,
                 fillColor: AppColors.cardBg,
                 contentPadding: const EdgeInsets.symmetric(vertical: 12),
@@ -128,7 +131,8 @@ class _CountryPickerDialogState extends State<CountryPickerDialog> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: AppColors.primaryPurple, width: 1.5),
+                  borderSide: const BorderSide(
+                      color: AppColors.primaryPurple, width: 1.5),
                 ),
               ),
             ),
@@ -145,7 +149,8 @@ class _CountryPickerDialogState extends State<CountryPickerDialog> {
                     ),
                   )
                 : ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                     itemCount: _filteredCountries.length,
                     separatorBuilder: (_, __) => const Divider(
                       height: 1,
@@ -154,8 +159,9 @@ class _CountryPickerDialogState extends State<CountryPickerDialog> {
                     ),
                     itemBuilder: (context, index) {
                       final country = _filteredCountries[index];
-                      final isSelected = country.code == widget.selectedCountry.code &&
-                          country.name == widget.selectedCountry.name;
+                      final isSelected =
+                          country.code == widget.selectedCountry.code &&
+                              country.name == widget.selectedCountry.name;
 
                       return ListTile(
                         shape: RoundedRectangleBorder(

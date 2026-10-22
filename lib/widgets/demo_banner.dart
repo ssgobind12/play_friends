@@ -7,7 +7,8 @@ class DemoBanner extends StatelessWidget {
 
   const DemoBanner({
     super.key,
-    this.message = 'DEMO MODE - Simulated local play only. Online multiplayer is not connected.',
+    this.message =
+        'DEMO MODE - Simulated local play only. Online multiplayer is not connected.',
     this.icon = Icons.info_outline_rounded,
   });
 

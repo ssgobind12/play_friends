@@ -82,7 +82,8 @@ class GameCard extends StatelessWidget {
                           color: Colors.black54,
                           borderRadius: BorderRadius.circular(18),
                         ),
-                        child: const Icon(Icons.lock_rounded, color: Colors.white, size: 26),
+                        child: const Icon(Icons.lock_rounded,
+                            color: Colors.white, size: 26),
                       ),
                   ],
                 ),
@@ -119,7 +120,8 @@ class GameCard extends StatelessWidget {
                               border: Border.all(
                                 color: isUnlocked
                                     ? AppColors.onlineGreen
-                                    : AppColors.coinAmber.withValues(alpha: 0.6),
+                                    : AppColors.coinAmber
+                                        .withValues(alpha: 0.6),
                                 width: 0.8,
                               ),
                             ),
@@ -127,11 +129,14 @@ class GameCard extends StatelessWidget {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 if (!isUnlocked) ...[
-                                  const Icon(Icons.lock_rounded, size: 10, color: AppColors.coinAmber),
+                                  const Icon(Icons.lock_rounded,
+                                      size: 10, color: AppColors.coinAmber),
                                   const SizedBox(width: 3),
                                 ],
                                 Text(
-                                  isUnlocked ? 'PLAYABLE NOW' : 'LVL ${game.requiredLevel} / ${game.requiredWins} WINS',
+                                  isUnlocked
+                                      ? 'PLAYABLE NOW'
+                                      : 'LVL ${game.requiredLevel} / ${game.requiredWins} WINS',
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,

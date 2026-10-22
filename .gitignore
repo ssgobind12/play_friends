@@ -1,4 +1,7 @@
-# Miscellaneous
+# Secrets & Node dependencies
+.env
+*.env
+node_modules/
 *.class
 *.log
 *.pyc

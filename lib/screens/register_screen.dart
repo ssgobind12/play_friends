@@ -80,7 +80,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     // Validate details with AuthService (Local + AWS Cloud Check)
-    final validationError = await AuthService().validateRegistrationDetailsAsync(
+    final validationError =
+        await AuthService().validateRegistrationDetailsAsync(
       name: _nameController.text,
       tag: _tagController.text,
       email: _emailController.text,
@@ -96,11 +97,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    // Generate 6-digit one-time email OTP (dispatches Brevo email if configured)
-    AuthService().generateRegistrationOtp(
+    // Generate 6-digit one-time email OTP via Brevo backend
+    final otpResult = await AuthService().generateRegistrationOtpAsync(
       _emailController.text,
       name: _nameController.text,
     );
+
+    if (!mounted) return;
+
+    if (!otpResult.success) {
+      setState(() => _errorMessage = otpResult.message);
+      return;
+    }
 
     // Switch to OTP step
     setState(() {
@@ -111,14 +119,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _handleVerifyRegistrationOtp(String otp) async {
     final email = _emailController.text.trim();
-    final isValid = AuthService().verifyRegistrationOtp(email, otp);
+    final verifyResult =
+        await AuthService().verifyRegistrationOtpAsync(email, otp);
 
-    if (!isValid) {
-      throw 'Invalid or expired 6-digit OTP code. Please check and try again.';
+    if (!verifyResult.success) {
+      throw verifyResult.message;
     }
 
-    // Complete registration
-    final registerError = AuthService().register(
+    // Complete registration with trusted backend token
+    final registerError = await AuthService().registerAsync(
       name: _nameController.text,
       tag: _tagController.text,
       email: email,
@@ -127,6 +136,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       countryCode: _selectedCountry.code,
       countryFlag: _selectedCountry.flag,
       avatarColor: _selectedColor,
+      verificationToken: verifyResult.verificationToken ?? '',
     );
 
     if (registerError != null) {
@@ -162,7 +172,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_showOtpVerification ? 'Verify Email' : 'Create Gamer Profile'),
+        title: Text(
+            _showOtpVerification ? 'Verify Email' : 'Create Gamer Profile'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () {
@@ -187,7 +198,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       purpose: 'registration',
                       onVerified: _handleVerifyRegistrationOtp,
                       onResend: () {
-                        AuthService().generateRegistrationOtp(_emailController.text);
+                        AuthService().generateRegistrationOtpAsync(
+                          _emailController.text,
+                          name: _nameController.text,
+                        );
                         setState(() {});
                       },
                     ),
@@ -198,31 +212,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.textSecondary,
                     ),
-                    onPressed: () => setState(() => _showOtpVerification = false),
+                    onPressed: () =>
+                        setState(() => _showOtpVerification = false),
                   ),
                   const SizedBox(height: 12),
                 ],
               )
             : SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 child: Form(
                   key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
-                          color: AppColors.primaryPurple.withValues(alpha: 0.12),
+                          color:
+                              AppColors.primaryPurple.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                            color: AppColors.primaryPurple.withValues(alpha: 0.35),
+                            color:
+                                AppColors.primaryPurple.withValues(alpha: 0.35),
                             width: 1,
                           ),
                         ),
                         child: const Row(
                           children: [
-                            Icon(Icons.shield_outlined, size: 18, color: AppColors.primaryPurpleLight),
+                            Icon(Icons.shield_outlined,
+                                size: 18, color: AppColors.primaryPurpleLight),
                             SizedBox(width: 10),
                             Expanded(
                               child: Text(
@@ -302,7 +322,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 color: color,
                                 shape: BoxShape.circle,
                                 border: Border.all(
-                                  color: isSelected ? Colors.white : Colors.transparent,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : Colors.transparent,
                                   width: isSelected ? 2.5 : 1,
                                 ),
                                 boxShadow: [
@@ -315,7 +337,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ],
                               ),
                               child: isSelected
-                                  ? const Icon(Icons.check, size: 18, color: Colors.white)
+                                  ? const Icon(Icons.check,
+                                      size: 18, color: Colors.white)
                                   : null,
                             ),
                           );
@@ -328,11 +351,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       if (_errorMessage != null)
                         Container(
                           margin: const EdgeInsets.only(bottom: 16),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
                           decoration: BoxDecoration(
                             color: AppColors.dangerRose.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppColors.dangerRose, width: 1),
+                            border: Border.all(
+                                color: AppColors.dangerRose, width: 1),
                           ),
                           child: Row(
                             children: [
@@ -364,7 +389,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               color: AppColors.primaryPurpleLight),
                           filled: true,
                           fillColor: AppColors.cardBg,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16)),
                         ),
                         validator: (val) {
                           if (val == null || val.trim().length < 2) {
@@ -387,7 +413,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               color: AppColors.primaryBlueLight),
                           filled: true,
                           fillColor: AppColors.cardBg,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16)),
                         ),
                         validator: (val) {
                           if (val == null || val.trim().length < 3) {
@@ -409,7 +436,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             borderRadius: BorderRadius.circular(16),
                             child: Container(
                               height: 58,
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12),
                               decoration: BoxDecoration(
                                 color: AppColors.cardBg,
                                 borderRadius: BorderRadius.circular(16),
@@ -450,8 +478,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               style: const TextStyle(color: Colors.white),
                               decoration: InputDecoration(
                                 labelText: 'Phone Number',
-                                hintText: '${'X' * _selectedCountry.phoneDigits} (${_selectedCountry.phoneDigits} digits)',
-                                counterStyle: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                                hintText:
+                                    '${'X' * _selectedCountry.phoneDigits} (${_selectedCountry.phoneDigits} digits)',
+                                counterStyle: const TextStyle(
+                                    color: AppColors.textMuted, fontSize: 11),
                                 prefixIcon: const Icon(
                                   Icons.phone_android_rounded,
                                   color: AppColors.primaryBlueLight,
@@ -466,7 +496,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 if (val == null || val.trim().isEmpty) {
                                   return 'Please enter phone number.';
                                 }
-                                final digits = val.replaceAll(RegExp(r'\D'), '');
+                                final digits =
+                                    val.replaceAll(RegExp(r'\D'), '');
                                 final required = _selectedCountry.phoneDigits;
                                 if (digits.length != required) {
                                   return 'Enter exactly $required digits for ${_selectedCountry.name}.';
@@ -491,16 +522,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           prefixIcon: const Icon(Icons.email_outlined,
                               color: AppColors.primaryPurpleLight),
                           suffixIcon: const Tooltip(
-                            message: 'A 6-digit OTP will be sent to verify this email.',
+                            message:
+                                'A 6-digit OTP will be sent to verify this email.',
                             child: Icon(Icons.info_outline_rounded,
                                 size: 18, color: AppColors.textMuted),
                           ),
                           filled: true,
                           fillColor: AppColors.cardBg,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16)),
                         ),
                         validator: (val) {
-                          if (val == null || !val.contains('@') || !val.contains('.')) {
+                          if (val == null ||
+                              !val.contains('@') ||
+                              !val.contains('.')) {
                             return 'Enter a valid email address.';
                           }
                           return null;
@@ -528,12 +563,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               size: 20,
                             ),
                             onPressed: () {
-                              setState(() => _obscurePassword = !_obscurePassword);
+                              setState(
+                                  () => _obscurePassword = !_obscurePassword);
                             },
                           ),
                           filled: true,
                           fillColor: AppColors.cardBg,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16)),
                         ),
                         validator: (val) {
                           if (val == null || val.length < 6) {
@@ -563,13 +600,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               size: 20,
                             ),
                             onPressed: () {
-                              setState(() =>
-                                  _obscureConfirmPassword = !_obscureConfirmPassword);
+                              setState(() => _obscureConfirmPassword =
+                                  !_obscureConfirmPassword);
                             },
                           ),
                           filled: true,
                           fillColor: AppColors.cardBg,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16)),
                         ),
                         validator: (val) {
                           if (val != _passwordController.text) {
@@ -643,7 +681,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             elevation: 4,
                           ),
-                          onPressed: _isLoading ? null : _handleInitiateRegistration,
+                          onPressed:
+                              _isLoading ? null : _handleInitiateRegistration,
                         ),
                       ),
 

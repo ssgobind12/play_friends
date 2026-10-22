@@ -4,7 +4,8 @@ import 'package:flutter/services.dart';
 /// Uses native Android AudioTrack / STREAM_MUSIC for real game audio + HapticFeedback.
 class GameSoundService {
   static bool soundEnabled = true;
-  static const MethodChannel _channel = MethodChannel('com.playfriends.game_sound');
+  static const MethodChannel _channel =
+      MethodChannel('com.playfriends.game_sound');
 
   static Future<void> _playNative(String sound) async {
     if (!soundEnabled) return;

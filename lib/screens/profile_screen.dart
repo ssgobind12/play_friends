@@ -54,13 +54,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final levelTargetWins = currentLevel * 4;
         final winProgress = (currentWins % 4) / 4.0;
         final profilePhoto = user?.profilePhoto;
-        final isBase64Photo = profilePhoto != null && profilePhoto.startsWith('data:image');
+        final isBase64Photo =
+            profilePhoto != null && profilePhoto.startsWith('data:image');
         final hasNetworkPhoto = profilePhoto != null &&
-            (profilePhoto.startsWith('http://') || profilePhoto.startsWith('https://'));
-        final hasIconPhoto = profilePhoto != null && profilePhoto.startsWith('icon:');
+            (profilePhoto.startsWith('http://') ||
+                profilePhoto.startsWith('https://'));
+        final hasIconPhoto =
+            profilePhoto != null && profilePhoto.startsWith('icon:');
         ImageProvider? profileImageProvider;
         if (isBase64Photo) {
-          profileImageProvider = MemoryImage(base64Decode(profilePhoto.split(',')[1]));
+          profileImageProvider =
+              MemoryImage(base64Decode(profilePhoto.split(',')[1]));
         } else if (hasNetworkPhoto) {
           profileImageProvider = NetworkImage(profilePhoto);
         }
@@ -70,7 +74,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: const Text('Player Profile'),
             actions: [
               IconButton(
-                icon: const Icon(Icons.music_note_rounded, color: AppColors.accentCyan),
+                icon: const Icon(Icons.music_note_rounded,
+                    color: AppColors.accentCyan),
                 tooltip: 'Music Store & Upload',
                 onPressed: () => MusicPlayerSheet.show(context),
               ),
@@ -113,7 +118,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               onTap: () => _showPhotoPicker(context),
                               child: CircleAvatar(
                                 radius: 46,
-                                backgroundColor: user?.avatarColor ?? AppColors.primaryPurple,
+                                backgroundColor: user?.avatarColor ??
+                                    AppColors.primaryPurple,
                                 backgroundImage: profileImageProvider,
                                 child: profileImageProvider != null
                                     ? null
@@ -143,10 +149,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   decoration: BoxDecoration(
                                     color: AppColors.primaryPurple,
                                     shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white, width: 2),
+                                    border: Border.all(
+                                        color: Colors.white, width: 2),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.4),
+                                        color:
+                                            Colors.black.withValues(alpha: 0.4),
                                         blurRadius: 6,
                                       ),
                                     ],
@@ -164,7 +172,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 top: 0,
                                 left: 0,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: AppColors.coinAmber,
                                     borderRadius: BorderRadius.circular(10),
@@ -203,16 +212,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                         // Security ID Badge (Always starts with 01)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
                             color: AppColors.cardBg,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.primaryBlue.withValues(alpha: 0.3)),
+                            border: Border.all(
+                                color: AppColors.primaryBlue
+                                    .withValues(alpha: 0.3)),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.security_rounded, size: 13, color: AppColors.accentCyan),
+                              const Icon(Icons.security_rounded,
+                                  size: 13, color: AppColors.accentCyan),
                               const SizedBox(width: 5),
                               Text(
                                 'Security ID: ${user?.id ?? "01----"}',
@@ -231,7 +244,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         if (user?.isAdmin == true) ...[
                           const SizedBox(height: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 5),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
                                 colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
@@ -239,7 +253,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               borderRadius: BorderRadius.circular(14),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppColors.coinAmber.withValues(alpha: 0.4),
+                                  color: AppColors.coinAmber
+                                      .withValues(alpha: 0.4),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -248,7 +263,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.workspace_premium_rounded, size: 16, color: Colors.black),
+                                Icon(Icons.workspace_premium_rounded,
+                                    size: 16, color: Colors.black),
                                 SizedBox(width: 6),
                                 Text(
                                   '👑 SYSTEM ADMIN • ALL GAMES UNLOCKED',
@@ -273,32 +289,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           alignment: WrapAlignment.center,
                           children: [
                             ElevatedButton.icon(
-                              icon: const Icon(Icons.cloud_upload_rounded, size: 16),
+                              icon: const Icon(Icons.cloud_upload_rounded,
+                                  size: 16),
                               label: const Text(
                                 'Upload Photo',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 12),
                               ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.primaryPurple,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 8),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14)),
                                 elevation: 3,
                               ),
                               onPressed: () => _showPhotoPicker(context),
                             ),
                             ElevatedButton.icon(
-                              icon: const Icon(Icons.library_music_rounded, size: 16, color: AppColors.accentCyan),
+                              icon: const Icon(Icons.library_music_rounded,
+                                  size: 16, color: AppColors.accentCyan),
                               label: const Text(
                                 'Music Store & Upload',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 12),
                               ),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF1E1B4B),
                                 foregroundColor: Colors.white,
-                                side: const BorderSide(color: AppColors.accentCyan, width: 1.2),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                side: const BorderSide(
+                                    color: AppColors.accentCyan, width: 1.2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 8),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14)),
                                 elevation: 3,
                               ),
                               onPressed: () => MusicPlayerSheet.show(context),
@@ -332,9 +357,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ClipRRect(
                           borderRadius: BorderRadius.circular(6),
                           child: LinearProgressIndicator(
-                            value: winProgress == 0 && currentWins > 0 ? 1.0 : winProgress,
+                            value: winProgress == 0 && currentWins > 0
+                                ? 1.0
+                                : winProgress,
                             backgroundColor: AppColors.surfaceLight,
-                            valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryPurpleLight),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                                AppColors.primaryPurpleLight),
                             minHeight: 8,
                           ),
                         ),
@@ -396,7 +424,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     color: AppColors.cardBg,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
-                      side: const BorderSide(color: AppColors.cardBorder, width: 1),
+                      side: const BorderSide(
+                          color: AppColors.cardBorder, width: 1),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,73 +442,105 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                         ListTile(
-                          leading: const Icon(Icons.badge_rounded, color: AppColors.primaryPurpleLight),
+                          leading: const Icon(Icons.badge_rounded,
+                              color: AppColors.primaryPurpleLight),
                           title: const Text('Account Status'),
                           subtitle: Text(
                             user?.isAdmin == true
                                 ? '👑 Administrator Account'
-                                : (user?.isGuest == true ? 'Guest Session' : 'Registered Player'),
+                                : (user?.isGuest == true
+                                    ? 'Guest Session'
+                                    : 'Registered Player'),
                             style: TextStyle(
                               color: user?.isAdmin == true
                                   ? AppColors.coinAmber
-                                  : (user?.isGuest == true ? AppColors.coinAmber : AppColors.onlineGreen),
+                                  : (user?.isGuest == true
+                                      ? AppColors.coinAmber
+                                      : AppColors.onlineGreen),
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
                         if (user != null && !user.isGuest) ...[
-                          const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
+                          const Divider(
+                              height: 1,
+                              indent: 56,
+                              color: AppColors.cardBorder),
                           ListTile(
-                            leading: const Icon(Icons.cloud_upload_rounded, color: AppColors.accentCyan),
+                            leading: const Icon(Icons.cloud_upload_rounded,
+                                color: AppColors.accentCyan),
                             title: const Text(
                               'Upload & Change Profile Photo',
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                             subtitle: const Text(
                               'Upload custom photo from gallery, camera, or choose gamer avatar',
-                              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                              style: TextStyle(
+                                  color: AppColors.textSecondary, fontSize: 13),
                             ),
-                            trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                            trailing: const Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                size: 14),
                             onTap: () => _showPhotoPicker(context),
                           ),
-                          const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
+                          const Divider(
+                              height: 1,
+                              indent: 56,
+                              color: AppColors.cardBorder),
                           ListTile(
-                            leading: const Icon(Icons.edit_rounded, color: AppColors.primaryBlueLight),
+                            leading: const Icon(Icons.edit_rounded,
+                                color: AppColors.primaryBlueLight),
                             title: const Text('Edit Profile Details'),
                             subtitle: const Text(
                               'Change your player name and gamer tag',
-                              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                              style: TextStyle(
+                                  color: AppColors.textSecondary, fontSize: 13),
                             ),
-                            trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                            trailing: const Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                size: 14),
                             onTap: () => _showEditProfileDialog(context, user),
                           ),
                         ],
                         if (user?.email != null && user!.email.isNotEmpty) ...[
-                          const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
+                          const Divider(
+                              height: 1,
+                              indent: 56,
+                              color: AppColors.cardBorder),
                           ListTile(
-                            leading: const Icon(Icons.email_rounded, color: AppColors.primaryBlueLight),
+                            leading: const Icon(Icons.email_rounded,
+                                color: AppColors.primaryBlueLight),
                             title: const Text('Email Address'),
                             subtitle: Text(
                               user.email,
-                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                              style: const TextStyle(
+                                  color: AppColors.textSecondary, fontSize: 13),
                             ),
                           ),
                         ],
-                        if (user?.phoneNumber != null && user!.phoneNumber!.isNotEmpty) ...[
-                          const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
+                        if (user?.phoneNumber != null &&
+                            user!.phoneNumber!.isNotEmpty) ...[
+                          const Divider(
+                              height: 1,
+                              indent: 56,
+                              color: AppColors.cardBorder),
                           ListTile(
-                            leading: const Icon(Icons.phone_android_rounded, color: AppColors.coinAmber),
+                            leading: const Icon(Icons.phone_android_rounded,
+                                color: AppColors.coinAmber),
                             title: const Text('Verified Phone'),
                             subtitle: Text(
                               '${user.countryFlag} ${user.countryCode} ${user.phoneNumber}',
-                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                              style: const TextStyle(
+                                  color: AppColors.textSecondary, fontSize: 13),
                             ),
                           ),
                         ],
-                        const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
+                        const Divider(
+                            height: 1, indent: 56, color: AppColors.cardBorder),
                         ListTile(
-                          leading: const Icon(Icons.logout_rounded, color: AppColors.primaryPurpleLight),
+                          leading: const Icon(Icons.logout_rounded,
+                              color: AppColors.primaryPurpleLight),
                           title: const Text(
                             'Sign Out / Switch Account',
                             style: TextStyle(
@@ -489,16 +550,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           subtitle: const Text(
                             'Return to login screen or switch profiles',
-                            style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                            style: TextStyle(
+                                color: AppColors.textMuted, fontSize: 12),
                           ),
-                          trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                          trailing: const Icon(Icons.arrow_forward_ios_rounded,
+                              size: 14),
                           onTap: () => _confirmSignOut(context),
                         ),
                         // Dedicated "Delete My Account" option for the active user
                         if (user != null && !user.isGuest) ...[
-                          const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
+                          const Divider(
+                              height: 1,
+                              indent: 56,
+                              color: AppColors.cardBorder),
                           ListTile(
-                            leading: const Icon(Icons.delete_forever_rounded, color: AppColors.dangerRose),
+                            leading: const Icon(Icons.delete_forever_rounded,
+                                color: AppColors.dangerRose),
                             title: const Text(
                               'Delete My Account',
                               style: TextStyle(
@@ -508,9 +575,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             subtitle: const Text(
                               'Permanently delete only your account and game progress',
-                              style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                              style: TextStyle(
+                                  color: AppColors.textMuted, fontSize: 12),
                             ),
-                            trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.dangerRose),
+                            trailing: const Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                size: 14,
+                                color: AppColors.dangerRose),
                             onTap: () => _confirmDeleteAccount(context, user),
                           ),
                         ],
@@ -525,7 +596,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     color: AppColors.cardBg,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
-                      side: const BorderSide(color: AppColors.cardBorder, width: 1),
+                      side: const BorderSide(
+                          color: AppColors.cardBorder, width: 1),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -543,21 +615,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         // Direct access to Music Store & Upload
                         ListTile(
-                          leading: const Icon(Icons.music_note_rounded, color: AppColors.accentCyan),
+                          leading: const Icon(Icons.music_note_rounded,
+                              color: AppColors.accentCyan),
                           title: const Text(
                             'Music Store & Upload Music',
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                           subtitle: const Text(
                             'Upload custom songs from device or choose game ambient tracks',
-                            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                            style: TextStyle(
+                                color: AppColors.textSecondary, fontSize: 13),
                           ),
-                          trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                          trailing: const Icon(Icons.arrow_forward_ios_rounded,
+                              size: 14),
                           onTap: () => MusicPlayerSheet.show(context),
                         ),
-                        const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
+                        const Divider(
+                            height: 1, indent: 56, color: AppColors.cardBorder),
                         SwitchListTile(
-                          secondary: const Icon(Icons.volume_up_rounded, color: AppColors.primaryPurpleLight),
+                          secondary: const Icon(Icons.volume_up_rounded,
+                              color: AppColors.primaryPurpleLight),
                           title: const Text('Sound Effects'),
                           value: _soundEnabled,
                           activeThumbColor: AppColors.primaryPurple,
@@ -568,27 +645,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             });
                           },
                         ),
-                        const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
+                        const Divider(
+                            height: 1, indent: 56, color: AppColors.cardBorder),
                         SwitchListTile(
-                          secondary: const Icon(Icons.vibration_rounded, color: AppColors.primaryBlueLight),
+                          secondary: const Icon(Icons.vibration_rounded,
+                              color: AppColors.primaryBlueLight),
                           title: const Text('Haptic Vibration'),
                           value: _hapticsEnabled,
                           activeThumbColor: AppColors.primaryBlue,
-                          onChanged: (val) => setState(() => _hapticsEnabled = val),
+                          onChanged: (val) =>
+                              setState(() => _hapticsEnabled = val),
                         ),
-                        const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
+                        const Divider(
+                            height: 1, indent: 56, color: AppColors.cardBorder),
                         SwitchListTile(
-                          secondary: const Icon(Icons.notifications_rounded, color: AppColors.coinAmber),
+                          secondary: const Icon(Icons.notifications_rounded,
+                              color: AppColors.coinAmber),
                           title: const Text('Notifications'),
                           value: _notificationsEnabled,
                           activeThumbColor: AppColors.coinAmber,
-                          onChanged: (val) => setState(() => _notificationsEnabled = val),
+                          onChanged: (val) =>
+                              setState(() => _notificationsEnabled = val),
                         ),
-                        const Divider(height: 1, indent: 56, color: AppColors.cardBorder),
+                        const Divider(
+                            height: 1, indent: 56, color: AppColors.cardBorder),
                         ListTile(
-                          leading: const Icon(Icons.gavel_rounded, color: AppColors.textSecondary),
+                          leading: const Icon(Icons.gavel_rounded,
+                              color: AppColors.textSecondary),
                           title: const Text('Fair Play & Disclaimer'),
-                          trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                          trailing: const Icon(Icons.arrow_forward_ios_rounded,
+                              size: 14),
                           onTap: () => _showAboutDialog(context),
                         ),
                       ],
@@ -650,39 +736,85 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final galleryPhotos = [
       {
         'title': 'Pro Cyber Gamer',
-        'url': 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=300',
+        'url':
+            'https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=300',
       },
       {
         'title': 'Esports Champion',
-        'url': 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=300',
+        'url':
+            'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=300',
       },
       {
         'title': 'Lofi Chill Streamer',
-        'url': 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=300',
+        'url':
+            'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=300',
       },
       {
         'title': 'Neon Fighter',
-        'url': 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=300',
+        'url':
+            'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=300',
       },
       {
         'title': 'Cosmic Pilot',
-        'url': 'https://images.unsplash.com/photo-1628157582853-a796fa650a6a?w=300',
+        'url':
+            'https://images.unsplash.com/photo-1628157582853-a796fa650a6a?w=300',
       },
       {
         'title': 'Arena Duelist',
-        'url': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300',
+        'url':
+            'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300',
       },
     ];
 
     const avatarPresets = [
-      {'key': 'icon:ninja', 'label': 'Cyber Ninja', 'icon': Icons.sports_martial_arts_rounded, 'color': Color(0xFF06B6D4)},
-      {'key': 'icon:dragon', 'label': 'Fire Dragon', 'icon': Icons.local_fire_department_rounded, 'color': Color(0xFFEF4444)},
-      {'key': 'icon:arcade', 'label': 'Retro Gamer', 'icon': Icons.videogame_asset_rounded, 'color': Color(0xFF8B5CF6)},
-      {'key': 'icon:space', 'label': 'Cosmic Pilot', 'icon': Icons.rocket_launch_rounded, 'color': Color(0xFFEC4899)},
-      {'key': 'icon:crown', 'label': 'Champion King', 'icon': Icons.military_tech_rounded, 'color': Color(0xFFF59E0B)},
-      {'key': 'icon:shield', 'label': 'Guardian Knight', 'icon': Icons.shield_rounded, 'color': Color(0xFF10B981)},
-      {'key': 'icon:bolt', 'label': 'Thunder Striker', 'icon': Icons.bolt_rounded, 'color': Color(0xFF3B82F6)},
-      {'key': 'icon:wizard', 'label': 'Neon Mystic', 'icon': Icons.auto_awesome_rounded, 'color': Color(0xFFA855F7)},
+      {
+        'key': 'icon:ninja',
+        'label': 'Cyber Ninja',
+        'icon': Icons.sports_martial_arts_rounded,
+        'color': Color(0xFF06B6D4)
+      },
+      {
+        'key': 'icon:dragon',
+        'label': 'Fire Dragon',
+        'icon': Icons.local_fire_department_rounded,
+        'color': Color(0xFFEF4444)
+      },
+      {
+        'key': 'icon:arcade',
+        'label': 'Retro Gamer',
+        'icon': Icons.videogame_asset_rounded,
+        'color': Color(0xFF8B5CF6)
+      },
+      {
+        'key': 'icon:space',
+        'label': 'Cosmic Pilot',
+        'icon': Icons.rocket_launch_rounded,
+        'color': Color(0xFFEC4899)
+      },
+      {
+        'key': 'icon:crown',
+        'label': 'Champion King',
+        'icon': Icons.military_tech_rounded,
+        'color': Color(0xFFF59E0B)
+      },
+      {
+        'key': 'icon:shield',
+        'label': 'Guardian Knight',
+        'icon': Icons.shield_rounded,
+        'color': Color(0xFF10B981)
+      },
+      {
+        'key': 'icon:bolt',
+        'label': 'Thunder Striker',
+        'icon': Icons.bolt_rounded,
+        'color': Color(0xFF3B82F6)
+      },
+      {
+        'key': 'icon:wizard',
+        'label': 'Neon Mystic',
+        'icon': Icons.auto_awesome_rounded,
+        'color': Color(0xFFA855F7)
+      },
     ];
 
     showModalBottomSheet(
@@ -706,7 +838,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.cloud_upload_rounded, color: AppColors.primaryBlueLight, size: 26),
+                  Icon(Icons.cloud_upload_rounded,
+                      color: AppColors.primaryBlueLight, size: 26),
                   SizedBox(width: 10),
                   Text(
                     'Upload Profile Photo',
@@ -725,26 +858,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  icon: const Icon(Icons.photo_library_rounded, size: 22, color: Colors.black),
+                  icon: const Icon(Icons.photo_library_rounded,
+                      size: 22, color: Colors.black),
                   label: const Text(
                     '📸 Pick Photo from Phone Gallery',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black),
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: Colors.black),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF06B6D4),
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
                     elevation: 3,
                   ),
                   onPressed: () async {
                     Navigator.of(ctx).pop();
-                    final photoUri = await PhoneMediaPickerService.pickPhotoFromPhoneGallery();
+                    final photoUri = await PhoneMediaPickerService
+                        .pickPhotoFromPhoneGallery();
                     if (photoUri != null && photoUri.isNotEmpty) {
                       AuthService().updateProfilePhoto(photoUri);
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Profile photo uploaded from Gallery successfully!'),
+                            content: Text(
+                                'Profile photo uploaded from Gallery successfully!'),
                             backgroundColor: AppColors.onlineGreen,
                           ),
                         );
@@ -759,7 +899,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               // Section 1: Gallery Upload Options
               const Text(
                 '📁 Select from Device Gallery / Photos:',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.accentCyan),
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: AppColors.accentCyan),
               ),
               const SizedBox(height: 10),
               SizedBox(
@@ -775,7 +918,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Navigator.of(ctx).pop();
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Profile photo updated to ${item['title']}!'),
+                            content: Text(
+                                'Profile photo updated to ${item['title']}!'),
                             backgroundColor: AppColors.onlineGreen,
                           ),
                         );
@@ -785,7 +929,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         margin: const EdgeInsets.only(right: 12),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.primaryBlue.withValues(alpha: 0.5)),
+                          border: Border.all(
+                              color:
+                                  AppColors.primaryBlue.withValues(alpha: 0.5)),
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(15),
@@ -797,7 +943,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, __, ___) => Container(
                                   color: AppColors.cardBg,
-                                  child: const Icon(Icons.person_rounded, color: Colors.white70),
+                                  child: const Icon(Icons.person_rounded,
+                                      color: Colors.white70),
                                 ),
                               ),
                               Positioned(
@@ -805,12 +952,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 left: 0,
                                 right: 0,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 2),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 2),
                                   color: Colors.black.withValues(alpha: 0.7),
                                   child: const Text(
                                     'SELECT',
                                     textAlign: TextAlign.center,
-                                    style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold),
                                   ),
                                 ),
                               ),
@@ -828,7 +979,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               // Section 2: Enter Custom Photo URL / File Path
               const Text(
                 '🔗 Enter Photo URL or Local Image Path:',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Colors.white),
               ),
               const SizedBox(height: 8),
               Row(
@@ -838,10 +992,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       controller: urlController,
                       decoration: InputDecoration(
                         hintText: 'https://example.com/photo.png or /path',
-                        hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                        hintStyle: const TextStyle(
+                            color: AppColors.textMuted, fontSize: 13),
                         filled: true,
                         fillColor: AppColors.cardBg,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14)),
                       ),
                     ),
                   ),
@@ -852,8 +1008,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryPurple,
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
                     ),
                     onPressed: () {
                       final url = urlController.text.trim();
@@ -862,7 +1020,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Navigator.of(ctx).pop();
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Profile photo uploaded successfully!'),
+                            content:
+                                Text('Profile photo uploaded successfully!'),
                             backgroundColor: AppColors.onlineGreen,
                           ),
                         );
@@ -877,7 +1036,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               // Section 3: Gamer Avatar Badges
               const Text(
                 '🎭 Or Choose a Gamer Avatar Badge:',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.trophyGold),
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: AppColors.trophyGold),
               ),
               const SizedBox(height: 10),
               GridView.builder(
@@ -899,7 +1061,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Navigator.of(ctx).pop();
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Avatar updated to ${preset['label']}!'),
+                          content:
+                              Text('Avatar updated to ${preset['label']}!'),
                           backgroundColor: AppColors.onlineGreen,
                         ),
                       );
@@ -909,7 +1072,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         color: AppColors.cardBg,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: (preset['color'] as Color).withValues(alpha: 0.5),
+                          color:
+                              (preset['color'] as Color).withValues(alpha: 0.5),
                         ),
                       ),
                       child: Column(
@@ -918,12 +1082,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           CircleAvatar(
                             radius: 20,
                             backgroundColor: preset['color'] as Color,
-                            child: Icon(preset['icon'] as IconData, color: Colors.white, size: 22),
+                            child: Icon(preset['icon'] as IconData,
+                                color: Colors.white, size: 22),
                           ),
                           const SizedBox(height: 6),
                           Text(
                             preset['label'] as String,
-                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                                fontSize: 10, fontWeight: FontWeight.bold),
                             textAlign: TextAlign.center,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -945,7 +1111,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     AuthService().updateProfilePhoto(null);
                     Navigator.of(ctx).pop();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Reset to default initial avatar')),
+                      const SnackBar(
+                          content: Text('Reset to default initial avatar')),
                     );
                   },
                 ),
@@ -998,7 +1165,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryPurple),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryPurple),
             onPressed: () {
               if (nameCtrl.text.trim().isNotEmpty) {
                 AuthService().updateProfileDetails(
@@ -1027,7 +1195,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (ctx) => AlertDialog(
         title: const Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: AppColors.dangerRose, size: 28),
+            Icon(Icons.warning_amber_rounded,
+                color: AppColors.dangerRose, size: 28),
             SizedBox(width: 10),
             Text('Delete Account?'),
           ],
@@ -1043,7 +1212,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 10),
             const Text(
               '• Only your active account will be deleted.\n• All your game progression, stats, coins, and unlocks will be permanently removed.\n• This action cannot be reversed.',
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
+              style: TextStyle(
+                  fontSize: 13, color: AppColors.textSecondary, height: 1.4),
             ),
           ],
         ),
@@ -1062,7 +1232,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               AuthService().deleteCurrentUser();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Account ${user.id} has been permanently deleted.'),
+                  content:
+                      Text('Account ${user.id} has been permanently deleted.'),
                   backgroundColor: AppColors.dangerRose,
                 ),
               );
@@ -1116,7 +1287,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (ctx) => AlertDialog(
         title: const Row(
           children: [
-            Icon(Icons.verified_user_rounded, color: AppColors.primaryBlueLight),
+            Icon(Icons.verified_user_rounded,
+                color: AppColors.primaryBlueLight),
             SizedBox(width: 10),
             Text('About Play Friends'),
           ],
@@ -1132,12 +1304,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             SizedBox(height: 12),
             Text(
               'Legal & Fair Play Policy:',
-              style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryPurpleLight),
+              style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryPurpleLight),
             ),
             SizedBox(height: 4),
             Text(
               '• Strictly non-gambling and free-to-play.\n• No real-money betting, cash prizes, or in-app purchases.\n• Offline duels and local rooms available.\n• All coins and trophies are strictly in-game entertainment rewards.',
-              style: TextStyle(fontSize: 13, height: 1.4, color: AppColors.textSecondary),
+              style: TextStyle(
+                  fontSize: 13, height: 1.4, color: AppColors.textSecondary),
             ),
           ],
         ),

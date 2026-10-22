@@ -3,15 +3,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:play_friends/main.dart';
 import 'package:play_friends/screens/tic_tac_toe_screen.dart';
 import 'package:play_friends/services/auth_service.dart';
+import 'package:play_friends/services/backend_api_service.dart';
+import 'package:play_friends/services/aws_storage_service.dart';
 import 'package:play_friends/services/voice_room_manager.dart';
 
 void main() {
   setUp(() {
+    BackendApiService.isTestMode = true;
+    AwsStorageService.mockMode = true;
     AuthService().resetStatsForTesting();
     VoiceRoomManager().leaveRoom();
   });
 
-  testWidgets('App renders Home screen with BottomNavigationBar', (WidgetTester tester) async {
+  testWidgets('App renders Home screen with BottomNavigationBar',
+      (WidgetTester tester) async {
     AuthService().login('alex@playfriends.io', 'password123');
     await tester.pumpWidget(const PlayFriendsApp());
     await tester.pumpAndSettle();
@@ -45,7 +50,8 @@ void main() {
     expect(find.text('Alex Vance'), findsOneWidget);
   });
 
-  testWidgets('TicTacToe screen plays a local move', (WidgetTester tester) async {
+  testWidgets('TicTacToe screen plays a local move',
+      (WidgetTester tester) async {
     await tester.pumpWidget(const MaterialApp(home: TicTacToeScreen()));
     await tester.pumpAndSettle();
 
@@ -65,7 +71,8 @@ void main() {
     expect(find.text('X'), findsOneWidget);
   });
 
-  testWidgets('Auth flow: Logout shows Login screen, Guest login works', (WidgetTester tester) async {
+  testWidgets('Auth flow: Logout shows Login screen, Guest login works',
+      (WidgetTester tester) async {
     AuthService().login('alex@playfriends.io', 'password123');
     await tester.pumpWidget(const PlayFriendsApp());
     await tester.pumpAndSettle();
@@ -90,7 +97,8 @@ void main() {
     expect(find.text('Login to Play'), findsOneWidget);
 
     // Scroll down to reveal Continue as Guest
-    await tester.drag(find.byType(SingleChildScrollView), const Offset(0, -300));
+    await tester.drag(
+        find.byType(SingleChildScrollView), const Offset(0, -300));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Continue as Guest'));

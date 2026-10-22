@@ -10,11 +10,13 @@ class AwsCheckResult {
   final bool exists;
   final String? existingField; // 'email' or 'mobile'
   final String? message;
+  final bool hasNetworkError;
 
   const AwsCheckResult({
     required this.exists,
     this.existingField,
     this.message,
+    this.hasNetworkError = false,
   });
 }
 
@@ -23,6 +25,12 @@ class AwsCheckResult {
 class AwsStorageService {
   // In-memory cache of registered users (persists during app runtime)
   static final List<Map<String, dynamic>> _cloudUserCache = [];
+
+  /// Flag for unit tests and offline testing mode
+  static bool mockMode = false;
+
+  /// HTTP client for network operations (can be overridden for testing)
+  static http.Client httpClient = http.Client();
 
   /// Check if an email or mobile number is already registered in AWS or local registry
   static Future<AwsCheckResult> checkUserExists({
@@ -35,13 +43,15 @@ class AwsStorageService {
     // 1. Check local cache first
     for (final u in _cloudUserCache) {
       final uEmail = (u['email'] ?? '').toString().trim().toLowerCase();
-      final uPhone = (u['phoneNumber'] ?? '').toString().replaceAll(RegExp(r'\D'), '');
+      final uPhone =
+          (u['phoneNumber'] ?? '').toString().replaceAll(RegExp(r'\D'), '');
 
       if (uEmail.isNotEmpty && uEmail == cleanEmail) {
         return const AwsCheckResult(
           exists: true,
           existingField: 'email',
-          message: 'This email is already used / registered. Please sign in or use another email.',
+          message:
+              'This email is already used / registered. Please sign in or use another email.',
         );
       }
 
@@ -49,7 +59,8 @@ class AwsStorageService {
         return const AwsCheckResult(
           exists: true,
           existingField: 'mobile',
-          message: 'This mobile number is already used / registered. Please sign in or use another mobile number.',
+          message:
+              'This mobile number is already used / registered. Please sign in or use another mobile number.',
         );
       }
     }
@@ -86,25 +97,35 @@ class AwsStorageService {
                 return const AwsCheckResult(
                   exists: true,
                   existingField: 'email',
-                  message: 'This email is already used / registered in AWS. Please sign in or use another email.',
+                  message:
+                      'This email is already used / registered in AWS. Please sign in or use another email.',
                 );
               } else if (field == 'mobile' || field == 'phone') {
                 return const AwsCheckResult(
                   exists: true,
                   existingField: 'mobile',
-                  message: 'This mobile number is already used / registered in AWS. Please sign in or use another mobile number.',
+                  message:
+                      'This mobile number is already used / registered in AWS. Please sign in or use another mobile number.',
                 );
               } else {
                 return AwsCheckResult(
                   exists: true,
-                  message: data['message']?.toString() ?? 'This account is already registered in AWS.',
+                  message: data['message']?.toString() ??
+                      'This account is already registered in AWS.',
                 );
               }
             }
           }
         }
       } catch (e) {
-        debugPrint('AWS checkUserExists network error (falling back to local): $e');
+        debugPrint('AWS checkUserExists network error: $e');
+        // Do not silently treat network failure as proof that account identifier is available
+        return const AwsCheckResult(
+          exists: false,
+          hasNetworkError: true,
+          message:
+              'Unable to verify email/phone uniqueness with the server. Please check your internet connection.',
+        );
       }
     }
 
@@ -127,6 +148,8 @@ class AwsStorageService {
       'countryFlag': user.countryFlag,
       'registeredAt': DateTime.now().toIso8601String(),
     });
+
+    if (mockMode) return true;
 
     // If AWS API Gateway is configured, upload to AWS DynamoDB
     if (AwsConfig.isConfigured) {
@@ -153,7 +176,7 @@ class AwsStorageService {
           'registeredAt': DateTime.now().toIso8601String(),
         };
 
-        final response = await http
+        final response = await httpClient
             .post(uri, headers: headers, body: jsonEncode(payload))
             .timeout(const Duration(seconds: 5));
 
@@ -168,7 +191,8 @@ class AwsStorageService {
   }
 
   // Persistent in-memory map of uploaded songs per userId (persists across sessions)
-  static final Map<String, List<Map<String, dynamic>>> _userUploadedSongsCache = {};
+  static final Map<String, List<Map<String, dynamic>>> _userUploadedSongsCache =
+      {};
 
   /// Update user profile photo on AWS server and local cloud registry
   static Future<bool> updateUserProfilePhoto({
@@ -180,11 +204,14 @@ class AwsStorageService {
 
     // 1. Update in local cloud user cache
     for (final u in _cloudUserCache) {
-      if (u['id'] == userId || (u['email'] ?? '').toString().toLowerCase() == cleanEmail) {
+      if (u['id'] == userId ||
+          (u['email'] ?? '').toString().toLowerCase() == cleanEmail) {
         u['profilePhoto'] = profilePhoto;
         break;
       }
     }
+
+    if (mockMode) return true;
 
     // 2. Sync to AWS DynamoDB / API Gateway if configured
     if (AwsConfig.isConfigured) {
@@ -196,7 +223,9 @@ class AwsStorageService {
         };
 
         final payload = {
-          'action': profilePhoto == null || profilePhoto.isEmpty ? 'deleteProfilePhoto' : 'updateProfilePhoto',
+          'action': profilePhoto == null || profilePhoto.isEmpty
+              ? 'deleteProfilePhoto'
+              : 'updateProfilePhoto',
           'userId': userId,
           'email': cleanEmail,
           'profilePhoto': profilePhoto,
@@ -204,14 +233,15 @@ class AwsStorageService {
           'updatedAt': DateTime.now().toIso8601String(),
         };
 
-        await http
+        final response = await httpClient
             .post(uri, headers: headers, body: jsonEncode(payload))
             .timeout(const Duration(seconds: 5));
 
-        return true;
+        return response.statusCode == 200 || response.statusCode == 201;
       } catch (e) {
-        debugPrint('AWS updateUserProfilePhoto network error (saved to local cache): $e');
-        return true;
+        debugPrint(
+            'AWS updateUserProfilePhoto network error (saved to local cache): $e');
+        return false;
       }
     }
 
@@ -223,7 +253,8 @@ class AwsStorageService {
     required String userId,
     required String email,
   }) async {
-    return updateUserProfilePhoto(userId: userId, email: email, profilePhoto: null);
+    return updateUserProfilePhoto(
+        userId: userId, email: email, profilePhoto: null);
   }
 
   /// Save an uploaded song to AWS server and persistent user song registry
@@ -255,6 +286,8 @@ class AwsStorageService {
     // Persist to local disk so songs survive app restarts
     LocalStorageService.saveUserSongs(userId, _userUploadedSongsCache[userId]!);
 
+    if (mockMode) return true;
+
     if (AwsConfig.isConfigured) {
       try {
         final uri = Uri.parse(AwsConfig.apiEndpoint);
@@ -270,11 +303,13 @@ class AwsStorageService {
           'tableName': AwsConfig.tableName,
         };
 
-        await http
+        final response = await httpClient
             .post(uri, headers: headers, body: jsonEncode(payload))
             .timeout(const Duration(seconds: 5));
+        return response.statusCode == 200 || response.statusCode == 201;
       } catch (e) {
         debugPrint('AWS uploadSongToServer error: $e');
+        return false;
       }
     }
 
@@ -288,8 +323,11 @@ class AwsStorageService {
   }) async {
     if (_userUploadedSongsCache.containsKey(userId)) {
       _userUploadedSongsCache[userId]!.removeWhere((s) => s['id'] == songId);
-      LocalStorageService.saveUserSongs(userId, _userUploadedSongsCache[userId]!);
+      LocalStorageService.saveUserSongs(
+          userId, _userUploadedSongsCache[userId]!);
     }
+
+    if (mockMode) return true;
 
     if (AwsConfig.isConfigured) {
       try {
@@ -306,11 +344,13 @@ class AwsStorageService {
           'tableName': AwsConfig.tableName,
         };
 
-        await http
+        final response = await httpClient
             .post(uri, headers: headers, body: jsonEncode(payload))
             .timeout(const Duration(seconds: 5));
+        return response.statusCode == 200 || response.statusCode == 204;
       } catch (e) {
         debugPrint('AWS deleteSongFromServer error: $e');
+        return false;
       }
     }
 
@@ -318,7 +358,8 @@ class AwsStorageService {
   }
 
   /// Fetch all songs uploaded by this user from AWS server or cache
-  static Future<List<Map<String, dynamic>>> getUserSongsFromServer(String userId) async {
+  static Future<List<Map<String, dynamic>>> getUserSongsFromServer(
+      String userId) async {
     var localSongs = _userUploadedSongsCache[userId] ?? [];
     if (localSongs.isEmpty) {
       final diskSongs = await LocalStorageService.loadUserSongs(userId);
@@ -351,7 +392,8 @@ class AwsStorageService {
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
           if (data is Map && data['songs'] is List) {
-            final cloudSongs = (data['songs'] as List).cast<Map<String, dynamic>>();
+            final cloudSongs =
+                (data['songs'] as List).cast<Map<String, dynamic>>();
             _userUploadedSongsCache[userId] = cloudSongs;
             return cloudSongs;
           }
@@ -369,7 +411,8 @@ class AwsStorageService {
     if (!AwsConfig.isConfigured) {
       return (
         success: false,
-        message: 'AWS API Gateway endpoint is not set. Please enter your AWS Lambda / API Gateway URL below.',
+        message:
+            'AWS API Gateway endpoint is not set. Please enter your AWS Lambda / API Gateway URL below.',
       );
     }
 
@@ -397,18 +440,21 @@ class AwsStorageService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return (
           success: true,
-          message: 'Connected to AWS API Gateway (${stopwatch.elapsedMilliseconds}ms)! DynamoDB table "${AwsConfig.tableName}" ready.',
+          message:
+              'Connected to AWS API Gateway (${stopwatch.elapsedMilliseconds}ms)! DynamoDB table "${AwsConfig.tableName}" ready.',
         );
       } else {
         return (
           success: false,
-          message: 'AWS responded with HTTP ${response.statusCode}: ${response.body.isNotEmpty ? response.body : "Check your API Gateway permissions or Lambda handler."}',
+          message:
+              'AWS responded with HTTP ${response.statusCode}: ${response.body.isNotEmpty ? response.body : "Check your API Gateway permissions or Lambda handler."}',
         );
       }
     } catch (e) {
       return (
         success: false,
-        message: 'Connection failed: $e. Verify the URL and ensure your phone has internet access.',
+        message:
+            'Connection failed: $e. Verify the URL and ensure your phone has internet access.',
       );
     }
   }

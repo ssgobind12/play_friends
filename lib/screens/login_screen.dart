@@ -27,7 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _handleLogin() {
+  Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -35,34 +35,33 @@ class _LoginScreenState extends State<LoginScreen> {
       _errorMessage = null;
     });
 
-    Future.delayed(const Duration(milliseconds: 350), () {
-      if (!mounted) return;
+    final error = await AuthService().loginAsync(
+      _identifierController.text,
+      _passwordController.text,
+    );
 
-      final error = AuthService().login(
-        _identifierController.text,
-        _passwordController.text,
-      );
-
-      setState(() {
-        _isLoading = false;
-        _errorMessage = error;
-      });
-
-      if (error == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Welcome back, ${AuthService().currentUser?.name}!'),
-            backgroundColor: AppColors.surfaceLight,
-          ),
-        );
-      }
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+      _errorMessage = error;
     });
+
+    if (error == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Welcome back, ${AuthService().currentUser?.name}!'),
+          backgroundColor: AppColors.surfaceLight,
+        ),
+      );
+    }
   }
 
   void _showForgotPasswordDialog() {
     ForgotPasswordDialog.show(
       context,
-      initialEmail: _identifierController.text.contains('@') ? _identifierController.text : '',
+      initialEmail: _identifierController.text.contains('@')
+          ? _identifierController.text
+          : '',
       onPasswordResetSuccess: (email, newPassword) {
         if (!mounted) return;
         setState(() {
@@ -75,7 +74,8 @@ class _LoginScreenState extends State<LoginScreen> {
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.check_circle_rounded, color: AppColors.onlineGreen),
+                const Icon(Icons.check_circle_rounded,
+                    color: AppColors.onlineGreen),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -153,11 +153,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   if (_errorMessage != null)
                     Container(
                       margin: const EdgeInsets.only(bottom: 16),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
                         color: AppColors.dangerRose.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.dangerRose, width: 1),
+                        border:
+                            Border.all(color: AppColors.dangerRose, width: 1),
                       ),
                       child: Row(
                         children: [
@@ -186,19 +188,23 @@ class _LoginScreenState extends State<LoginScreen> {
                     decoration: InputDecoration(
                       labelText: 'Email, Gamer Tag, or Mobile',
                       hintText: 'e.g. ssgobind12@gamil.com or 8573029430',
-                      hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 13),
-                      labelStyle: const TextStyle(color: AppColors.textSecondary),
+                      hintStyle: const TextStyle(
+                          color: AppColors.textMuted, fontSize: 13),
+                      labelStyle:
+                          const TextStyle(color: AppColors.textSecondary),
                       prefixIcon: const Icon(Icons.person_outline_rounded,
                           color: AppColors.primaryPurpleLight),
                       filled: true,
                       fillColor: AppColors.cardBg,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: AppColors.cardBorder),
+                        borderSide:
+                            const BorderSide(color: AppColors.cardBorder),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: AppColors.cardBorder),
+                        borderSide:
+                            const BorderSide(color: AppColors.cardBorder),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
@@ -223,7 +229,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
                       labelText: 'Password',
-                      labelStyle: const TextStyle(color: AppColors.textSecondary),
+                      labelStyle:
+                          const TextStyle(color: AppColors.textSecondary),
                       prefixIcon: const Icon(Icons.lock_outline_rounded,
                           color: AppColors.primaryBlueLight),
                       suffixIcon: IconButton(
@@ -244,11 +251,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       fillColor: AppColors.cardBg,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: AppColors.cardBorder),
+                        borderSide:
+                            const BorderSide(color: AppColors.cardBorder),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: AppColors.cardBorder),
+                        borderSide:
+                            const BorderSide(color: AppColors.cardBorder),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
@@ -371,7 +380,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       const Text(
                         "Don't have an account?",
-                        style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                        style: TextStyle(
+                            color: AppColors.textSecondary, fontSize: 14),
                       ),
                       TextButton(
                         onPressed: () {

@@ -32,23 +32,29 @@ class PrivacyFilterService {
   static final List<Map<String, dynamic>> _socialPatterns = [
     {
       'type': 'Instagram',
-      'regex': RegExp(r'\b(instagram|insta\s*id|ig\s*id|ig\s*:|@[\w\.-]+|insta)\b', caseSensitive: false),
+      'regex': RegExp(
+          r'\b(instagram|insta\s*id|ig\s*id|ig\s*:|@[\w\.-]+|insta)\b',
+          caseSensitive: false),
     },
     {
       'type': 'Facebook',
-      'regex': RegExp(r'\b(facebook|fb\s*id|fb\s*:|fb\.com|facebook\.com)\b', caseSensitive: false),
+      'regex': RegExp(r'\b(facebook|fb\s*id|fb\s*:|fb\.com|facebook\.com)\b',
+          caseSensitive: false),
     },
     {
       'type': 'WhatsApp',
-      'regex': RegExp(r'\b(whatsapp|wa\.me|whats\s*app|wp\s*no|wa\s*no)\b', caseSensitive: false),
+      'regex': RegExp(r'\b(whatsapp|wa\.me|whats\s*app|wp\s*no|wa\s*no)\b',
+          caseSensitive: false),
     },
     {
       'type': 'Telegram',
-      'regex': RegExp(r'\b(telegram|t\.me|tg\s*id|tg\s*:)\b', caseSensitive: false),
+      'regex':
+          RegExp(r'\b(telegram|t\.me|tg\s*id|tg\s*:)\b', caseSensitive: false),
     },
     {
       'type': 'Snapchat',
-      'regex': RegExp(r'\b(snapchat|snap\s*id|snap\s*:)\b', caseSensitive: false),
+      'regex':
+          RegExp(r'\b(snapchat|snap\s*id|snap\s*:)\b', caseSensitive: false),
     },
     {
       'type': 'External Link',
@@ -67,7 +73,8 @@ class PrivacyFilterService {
     if (_emailRegex.hasMatch(clean)) {
       return const PrivacyCheckResult(
         isAllowed: false,
-        reason: 'Security Alert: Sharing personal email addresses is prohibited for your safety.',
+        reason:
+            'Security Alert: Sharing personal email addresses is prohibited for your safety.',
         matchedType: 'Email Address',
       );
     }
@@ -77,7 +84,8 @@ class PrivacyFilterService {
     if (_digitSequenceRegex.hasMatch(digitsOnly) && digitsOnly.length >= 8) {
       return const PrivacyCheckResult(
         isAllowed: false,
-        reason: 'Security Alert: Sharing mobile or phone numbers is strictly prohibited to prevent scams.',
+        reason:
+            'Security Alert: Sharing mobile or phone numbers is strictly prohibited to prevent scams.',
         matchedType: 'Phone Number',
       );
     }
@@ -85,7 +93,8 @@ class PrivacyFilterService {
     if (_phoneNumberRegex.hasMatch(clean) && digitsOnly.length >= 8) {
       return const PrivacyCheckResult(
         isAllowed: false,
-        reason: 'Security Alert: Sharing mobile or phone numbers is strictly prohibited to prevent scams.',
+        reason:
+            'Security Alert: Sharing mobile or phone numbers is strictly prohibited to prevent scams.',
         matchedType: 'Phone Number',
       );
     }
@@ -97,7 +106,8 @@ class PrivacyFilterService {
       if (reg.hasMatch(clean)) {
         return PrivacyCheckResult(
           isAllowed: false,
-          reason: 'Security Alert: Sharing $type IDs, handles, or links is prohibited.',
+          reason:
+              'Security Alert: Sharing $type IDs, handles, or links is prohibited.',
           matchedType: type,
         );
       }

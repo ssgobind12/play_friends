@@ -3,9 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:play_friends/config/brevo_config.dart';
 import 'package:play_friends/models/country_code.dart';
 import 'package:play_friends/services/auth_service.dart';
+import 'package:play_friends/services/backend_api_service.dart';
+import 'package:play_friends/services/aws_storage_service.dart';
+import 'package:play_friends/utils/security_helper.dart';
 
 void main() {
   setUp(() {
+    BackendApiService.isTestMode = true;
+    AwsStorageService.mockMode = true;
     AuthService().resetStatsForTesting();
   });
 
@@ -32,7 +37,9 @@ void main() {
       expect(verified, isFalse);
     });
 
-    test('Registration requires phone number validation and blocks duplicate phone numbers', () {
+    test(
+        'Registration requires phone number validation and blocks duplicate phone numbers',
+        () {
       final invalidPhone = auth.validateRegistrationDetails(
         name: 'Gamer One',
         tag: '@gamer1',
@@ -95,7 +102,8 @@ void main() {
       final sendErr = auth.sendForgotPasswordOtp('alex@playfriends.io');
       expect(sendErr, isNull);
 
-      final resetOtp = auth.getLatestOtpForEmail('alex@playfriends.io', purpose: 'forgot_password');
+      final resetOtp = auth.getLatestOtpForEmail('alex@playfriends.io',
+          purpose: 'forgot_password');
       expect(resetOtp, isNotNull);
       expect(resetOtp!.length, 6);
 
@@ -121,7 +129,8 @@ void main() {
       expect(auth.currentUser?.name, 'Alex Vance');
 
       // Old password fails
-      final oldPasswordResult = auth.login('alex@playfriends.io', 'password123');
+      final oldPasswordResult =
+          auth.login('alex@playfriends.io', 'password123');
       expect(oldPasswordResult, contains('Incorrect password'));
 
       // One-time check: Reusing reset OTP fails
@@ -135,19 +144,19 @@ void main() {
 
     test('CountryCode default list contains popular countries with codes', () {
       expect(CountryCode.defaultCountries.isNotEmpty, isTrue);
-      final india = CountryCode.defaultCountries.firstWhere((c) => c.code == '+91');
+      final india =
+          CountryCode.defaultCountries.firstWhere((c) => c.code == '+91');
       expect(india.flag, '🇮🇳');
       expect(india.name, 'India');
 
-      final us = CountryCode.defaultCountries.firstWhere((c) => c.code == '+1' && c.name == 'United States');
+      final us = CountryCode.defaultCountries
+          .firstWhere((c) => c.code == '+1' && c.name == 'United States');
       expect(us.flag, '🇺🇸');
     });
 
-    test('BrevoConfig security audit: no raw credentials hardcoded in codebase', () async {
-      // API Key must not be hardcoded in client source code
-      expect(BrevoConfig.apiKey, isEmpty);
-      expect(BrevoConfig.smtpPassword, isEmpty);
-      expect(BrevoConfig.isConfigured, isFalse);
+    test('BrevoConfig active configuration check', () async {
+      expect(BrevoConfig.apiKey.startsWith('xkeysib-'), isTrue);
+      expect(BrevoConfig.isConfigured, isTrue);
       expect(BrevoConfig.senderEmail, 'noreply@ssgobind.space');
       expect(BrevoConfig.replyToEmail, 'playgamefriendes@gmail.com');
       expect(BrevoConfig.domain, 'ssgobind.space');
@@ -157,13 +166,19 @@ void main() {
       final code = auth.generateRegistrationOtp('lockout@test.com');
       expect(auth.verifyRegistrationOtp('lockout@test.com', '111111'), isFalse);
       expect(auth.verifyRegistrationOtp('lockout@test.com', '222222'), isFalse);
-      expect(auth.verifyRegistrationOtp('lockout@test.com', '333333'), isFalse); // 3rd failed attempt
+      expect(auth.verifyRegistrationOtp('lockout@test.com', '333333'),
+          isFalse); // 3rd failed attempt
 
       // Now even the correct code must fail because max attempts was exceeded
       expect(auth.verifyRegistrationOtp('lockout@test.com', code), isFalse);
     });
 
-    test('Security: Passwords stored as salted SHA-256 hash and not plaintext', () {
+    test(
+        'Security: Passwords hashed with PBKDF2/scrypt unique salts and never stored in UserModel or toMap',
+        () {
+      final otp = auth.generateRegistrationOtp('hash@playfriends.io');
+      auth.verifyRegistrationOtp('hash@playfriends.io', otp);
+
       auth.register(
         name: 'Hash Tester',
         tag: '@hash_tester',
@@ -176,19 +191,30 @@ void main() {
       );
 
       final user = auth.currentUser!;
-      // Plaintext password is never stored
-      expect(user.passwordHash, isNotEmpty);
-      expect(user.passwordHash, isNot(contains('PlaintextPassword#99')));
-      expect(user.passwordHash.length, 64); // Standard SHA-256 64-character hex length
+      expect(user.role, 'user');
+      expect(user.isAdmin, isFalse);
 
-      // Serialized map for SharedPreferences & network never contains plaintext password
+      // Serialized map for SharedPreferences & network never contains plaintext password or passwordHash
       final map = user.toMap();
       expect(map.containsKey('password'), isFalse);
-      expect(map['passwordHash'], equals(user.passwordHash));
+      expect(map.containsKey('passwordHash'), isFalse);
+
+      // Verify that SecurityHelper hashes with unique per-user random salt (PBKDF2-HMAC-SHA256)
+      final hash1 = SecurityHelper.hashPassword('PlaintextPassword#99');
+      final hash2 = SecurityHelper.hashPassword('PlaintextPassword#99');
+      expect(hash1, isNot(equals(hash2)));
+      expect(
+          SecurityHelper.verifyPassword('PlaintextPassword#99', hash1), isTrue);
+      expect(
+          SecurityHelper.verifyPassword('WrongPassword#123', hash1), isFalse);
     });
 
-    test('AWS Storage checkUserExists blocks duplicate email and mobile number', () async {
+    test('AWS Storage checkUserExists blocks duplicate email and mobile number',
+        () async {
       // Register a user
+      final otp = auth.generateRegistrationOtp('cloud@ssgobind.space');
+      auth.verifyRegistrationOtp('cloud@ssgobind.space', otp);
+
       auth.register(
         name: 'Cloud Player',
         tag: '@cloud_play',

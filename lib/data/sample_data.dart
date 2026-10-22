@@ -20,7 +20,8 @@ class SampleData {
       id: 'tic_tac_toe',
       title: 'Tic-Tac-Toe Duel',
       category: GameCategory.board,
-      description: 'Classic quick duel! Local 2-player Pass & Play or challenge the AI bot.',
+      description:
+          'Classic quick duel! Local 2-player Pass & Play or challenge the AI bot.',
       icon: Icons.grid_3x3_rounded,
       primaryColor: Color(0xFF06B6D4),
       secondaryColor: Color(0xFF8B5CF6),
@@ -35,7 +36,8 @@ class SampleData {
       id: 'ludo',
       title: 'Ludo Friends',
       category: GameCategory.board,
-      description: 'Roll the dice and race your tokens home in this classic social board duel.',
+      description:
+          'Roll the dice and race your tokens home in this classic social board duel.',
       icon: Icons.casino_rounded,
       primaryColor: Color(0xFFF59E0B),
       secondaryColor: Color(0xFFEF4444),
@@ -50,7 +52,8 @@ class SampleData {
       id: 'carrom',
       title: 'Carrom Clash',
       category: GameCategory.board,
-      description: 'Strike coins into pockets with physics-based carrom board mechanics.',
+      description:
+          'Strike coins into pockets with physics-based carrom board mechanics.',
       icon: Icons.disc_full_rounded,
       primaryColor: Color(0xFF10B981),
       secondaryColor: Color(0xFF059669),
@@ -65,7 +68,8 @@ class SampleData {
       id: 'space_dodge',
       title: 'Cyber Space Dodge',
       category: GameCategory.action,
-      description: 'Dodge incoming laser asteroids and compete for the top high score.',
+      description:
+          'Dodge incoming laser asteroids and compete for the top high score.',
       icon: Icons.rocket_launch_rounded,
       primaryColor: Color(0xFFEC4899),
       secondaryColor: Color(0xFF8B5CF6),
@@ -80,7 +84,8 @@ class SampleData {
       id: 'arena_brawl',
       title: 'Neon Arena Brawl',
       category: GameCategory.action,
-      description: 'Fast-paced multiplayer party combat with colorful neon arenas.',
+      description:
+          'Fast-paced multiplayer party combat with colorful neon arenas.',
       icon: Icons.sports_kabaddi_rounded,
       primaryColor: Color(0xFF6366F1),
       secondaryColor: Color(0xFF3B82F6),
@@ -95,7 +100,8 @@ class SampleData {
       id: 'word_rush',
       title: 'Word Sprint',
       category: GameCategory.casual,
-      description: 'Race against friends to find words under rapid countdown pressure.',
+      description:
+          'Race against friends to find words under rapid countdown pressure.',
       icon: Icons.text_fields_rounded,
       primaryColor: Color(0xFF38BDF8),
       secondaryColor: Color(0xFF0284C7),

@@ -7,12 +7,21 @@ import 'screens/rooms_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/login_screen.dart';
 import 'services/auth_service.dart';
+import 'services/aws_storage_service.dart';
+import 'services/backend_api_service.dart';
 import 'services/phone_media_picker_service.dart';
 import 'theme/app_theme.dart';
 import 'widgets/floating_mini_room_player.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Use local mock backend since no live server is deployed yet.
+  // When your real backend is live, set isTestMode = false and configure
+  // BackendConfig.apiBaseUrl with your server URL.
+  BackendApiService.isTestMode = true;
+  AwsStorageService.mockMode = true;
+
   await AuthService().init();
   runApp(const PlayFriendsApp());
 }
@@ -106,39 +115,39 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
           ],
         ),
         bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          border: Border(
-            top: BorderSide(color: AppColors.cardBorder, width: 1),
+          decoration: const BoxDecoration(
+            border: Border(
+              top: BorderSide(color: AppColors.cardBorder, width: 1),
+            ),
+          ),
+          child: BottomNavigationBar(
+            currentIndex: _currentIndex,
+            onTap: _onSelectTab,
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home_rounded),
+                activeIcon: Icon(Icons.home_filled),
+                label: 'Home',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.sports_esports_outlined),
+                activeIcon: Icon(Icons.sports_esports_rounded),
+                label: 'Games',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.people_outline_rounded),
+                activeIcon: Icon(Icons.people_rounded),
+                label: 'Friends',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.person_outline_rounded),
+                activeIcon: Icon(Icons.person_rounded),
+                label: 'Profile',
+              ),
+            ],
           ),
         ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: _onSelectTab,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_rounded),
-              activeIcon: Icon(Icons.home_filled),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.sports_esports_outlined),
-              activeIcon: Icon(Icons.sports_esports_rounded),
-              label: 'Games',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.people_outline_rounded),
-              activeIcon: Icon(Icons.people_rounded),
-              label: 'Friends',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline_rounded),
-              activeIcon: Icon(Icons.person_rounded),
-              label: 'Profile',
-            ),
-          ],
-        ),
       ),
-    ),
-  );
-}
+    );
+  }
 }

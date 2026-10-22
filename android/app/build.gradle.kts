@@ -38,10 +38,17 @@ android {
             val storeFileVal = keystoreProperties.getProperty("storeFile")
             val storePasswordVal = keystoreProperties.getProperty("storePassword")
 
-            if (storeFileVal != null) {
+            if (storeFileVal != null && storeFileVal.isNotBlank()) {
+                val resolvedStoreFile = file(storeFileVal)
+                if (!resolvedStoreFile.exists()) {
+                    throw GradleException(
+                        "Release signing error: Keystore file not found at '${resolvedStoreFile.absolutePath}'. " +
+                        "Verify 'storeFile' in android/key.properties."
+                    )
+                }
                 keyAlias = keyAliasVal
                 keyPassword = keyPasswordVal
-                storeFile = file(storeFileVal)
+                storeFile = resolvedStoreFile
                 storePassword = storePasswordVal
             }
         }
@@ -50,7 +57,14 @@ android {
     buildTypes {
         release {
             val hasKeystore = keystorePropertiesFile.exists() && keystoreProperties.getProperty("storeFile") != null
-            signingConfig = if (hasKeystore) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
+            if (!hasKeystore) {
+                throw GradleException(
+                    "Production release build failed: 'android/key.properties' is missing or incomplete! " +
+                    "Production release builds cannot silently use debug signing. " +
+                    "Copy 'android/key.properties.example' to 'android/key.properties' and configure your upload keystore."
+                )
+            }
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

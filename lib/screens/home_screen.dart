@@ -29,9 +29,12 @@ class HomeScreen extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
-            Icon(Icons.person_add_alt_1_rounded, color: AppColors.primaryBlueLight),
+            Icon(Icons.person_add_alt_1_rounded,
+                color: AppColors.primaryBlueLight),
             SizedBox(width: 10),
-            Text('Add New Friend', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            Text('Add New Friend',
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
           ],
         ),
         content: Column(
@@ -45,7 +48,8 @@ class HomeScreen extends StatelessWidget {
                 hintText: 'e.g. John Doe',
                 filled: true,
                 fillColor: AppColors.surfaceLight,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
             const SizedBox(height: 12),
@@ -57,7 +61,8 @@ class HomeScreen extends StatelessWidget {
                 hintText: 'e.g. @john_duel',
                 filled: true,
                 fillColor: AppColors.surfaceLight,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ],
@@ -65,26 +70,32 @@ class HomeScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+            child: const Text('Cancel',
+                style: TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryPurple),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryPurple),
             onPressed: () {
               if (nameCtrl.text.trim().isNotEmpty) {
                 AuthService().addFriend(
                   name: nameCtrl.text.trim(),
-                  tag: tagCtrl.text.trim().isNotEmpty ? tagCtrl.text.trim() : '@${nameCtrl.text.trim().toLowerCase()}',
+                  tag: tagCtrl.text.trim().isNotEmpty
+                      ? tagCtrl.text.trim()
+                      : '@${nameCtrl.text.trim().toLowerCase()}',
                 );
                 Navigator.of(ctx).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Added ${nameCtrl.text.trim()} to your Squad!'),
+                    content:
+                        Text('Added ${nameCtrl.text.trim()} to your Squad!'),
                     backgroundColor: AppColors.onlineGreen,
                   ),
                 );
               }
             },
-            child: const Text('Add Friend', style: TextStyle(color: Colors.white)),
+            child:
+                const Text('Add Friend', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -117,19 +128,24 @@ class HomeScreen extends StatelessWidget {
         final userInitial = user?.avatarInitial ?? 'P';
         final userColor = user?.avatarColor ?? AppColors.primaryPurple;
         final userProfilePhoto = user?.profilePhoto;
-        final isBase64Photo = userProfilePhoto != null && userProfilePhoto.startsWith('data:image');
+        final isBase64Photo = userProfilePhoto != null &&
+            userProfilePhoto.startsWith('data:image');
         final hasNetworkPhoto = userProfilePhoto != null &&
-            (userProfilePhoto.startsWith('http://') || userProfilePhoto.startsWith('https://'));
+            (userProfilePhoto.startsWith('http://') ||
+                userProfilePhoto.startsWith('https://'));
         ImageProvider? topAvatarImage;
         if (isBase64Photo) {
-          topAvatarImage = MemoryImage(base64Decode(userProfilePhoto.split(',')[1]));
+          topAvatarImage =
+              MemoryImage(base64Decode(userProfilePhoto.split(',')[1]));
         } else if (hasNetworkPhoto) {
           topAvatarImage = NetworkImage(userProfilePhoto);
         }
         final userLevel = user?.level ?? 1;
         final userCoins = user?.coins ?? 500;
         final friends = auth.friends;
-        final liveRooms = auth.activeRooms.isNotEmpty ? auth.activeRooms : AuthService.defaultPartyRooms;
+        final liveRooms = auth.activeRooms.isNotEmpty
+            ? auth.activeRooms
+            : AuthService.defaultPartyRooms;
 
         return Scaffold(
           body: SafeArea(
@@ -207,7 +223,8 @@ class HomeScreen extends StatelessWidget {
                         ),
                         // Coins Balance
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
                             color: AppColors.surfaceLight,
                             borderRadius: BorderRadius.circular(20),
@@ -248,7 +265,8 @@ class HomeScreen extends StatelessWidget {
                         IconButton(
                           padding: const EdgeInsets.all(6),
                           constraints: const BoxConstraints(),
-                          icon: const Icon(Icons.chat_bubble_outline_rounded, size: 22),
+                          icon: const Icon(Icons.chat_bubble_outline_rounded,
+                              size: 22),
                           color: AppColors.primaryPurpleLight,
                           tooltip: 'Social Chat',
                           onPressed: onOpenChat,
@@ -266,23 +284,28 @@ class HomeScreen extends StatelessWidget {
                       onTap: () => MusicPlayerSheet.show(context),
                       borderRadius: BorderRadius.circular(20),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
                             colors: [Color(0xFF2E1065), Color(0xFF1E1B4B)],
                           ),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.5)),
+                          border: Border.all(
+                              color: const Color(0xFF8B5CF6)
+                                  .withValues(alpha: 0.5)),
                         ),
                         child: Row(
                           children: [
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
+                                color: const Color(0xFF8B5CF6)
+                                    .withValues(alpha: 0.3),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.music_note_rounded, color: Color(0xFFC084FC), size: 22),
+                              child: const Icon(Icons.music_note_rounded,
+                                  color: Color(0xFFC084FC), size: 22),
                             ),
                             const SizedBox(width: 12),
                             const Expanded(
@@ -291,25 +314,33 @@ class HomeScreen extends StatelessWidget {
                                 children: [
                                   Text(
                                     '🎵 Music Store & Custom Upload',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white),
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: Colors.white),
                                   ),
                                   SizedBox(height: 2),
                                   Text(
                                     'Upload custom songs from device or play game music',
-                                    style: TextStyle(fontSize: 11, color: Colors.white70),
+                                    style: TextStyle(
+                                        fontSize: 11, color: Colors.white70),
                                   ),
                                 ],
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF8B5CF6),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: const Text(
                                 'Upload / Play',
-                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white),
                               ),
                             ),
                           ],
@@ -390,27 +421,40 @@ class HomeScreen extends StatelessWidget {
                             height: 44,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: AppColors.primaryPurple.withValues(alpha: 0.2),
+                              color: AppColors.primaryPurple
+                                  .withValues(alpha: 0.2),
                             ),
-                            child: const Icon(Icons.person_add_rounded, color: AppColors.primaryPurpleLight),
+                            child: const Icon(Icons.person_add_rounded,
+                                color: AppColors.primaryPurpleLight),
                           ),
                           const SizedBox(width: 12),
                           const Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Squad is empty', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                                Text('Add friends to challenge them to matches!', style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+                                Text('Squad is empty',
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13)),
+                                Text(
+                                    'Add friends to challenge them to matches!',
+                                    style: TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 11)),
                               ],
                             ),
                           ),
                           ElevatedButton(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primaryPurple,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
                             ),
                             onPressed: () => _showAddFriendModal(context),
-                            child: const Text('Add', style: TextStyle(color: Colors.white, fontSize: 12)),
+                            child: const Text('Add',
+                                style: TextStyle(
+                                    color: Colors.white, fontSize: 12)),
                           ),
                         ],
                       ),
@@ -503,8 +547,12 @@ class HomeScreen extends StatelessWidget {
                           ],
                         ),
                         TextButton.icon(
-                          icon: const Icon(Icons.explore_rounded, size: 16, color: AppColors.accentCyan),
-                          label: const Text('View All', style: TextStyle(color: AppColors.accentCyan, fontWeight: FontWeight.bold)),
+                          icon: const Icon(Icons.explore_rounded,
+                              size: 16, color: AppColors.accentCyan),
+                          label: const Text('View All',
+                              style: TextStyle(
+                                  color: AppColors.accentCyan,
+                                  fontWeight: FontWeight.bold)),
                           onPressed: onOpenRooms,
                         ),
                       ],
@@ -526,7 +574,9 @@ class HomeScreen extends StatelessWidget {
                         return GestureDetector(
                           onTap: () {
                             Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => VoicePartyRoomScreen(room: room)),
+                              MaterialPageRoute(
+                                  builder: (_) =>
+                                      VoicePartyRoomScreen(room: room)),
                             );
                           },
                           child: Container(
@@ -542,10 +592,13 @@ class HomeScreen extends StatelessWidget {
                                       height: 58,
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
-                                        border: Border.all(color: const Color(0xFF06B6D4), width: 2),
+                                        border: Border.all(
+                                            color: const Color(0xFF06B6D4),
+                                            width: 2),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: const Color(0xFF06B6D4).withValues(alpha: 0.4),
+                                            color: const Color(0xFF06B6D4)
+                                                .withValues(alpha: 0.4),
                                             blurRadius: 8,
                                           ),
                                         ],
@@ -558,21 +611,30 @@ class HomeScreen extends StatelessWidget {
                                       child: hostImage != null
                                           ? null
                                           : Text(
-                                              room.hostName.isNotEmpty ? room.hostName[0] : 'H',
-                                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                                              room.hostName.isNotEmpty
+                                                  ? room.hostName[0]
+                                                  : 'H',
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white),
                                             ),
                                     ),
                                     Positioned(
                                       bottom: 0,
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 5, vertical: 1),
                                         decoration: BoxDecoration(
                                           color: const Color(0xFFEF4444),
-                                          borderRadius: BorderRadius.circular(8),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
                                         ),
                                         child: const Text(
                                           'LIVE',
-                                          style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, color: Colors.white),
+                                          style: TextStyle(
+                                              fontSize: 8,
+                                              fontWeight: FontWeight.w900,
+                                              color: Colors.white),
                                         ),
                                       ),
                                     ),
@@ -581,7 +643,10 @@ class HomeScreen extends StatelessWidget {
                                 const SizedBox(height: 5),
                                 Text(
                                   room.hostName,
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -601,7 +666,9 @@ class HomeScreen extends StatelessWidget {
                     child: Column(
                       children: liveRooms.map((room) {
                         final hostImage = _resolvePhoto(room.hostPhoto);
-                        final roomLevel = LevelProgressionService.calculateLevel(room.giftPoints);
+                        final roomLevel =
+                            LevelProgressionService.calculateLevel(
+                                room.giftPoints);
 
                         return Container(
                           margin: const EdgeInsets.only(bottom: 12),
@@ -613,7 +680,8 @@ class HomeScreen extends StatelessWidget {
                             ),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: const Color(0xFF06B6D4).withValues(alpha: 0.4),
+                              color: const Color(0xFF06B6D4)
+                                  .withValues(alpha: 0.4),
                               width: 1.2,
                             ),
                             boxShadow: [
@@ -630,7 +698,9 @@ class HomeScreen extends StatelessWidget {
                               borderRadius: BorderRadius.circular(20),
                               onTap: () {
                                 Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (_) => VoicePartyRoomScreen(room: room)),
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          VoicePartyRoomScreen(room: room)),
                                 );
                               },
                               child: Padding(
@@ -641,25 +711,38 @@ class HomeScreen extends StatelessWidget {
                                       children: [
                                         CircleAvatar(
                                           radius: 26,
-                                          backgroundColor: AppColors.primaryPurple,
+                                          backgroundColor:
+                                              AppColors.primaryPurple,
                                           backgroundImage: hostImage,
                                           child: hostImage != null
                                               ? null
                                               : Text(
-                                                  room.hostName.isNotEmpty ? room.hostName[0] : 'H',
-                                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18),
+                                                  room.hostName.isNotEmpty
+                                                      ? room.hostName[0]
+                                                      : 'H',
+                                                  style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: Colors.white,
+                                                      fontSize: 18),
                                                 ),
                                         ),
                                         Positioned(
                                           top: 0,
                                           left: 0,
                                           child: Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 4, vertical: 1),
                                             decoration: BoxDecoration(
                                               color: const Color(0xFFEF4444),
-                                              borderRadius: BorderRadius.circular(6),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
                                             ),
-                                            child: const Text('LIVE', style: TextStyle(fontSize: 7, fontWeight: FontWeight.w900, color: Colors.white)),
+                                            child: const Text('LIVE',
+                                                style: TextStyle(
+                                                    fontSize: 7,
+                                                    fontWeight: FontWeight.w900,
+                                                    color: Colors.white)),
                                           ),
                                         ),
                                       ],
@@ -667,28 +750,44 @@ class HomeScreen extends StatelessWidget {
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Row(
                                             children: [
                                               Flexible(
                                                 child: Text(
                                                   room.gameTitle,
-                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
+                                                  style: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 14,
+                                                      color: Colors.white),
                                                   maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
                                               ),
                                               const SizedBox(width: 6),
                                               Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 5,
+                                                        vertical: 1),
                                                 decoration: BoxDecoration(
-                                                  color: AppColors.primaryPurple.withValues(alpha: 0.5),
-                                                  borderRadius: BorderRadius.circular(8),
+                                                  color: AppColors.primaryPurple
+                                                      .withValues(alpha: 0.5),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
                                                 ),
                                                 child: Text(
                                                   'Lv.$roomLevel',
-                                                  style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.accentCyan),
+                                                  style: const TextStyle(
+                                                      fontSize: 9,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color:
+                                                          AppColors.accentCyan),
                                                 ),
                                               ),
                                             ],
@@ -696,23 +795,39 @@ class HomeScreen extends StatelessWidget {
                                           const SizedBox(height: 3),
                                           Text(
                                             'Host: ${room.hostName} • ID: ${room.roomCode}',
-                                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                            style: const TextStyle(
+                                                fontSize: 11,
+                                                color: AppColors.textSecondary),
                                           ),
                                           const SizedBox(height: 4),
                                           Row(
                                             children: [
-                                              const Icon(Icons.people_alt_rounded, size: 12, color: AppColors.accentCyan),
+                                              const Icon(
+                                                  Icons.people_alt_rounded,
+                                                  size: 12,
+                                                  color: AppColors.accentCyan),
                                               const SizedBox(width: 4),
                                               Text(
                                                 '${room.currentPlayers}/${room.maxPlayers} in Room',
-                                                style: const TextStyle(fontSize: 11, color: AppColors.accentCyan, fontWeight: FontWeight.w600),
+                                                style: const TextStyle(
+                                                    fontSize: 11,
+                                                    color: AppColors.accentCyan,
+                                                    fontWeight:
+                                                        FontWeight.w600),
                                               ),
                                               const SizedBox(width: 10),
-                                              const Icon(Icons.emoji_events_rounded, size: 12, color: AppColors.trophyGold),
+                                              const Icon(
+                                                  Icons.emoji_events_rounded,
+                                                  size: 12,
+                                                  color: AppColors.trophyGold),
                                               const SizedBox(width: 3),
                                               Text(
                                                 '${room.giftPoints}',
-                                                style: const TextStyle(fontSize: 11, color: AppColors.trophyGold, fontWeight: FontWeight.bold),
+                                                style: const TextStyle(
+                                                    fontSize: 11,
+                                                    color: AppColors.trophyGold,
+                                                    fontWeight:
+                                                        FontWeight.bold),
                                               ),
                                             ],
                                           ),
@@ -722,17 +837,27 @@ class HomeScreen extends StatelessWidget {
                                     const SizedBox(width: 8),
                                     ElevatedButton(
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF06B6D4),
+                                        backgroundColor:
+                                            const Color(0xFF06B6D4),
                                         foregroundColor: Colors.black,
-                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 14, vertical: 8),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(14)),
                                       ),
                                       onPressed: () {
                                         Navigator.of(context).push(
-                                          MaterialPageRoute(builder: (_) => VoicePartyRoomScreen(room: room)),
+                                          MaterialPageRoute(
+                                              builder: (_) =>
+                                                  VoicePartyRoomScreen(
+                                                      room: room)),
                                         );
                                       },
-                                      child: const Text('Join Room', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                      child: const Text('Join Room',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12)),
                                     ),
                                   ],
                                 ),

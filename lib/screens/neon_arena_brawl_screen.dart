@@ -43,7 +43,8 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
   @override
   void initState() {
     super.initState();
-    _loop = AnimationController(vsync: this, duration: const Duration(milliseconds: 16))
+    _loop = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 16))
       ..addListener(_updatePhysics);
     _resetGame();
   }
@@ -216,7 +217,8 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
       GameSoundService.gameOver();
     }
 
-    final unlocked = AuthService().recordMatchResult(gameId: 'arena_brawl', won: won);
+    final unlocked =
+        AuthService().recordMatchResult(gameId: 'arena_brawl', won: won);
 
     showDialog(
       context: context,
@@ -227,7 +229,8 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
         title: Row(
           children: [
             Icon(won ? Icons.emoji_events_rounded : Icons.cancel_rounded,
-                color: won ? AppColors.trophyGold : AppColors.dangerRose, size: 28),
+                color: won ? AppColors.trophyGold : AppColors.dangerRose,
+                size: 28),
             const SizedBox(width: 10),
             Text(won ? 'Victory in Arena!' : 'Brawler Defeated!'),
           ],
@@ -236,7 +239,9 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(won ? 'You knocked out the neon champion!' : 'Great combat attempt. Boost your reflexes and try again!'),
+            Text(won
+                ? 'You knocked out the neon champion!'
+                : 'Great combat attempt. Boost your reflexes and try again!'),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(10),
@@ -247,14 +252,19 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _statItem(Icons.bolt_rounded, won ? '+100 XP' : '+30 XP', AppColors.primaryBlueLight),
-                  _statItem(Icons.monetization_on_rounded, won ? '+50 Coins' : '+15 Coins', AppColors.coinAmber),
+                  _statItem(Icons.bolt_rounded, won ? '+100 XP' : '+30 XP',
+                      AppColors.primaryBlueLight),
+                  _statItem(Icons.monetization_on_rounded,
+                      won ? '+50 Coins' : '+15 Coins', AppColors.coinAmber),
                 ],
               ),
             ),
             if (unlocked != null) ...[
               const SizedBox(height: 10),
-              Text('🎉 UNLOCKED: $unlocked!', style: const TextStyle(color: AppColors.onlineGreen, fontWeight: FontWeight.bold)),
+              Text('🎉 UNLOCKED: $unlocked!',
+                  style: const TextStyle(
+                      color: AppColors.onlineGreen,
+                      fontWeight: FontWeight.bold)),
             ],
           ],
         ),
@@ -283,7 +293,9 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
       children: [
         Icon(icon, color: color, size: 20),
         const SizedBox(height: 2),
-        Text(label, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+        Text(label,
+            style: TextStyle(
+                color: color, fontWeight: FontWeight.bold, fontSize: 12)),
       ],
     );
   }
@@ -293,7 +305,8 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
     return Scaffold(
       backgroundColor: const Color(0xFF070B18),
       appBar: AppBar(
-        title: const Text('Neon Arena Brawl', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Neon Arena Brawl',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
             icon: const Icon(Icons.music_note_rounded),
@@ -309,9 +322,18 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
               _resetGame();
             },
             itemBuilder: (ctx) => [
-              PopupMenuItem(value: BrawlDifficulty.easy, child: Text('Easy ${_difficulty == BrawlDifficulty.easy ? "✓" : ""}')),
-              PopupMenuItem(value: BrawlDifficulty.medium, child: Text('Medium ${_difficulty == BrawlDifficulty.medium ? "✓" : ""}')),
-              PopupMenuItem(value: BrawlDifficulty.hard, child: Text('Hard ${_difficulty == BrawlDifficulty.hard ? "✓" : ""}')),
+              PopupMenuItem(
+                  value: BrawlDifficulty.easy,
+                  child: Text(
+                      'Easy ${_difficulty == BrawlDifficulty.easy ? "✓" : ""}')),
+              PopupMenuItem(
+                  value: BrawlDifficulty.medium,
+                  child: Text(
+                      'Medium ${_difficulty == BrawlDifficulty.medium ? "✓" : ""}')),
+              PopupMenuItem(
+                  value: BrawlDifficulty.hard,
+                  child: Text(
+                      'Hard ${_difficulty == BrawlDifficulty.hard ? "✓" : ""}')),
             ],
           ),
           IconButton(
@@ -332,12 +354,17 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('You (Cyan Knight)', style: TextStyle(color: AppColors.accentCyan, fontWeight: FontWeight.bold, fontSize: 12)),
+                        const Text('You (Cyan Knight)',
+                            style: TextStyle(
+                                color: AppColors.accentCyan,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12)),
                         const SizedBox(height: 4),
                         LinearProgressIndicator(
                           value: _p1Hp / 100.0,
                           backgroundColor: Colors.white10,
-                          valueColor: const AlwaysStoppedAnimation(AppColors.accentCyan),
+                          valueColor: const AlwaysStoppedAnimation(
+                              AppColors.accentCyan),
                           minHeight: 10,
                           borderRadius: BorderRadius.circular(6),
                         ),
@@ -349,12 +376,17 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text('AI Bot (${_difficulty.name.toUpperCase()})', style: const TextStyle(color: AppColors.dangerRose, fontWeight: FontWeight.bold, fontSize: 12)),
+                        Text('AI Bot (${_difficulty.name.toUpperCase()})',
+                            style: const TextStyle(
+                                color: AppColors.dangerRose,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12)),
                         const SizedBox(height: 4),
                         LinearProgressIndicator(
                           value: _p2Hp / 100.0,
                           backgroundColor: Colors.white10,
-                          valueColor: const AlwaysStoppedAnimation(AppColors.dangerRose),
+                          valueColor: const AlwaysStoppedAnimation(
+                              AppColors.dangerRose),
                           minHeight: 10,
                           borderRadius: BorderRadius.circular(6),
                         ),
@@ -377,9 +409,14 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
                     decoration: BoxDecoration(
                       color: const Color(0xFF0F172A),
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: AppColors.primaryPurple.withValues(alpha: 0.5), width: 3),
+                      border: Border.all(
+                          color: AppColors.primaryPurple.withValues(alpha: 0.5),
+                          width: 3),
                       boxShadow: [
-                        BoxShadow(color: AppColors.primaryPurple.withValues(alpha: 0.3), blurRadius: 18),
+                        BoxShadow(
+                            color:
+                                AppColors.primaryPurple.withValues(alpha: 0.3),
+                            blurRadius: 18),
                       ],
                     ),
                     child: Stack(
@@ -394,7 +431,11 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
                                 decoration: BoxDecoration(
                                   color: AppColors.accentCyan,
                                   borderRadius: BorderRadius.circular(4),
-                                  boxShadow: const [BoxShadow(color: AppColors.accentCyan, blurRadius: 8)],
+                                  boxShadow: const [
+                                    BoxShadow(
+                                        color: AppColors.accentCyan,
+                                        blurRadius: 8)
+                                  ],
                                 ),
                               ),
                             )),
@@ -409,7 +450,11 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
                                 decoration: BoxDecoration(
                                   color: AppColors.dangerRose,
                                   borderRadius: BorderRadius.circular(4),
-                                  boxShadow: const [BoxShadow(color: AppColors.dangerRose, blurRadius: 8)],
+                                  boxShadow: const [
+                                    BoxShadow(
+                                        color: AppColors.dangerRose,
+                                        blurRadius: 8)
+                                  ],
                                 ),
                               ),
                             )),
@@ -423,20 +468,27 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
                             height: 44,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              gradient: const RadialGradient(colors: [AppColors.accentCyan, Color(0xFF0284C7)]),
+                              gradient: const RadialGradient(colors: [
+                                AppColors.accentCyan,
+                                Color(0xFF0284C7)
+                              ]),
                               border: Border.all(
-                                color: _p1Shielding ? Colors.amber : Colors.white,
+                                color:
+                                    _p1Shielding ? Colors.amber : Colors.white,
                                 width: _p1Shielding ? 4 : 2,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: _p1Shielding ? Colors.amber : AppColors.accentCyan,
+                                  color: _p1Shielding
+                                      ? Colors.amber
+                                      : AppColors.accentCyan,
                                   blurRadius: _p1Attacking ? 20 : 10,
                                 ),
                               ],
                             ),
                             child: const Center(
-                              child: Icon(Icons.flash_on_rounded, color: Colors.white, size: 24),
+                              child: Icon(Icons.flash_on_rounded,
+                                  color: Colors.white, size: 24),
                             ),
                           ),
                         ),
@@ -450,7 +502,10 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
                             height: 44,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              gradient: const RadialGradient(colors: [AppColors.dangerRose, Color(0xFF991B1B)]),
+                              gradient: const RadialGradient(colors: [
+                                AppColors.dangerRose,
+                                Color(0xFF991B1B)
+                              ]),
                               border: Border.all(color: Colors.white, width: 2),
                               boxShadow: [
                                 BoxShadow(
@@ -460,7 +515,8 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
                               ],
                             ),
                             child: const Center(
-                              child: Icon(Icons.smart_toy_rounded, color: Colors.white, size: 24),
+                              child: Icon(Icons.smart_toy_rounded,
+                                  color: Colors.white, size: 24),
                             ),
                           ),
                         ),
@@ -482,24 +538,28 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
                     children: [
                       IconButton(
                         icon: const Icon(Icons.arrow_upward_rounded),
-                        onPressed: () => setState(() => _p1Y = (_p1Y - 0.08).clamp(0.15, 0.85)),
+                        onPressed: () => setState(
+                            () => _p1Y = (_p1Y - 0.08).clamp(0.15, 0.85)),
                       ),
                       Row(
                         children: [
                           IconButton(
                             icon: const Icon(Icons.arrow_back_rounded),
-                            onPressed: () => setState(() => _p1X = (_p1X - 0.08).clamp(0.1, 0.9)),
+                            onPressed: () => setState(
+                                () => _p1X = (_p1X - 0.08).clamp(0.1, 0.9)),
                           ),
                           const SizedBox(width: 20),
                           IconButton(
                             icon: const Icon(Icons.arrow_forward_rounded),
-                            onPressed: () => setState(() => _p1X = (_p1X + 0.08).clamp(0.1, 0.9)),
+                            onPressed: () => setState(
+                                () => _p1X = (_p1X + 0.08).clamp(0.1, 0.9)),
                           ),
                         ],
                       ),
                       IconButton(
                         icon: const Icon(Icons.arrow_downward_rounded),
-                        onPressed: () => setState(() => _p1Y = (_p1Y + 0.08).clamp(0.15, 0.85)),
+                        onPressed: () => setState(
+                            () => _p1Y = (_p1Y + 0.08).clamp(0.15, 0.85)),
                       ),
                     ],
                   ),
@@ -511,8 +571,10 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.accentCyan,
                           foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16)),
                         ),
                         onPressed: _p1Punch,
                         child: const Column(
@@ -520,7 +582,9 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
                           children: [
                             Icon(Icons.sports_mma_rounded, size: 22),
                             SizedBox(height: 4),
-                            Text('Punch', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                            Text('Punch',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 11)),
                           ],
                         ),
                       ),
@@ -529,8 +593,10 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primaryPurple,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16)),
                         ),
                         onPressed: _p1ShootLaser,
                         child: const Column(
@@ -538,7 +604,9 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
                           children: [
                             Icon(Icons.bolt_rounded, size: 22),
                             SizedBox(height: 4),
-                            Text('Laser', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                            Text('Laser',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 11)),
                           ],
                         ),
                       ),
@@ -547,8 +615,10 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.amber,
                           foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16)),
                         ),
                         onPressed: () {
                           setState(() => _p1Shielding = !_p1Shielding);
@@ -557,9 +627,15 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(_p1Shielding ? Icons.shield_rounded : Icons.shield_outlined, size: 22),
+                            Icon(
+                                _p1Shielding
+                                    ? Icons.shield_rounded
+                                    : Icons.shield_outlined,
+                                size: 22),
                             const SizedBox(height: 4),
-                            Text(_p1Shielding ? 'Block' : 'Shield', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                            Text(_p1Shielding ? 'Block' : 'Shield',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 11)),
                           ],
                         ),
                       ),

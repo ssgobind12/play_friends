@@ -36,7 +36,8 @@ class InAppMusicService extends ChangeNotifier {
 
   InAppMusicService._internal();
 
-  static const MethodChannel _soundChannel = MethodChannel('com.playfriends.game_sound');
+  static const MethodChannel _soundChannel =
+      MethodChannel('com.playfriends.game_sound');
 
   bool _isPlaying = false;
   int _currentTrackIndex = 0;
@@ -84,7 +85,8 @@ class InAppMusicService extends ChangeNotifier {
   bool get isPlaying => _isPlaying;
   int get currentTrackIndex => _currentTrackIndex;
   double get volume => _volume;
-  MusicTrack get currentTrack => _tracks[_currentTrackIndex.clamp(0, _tracks.length - 1)];
+  MusicTrack get currentTrack =>
+      _tracks[_currentTrackIndex.clamp(0, _tracks.length - 1)];
 
   /// Load all songs uploaded by this user from the server / cloud storage
   Future<void> loadUserSongs(String userId) async {
@@ -95,7 +97,8 @@ class InAppMusicService extends ChangeNotifier {
       final title = (s['title'] ?? '').toString().trim();
       if (title.isEmpty) continue;
 
-      final alreadyExists = _tracks.any((t) => t.isUserUploaded && t.title == title);
+      final alreadyExists =
+          _tracks.any((t) => t.isUserUploaded && t.title == title);
       if (!alreadyExists) {
         final newId = _tracks.length;
         _tracks.add(
@@ -117,6 +120,15 @@ class InAppMusicService extends ChangeNotifier {
     if (changed) notifyListeners();
   }
 
+  /// Removes all user-uploaded custom tracks from the active playlist
+  void clearUserSongs(String userId) {
+    _tracks.removeWhere((t) => t.isUserUploaded);
+    if (_currentTrackIndex >= _tracks.length) {
+      _currentTrackIndex = 0;
+    }
+    notifyListeners();
+  }
+
   /// Upload and register custom music track in server and local storage store
   MusicTrack uploadCustomMusic({
     required String title,
@@ -126,9 +138,11 @@ class InAppMusicService extends ChangeNotifier {
     String? fileName,
   }) {
     final newId = _tracks.length;
-    final cleanTitle = title.trim().isNotEmpty ? title.trim() : 'Custom Track #$newId';
+    final cleanTitle =
+        title.trim().isNotEmpty ? title.trim() : 'Custom Track #$newId';
     final cleanGenre = genre.trim().isNotEmpty ? genre.trim() : 'Custom Audio';
-    final cleanBpm = (bpm != null && bpm.trim().isNotEmpty) ? bpm.trim() : '124 BPM';
+    final cleanBpm =
+        (bpm != null && bpm.trim().isNotEmpty) ? bpm.trim() : '124 BPM';
 
     final track = MusicTrack(
       id: newId,
@@ -168,8 +182,11 @@ class InAppMusicService extends ChangeNotifier {
     _loopTimer?.cancel();
 
     final track = currentTrack;
-    if (track.audioSource != null && (track.audioSource!.startsWith('/') || track.audioSource!.contains('.'))) {
-      PhoneMediaPickerService.playAudioFile(track.audioSource!, volume: _volume);
+    if (track.audioSource != null &&
+        (track.audioSource!.startsWith('/') ||
+            track.audioSource!.contains('.'))) {
+      PhoneMediaPickerService.playAudioFile(track.audioSource!,
+          volume: _volume);
     } else {
       PhoneMediaPickerService.stopAudioFile();
       _startMelodyLoop();
@@ -232,7 +249,8 @@ class InAppMusicService extends ChangeNotifier {
           : (_currentTrackIndex == 1
               ? 'star'
               : (_currentTrackIndex == 2 ? 'tokenMove' : 'strike'));
-      _soundChannel.invokeMethod('play', {'sound': soundKey}).catchError((_) => null);
+      _soundChannel
+          .invokeMethod('play', {'sound': soundKey}).catchError((_) => null);
     } catch (_) {
       // Ignored for non-native environments
     }

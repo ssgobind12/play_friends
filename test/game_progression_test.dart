@@ -1,16 +1,22 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:play_friends/models/room_model.dart';
 import 'package:play_friends/services/auth_service.dart';
+import 'package:play_friends/services/backend_api_service.dart';
+import 'package:play_friends/services/aws_storage_service.dart';
 import 'package:play_friends/services/in_app_music_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() {
+    BackendApiService.isTestMode = true;
+    AwsStorageService.mockMode = true;
     AuthService().resetStatsForTesting();
   });
 
   group('Game Progression & Level Unlock Tests', () {
-    test('Initial user starts clean at Level 1 with 0 wins and only Tic-Tac-Toe unlocked', () {
+    test(
+        'Initial user starts clean at Level 1 with 0 wins and only Tic-Tac-Toe unlocked',
+        () {
       final user = AuthService().currentUser;
       expect(user, isNotNull);
       expect(user!.level, 1);
@@ -26,12 +32,15 @@ void main() {
       expect(AuthService().isGameUnlocked('space_dodge'), isFalse);
     });
 
-    test('Winning 20 games levels up player to Level 5 and unlocks Ludo Friends', () {
+    test(
+        'Winning 20 games levels up player to Level 5 and unlocks Ludo Friends',
+        () {
       expect(AuthService().isGameUnlocked('ludo'), isFalse);
 
       String? lastUnlocked;
       for (int i = 0; i < 20; i++) {
-        final unlocked = AuthService().recordMatchResult(gameId: 'tic_tac_toe', won: true);
+        final unlocked =
+            AuthService().recordMatchResult(gameId: 'tic_tac_toe', won: true);
         if (unlocked != null) {
           lastUnlocked = unlocked;
         }
@@ -87,7 +96,7 @@ void main() {
 
     test('Admin user has all games unlocked and starts with 01 ID', () {
       final auth = AuthService();
-      final err = auth.login('ssgobind12@gamil.com', 'Shubham@003');
+      final err = auth.login('ssgobind12@gamil.com', 'test_admin_pass_2026!');
       expect(err, isNull);
       expect(auth.currentUser?.isAdmin, isTrue);
       expect(auth.currentUser?.id.startsWith('01'), isTrue);
@@ -110,7 +119,8 @@ void main() {
       expect(auth.currentUser, isNull);
       expect(auth.registeredUsers.any((u) => u.id == testUserId), isFalse);
       // Admin still remains in registered users
-      expect(auth.registeredUsers.any((u) => u.id == AuthService.adminUser.id), isTrue);
+      expect(auth.registeredUsers.any((u) => u.id == AuthService.adminUser.id),
+          isTrue);
     });
 
     test('User can upload and update profile photo', () {
@@ -119,19 +129,23 @@ void main() {
       expect(auth.currentUser?.profilePhoto, isNull);
 
       auth.updateProfilePhoto('https://example.com/my_avatar.png');
-      expect(auth.currentUser?.profilePhoto, 'https://example.com/my_avatar.png');
+      expect(
+          auth.currentUser?.profilePhoto, 'https://example.com/my_avatar.png');
 
       auth.updateProfilePhoto('icon:ninja');
       expect(auth.currentUser?.profilePhoto, 'icon:ninja');
 
-      auth.updateProfilePhoto('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD');
+      auth.updateProfilePhoto(
+          'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD');
       expect(auth.currentUser?.profilePhoto?.startsWith('data:image'), isTrue);
 
       auth.updateProfilePhoto(null);
       expect(auth.currentUser?.profilePhoto, isNull);
     });
 
-    test('User can upload custom music to in-app music store and phone local audio', () {
+    test(
+        'User can upload custom music to in-app music store and phone local audio',
+        () {
       final musicService = InAppMusicService();
       final initialCount = musicService.tracks.length;
 
@@ -186,9 +200,51 @@ void main() {
 
       auth.addRoom(megaRoom);
       expect(auth.activeRooms.any((r) => r.roomCode == 'PF-5555'), isTrue);
-      final retrieved = auth.activeRooms.firstWhere((r) => r.roomCode == 'PF-5555');
+      final retrieved =
+          auth.activeRooms.firstWhere((r) => r.roomCode == 'PF-5555');
       expect(retrieved.maxPlayers, 500);
       expect(retrieved.giftPoints, 4500);
+
+      // Delete room test
+      final deleted = auth.deleteRoom(megaRoom.id);
+      expect(deleted, isTrue);
+      expect(auth.activeRooms.any((r) => r.roomCode == 'PF-5555'), isFalse);
+    });
+
+    test('Deleting user purges data everywhere (account, rooms, songs)', () {
+      final auth = AuthService();
+      auth.resetStatsForTesting();
+      final current = auth.currentUser!;
+
+      // Add a custom room for this user
+      final userRoom = RoomModel(
+        id: 'r_user_custom',
+        roomCode: 'PF-9999',
+        gameTitle: 'Alex Party Room',
+        hostName: current.name,
+        currentPlayers: 1,
+        maxPlayers: 50,
+        isPrivate: false,
+        status: 'Live Voice Party',
+      );
+      auth.addRoom(userRoom);
+      expect(auth.activeRooms.any((r) => r.id == 'r_user_custom'), isTrue);
+
+      // Upload custom music
+      InAppMusicService().uploadCustomMusic(
+        title: 'Alex Theme',
+        genre: 'Synth',
+        bpm: '128',
+        audioPathOrUrl: '/storage/alex.mp3',
+      );
+
+      // Perform account deletion
+      final res = auth.deleteCurrentUser();
+      expect(res, isTrue);
+      expect(auth.currentUser, isNull);
+      expect(auth.activeRooms.any((r) => r.id == 'r_user_custom'), isFalse);
+      expect(InAppMusicService().tracks.any((t) => t.title == 'Alex Theme'),
+          isFalse);
     });
   });
 }

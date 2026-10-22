@@ -1,8 +1,6 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../config/brevo_config.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 
@@ -19,7 +17,8 @@ class ForgotPasswordDialog extends StatefulWidget {
   static Future<void> show(
     BuildContext context, {
     required String initialEmail,
-    required void Function(String email, String newPassword) onPasswordResetSuccess,
+    required void Function(String email, String newPassword)
+        onPasswordResetSuccess,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -88,20 +87,11 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
 
   String get _currentOtp => _otpControllers.map((c) => c.text.trim()).join();
 
-  void _autofillCode(String code) {
-    if (code.length == 6) {
-      for (int i = 0; i < 6; i++) {
-        _otpControllers[i].text = code[i];
-      }
-      _otpFocusNodes.last.requestFocus();
-      setState(() => _errorMessage = null);
-    }
-  }
-
-  void _sendOtp() {
+  Future<void> _sendOtp() async {
     final email = _emailController.text.trim().toLowerCase();
     if (email.isEmpty || !email.contains('@') || !email.contains('.')) {
-      setState(() => _errorMessage = 'Please enter a valid registered email address.');
+      setState(() =>
+          _errorMessage = 'Please enter a valid registered email address.');
       return;
     }
 
@@ -110,12 +100,13 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
       _errorMessage = null;
     });
 
-    final error = AuthService().sendForgotPasswordOtp(email);
+    final result = await AuthService().sendForgotPasswordOtpAsync(email);
 
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
-    if (error != null) {
-      setState(() => _errorMessage = error);
+    if (!result.success) {
+      setState(() => _errorMessage = result.message);
     } else {
       _startCountdown();
       setState(() {
@@ -125,10 +116,24 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
     }
   }
 
-  void _resendOtp() {
+  Future<void> _resendOtp() async {
     if (_resendCountdown == 0) {
       final email = _emailController.text.trim().toLowerCase();
-      AuthService().sendForgotPasswordOtp(email);
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      final result = await AuthService().sendForgotPasswordOtpAsync(email);
+
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+
+      if (!result.success) {
+        setState(() => _errorMessage = result.message);
+        return;
+      }
+
       for (final c in _otpControllers) {
         c.clear();
       }
@@ -145,7 +150,7 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
     }
   }
 
-  void _resetPassword() {
+  Future<void> _resetPassword() async {
     final email = _emailController.text.trim().toLowerCase();
     final otp = _currentOtp;
     final newPass = _newPasswordController.text;
@@ -157,7 +162,8 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
     }
 
     if (newPass.length < 6) {
-      setState(() => _errorMessage = 'New password must be at least 6 characters.');
+      setState(
+          () => _errorMessage = 'New password must be at least 6 characters.');
       return;
     }
 
@@ -171,12 +177,13 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
       _errorMessage = null;
     });
 
-    final error = AuthService().resetPasswordWithOtp(
+    final error = await AuthService().resetPasswordWithOtpAsync(
       email: email,
       otp: otp,
       newPassword: newPass,
     );
 
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (error != null) {
@@ -189,13 +196,6 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final activeOtp = _step == 2
-        ? AuthService().getLatestOtpForEmail(
-            _emailController.text.trim(),
-            purpose: 'forgot_password',
-          )
-        : null;
-
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
@@ -260,7 +260,8 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                   ? 'Enter your registered email to receive a one-time 6-digit OTP code.'
                   : 'We have generated a 6-digit OTP code for ${_emailController.text.trim()}',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              style:
+                  const TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
 
             const SizedBox(height: 16),
@@ -269,7 +270,8 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
             if (_errorMessage != null)
               Container(
                 margin: const EdgeInsets.only(bottom: 14),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   color: AppColors.dangerRose.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
@@ -328,7 +330,8 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                         )
                       : const Text(
                           'Send 6-Digit OTP',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.bold),
                         ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryPurple,
@@ -344,122 +347,41 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
 
             // STEP 2: ENTER OTP & NEW PASSWORD
             if (_step == 2) ...[
-              // Email Inbox Notification Banner (Debug development mode only; hidden in production)
-              if (kDebugMode && activeOtp != null)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF1E284A), Color(0xFF161E38)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: BrevoConfig.isConfigured
-                          ? AppColors.onlineGreen.withValues(alpha: 0.6)
-                          : AppColors.primaryBlueLight.withValues(alpha: 0.5),
-                    ),
+              // Email Delivery Status Card
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1E284A), Color(0xFF161E38)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            BrevoConfig.isConfigured
-                                ? Icons.mark_email_read_rounded
-                                : Icons.mark_email_unread_rounded,
-                            color: BrevoConfig.isConfigured
-                                ? AppColors.onlineGreen
-                                : AppColors.primaryBlueLight,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              BrevoConfig.isConfigured
-                                  ? 'Brevo Live Reset Email Dispatched'
-                                  : 'Simulated Email Inbox Notification',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: BrevoConfig.isConfigured
-                                    ? AppColors.onlineGreen
-                                    : AppColors.primaryBlueLight,
-                              ),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: (BrevoConfig.isConfigured ? AppColors.onlineGreen : AppColors.primaryBlue)
-                                  .withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              BrevoConfig.isConfigured ? 'LIVE BREVO' : 'SIMULATION',
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
-                                color: BrevoConfig.isConfigured ? AppColors.onlineGreen : AppColors.primaryBlueLight,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        BrevoConfig.isConfigured
-                            ? 'Password reset OTP sent via Brevo to ${_emailController.text.trim()}.'
-                            : 'Subject: Reset Password OTP for ${_emailController.text.trim()}',
-                        style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              const Text('Code: ',
-                                  style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primaryPurple.withValues(alpha: 0.4),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: AppColors.primaryPurpleLight),
-                                ),
-                                child: Text(
-                                  activeOtp,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                    letterSpacing: 2,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          ElevatedButton.icon(
-                            icon: const Icon(Icons.flash_on_rounded, size: 12),
-                            label: const Text('Auto-fill', style: TextStyle(fontSize: 11)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primaryBlue,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            onPressed: () => _autofillCode(activeOtp),
-                          ),
-                        ],
-                      ),
-                    ],
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppColors.primaryBlueLight.withValues(alpha: 0.4),
                   ),
                 ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.mark_email_read_rounded,
+                      color: AppColors.onlineGreen,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Password reset OTP sent to ${_emailController.text.trim()}. Please enter your 6-digit code below.',
+                        style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                            height: 1.3),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
               // 6-digit OTP row
               Row(
@@ -487,7 +409,8 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                         contentPadding: EdgeInsets.zero,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.cardBorder),
+                          borderSide:
+                              const BorderSide(color: AppColors.cardBorder),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -516,7 +439,8 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text("Didn't get code? ",
-                      style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      style: TextStyle(
+                          fontSize: 12, color: AppColors.textSecondary)),
                   if (_resendCountdown > 0)
                     Text(
                       'Resend in ${_resendCountdown}s',
@@ -594,7 +518,8 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                       color: AppColors.textMuted,
                       size: 18,
                     ),
-                    onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                    onPressed: () =>
+                        setState(() => _obscureConfirm = !_obscureConfirm),
                   ),
                   filled: true,
                   fillColor: AppColors.cardBg,
@@ -611,7 +536,8 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton.icon(
-                  icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+                  icon:
+                      const Icon(Icons.check_circle_outline_rounded, size: 18),
                   label: _isLoading
                       ? const SizedBox(
                           width: 20,
@@ -623,7 +549,8 @@ class _ForgotPasswordDialogState extends State<ForgotPasswordDialog> {
                         )
                       : const Text(
                           'Verify OTP & Reset Password',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.bold),
                         ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryPurple,

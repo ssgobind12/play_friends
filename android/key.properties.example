@@ -1,0 +1,11 @@
+# Example Android Release Signing Configuration for Play Friends
+# Copy this file to 'android/key.properties' and replace placeholders with your actual keystore details.
+#
+# SECURITY NOTICE:
+# Never commit 'key.properties' or any '.jks' / '.keystore' files into Git version control.
+# Both 'key.properties' and '*.jks' are already ignored by .gitignore.
+
+storePassword=YOUR_KEYSTORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=upload
+storeFile=/path/to/your/upload-keystore.jks

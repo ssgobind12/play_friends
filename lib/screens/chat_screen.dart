@@ -11,7 +11,8 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateMixin {
+class _ChatScreenState extends State<ChatScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   late List<ChatThread> _threads;
 
@@ -29,7 +30,8 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
   }
 
   List<ChatThread> get _dmThreads => _threads.where((t) => !t.isGroup).toList();
-  List<ChatThread> get _groupThreads => _threads.where((t) => t.isGroup).toList();
+  List<ChatThread> get _groupThreads =>
+      _threads.where((t) => t.isGroup).toList();
 
   @override
   Widget build(BuildContext context) {
@@ -120,7 +122,9 @@ class _ChatScreenState extends State<ChatScreen> with SingleTickerProviderStateM
                       radius: 24,
                       backgroundColor: thread.iconColor,
                       child: Icon(
-                        thread.isGroup ? Icons.groups_rounded : Icons.person_rounded,
+                        thread.isGroup
+                            ? Icons.groups_rounded
+                            : Icons.person_rounded,
                         color: Colors.white,
                         size: 24,
                       ),
@@ -247,12 +251,14 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: const Color(0xFF1E1B4B),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: const Row(
             children: [
               Icon(Icons.shield_rounded, color: Colors.amber, size: 26),
               SizedBox(width: 8),
-              Text('Security Protection', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              Text('Security Protection',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             ],
           ),
           content: Text(
@@ -262,7 +268,8 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
           ),
           actions: [
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryPurple),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryPurple),
               onPressed: () => Navigator.of(ctx).pop(),
               child: const Text('Understood'),
             ),
@@ -308,7 +315,9 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
               radius: 16,
               backgroundColor: widget.thread.iconColor,
               child: Icon(
-                widget.thread.isGroup ? Icons.groups_rounded : Icons.person_rounded,
+                widget.thread.isGroup
+                    ? Icons.groups_rounded
+                    : Icons.person_rounded,
                 size: 18,
                 color: Colors.white,
               ),
@@ -317,7 +326,8 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
             Expanded(
               child: Text(
                 widget.thread.title,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -330,22 +340,26 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
             Expanded(
               child: ListView.builder(
                 controller: _scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 itemCount: _messages.length,
                 itemBuilder: (context, index) {
                   final msg = _messages[index];
                   final isMe = msg.isMe;
 
                   return Align(
-                    alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                    alignment:
+                        isMe ? Alignment.centerRight : Alignment.centerLeft,
                     child: Container(
                       margin: const EdgeInsets.only(bottom: 12),
                       constraints: BoxConstraints(
                         maxWidth: MediaQuery.of(context).size.width * 0.76,
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
-                        color: isMe ? AppColors.primaryPurple : AppColors.cardBg,
+                        color:
+                            isMe ? AppColors.primaryPurple : AppColors.cardBg,
                         borderRadius: BorderRadius.only(
                           topLeft: const Radius.circular(16),
                           topRight: const Radius.circular(16),
@@ -354,13 +368,15 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                         ),
                         border: Border.all(
                           color: isMe
-                              ? AppColors.primaryPurpleLight.withValues(alpha: 0.3)
+                              ? AppColors.primaryPurpleLight
+                                  .withValues(alpha: 0.3)
                               : AppColors.cardBorder,
                         ),
                       ),
                       child: Column(
-                        crossAxisAlignment:
-                            isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                        crossAxisAlignment: isMe
+                            ? CrossAxisAlignment.end
+                            : CrossAxisAlignment.start,
                         children: [
                           if (!isMe && widget.thread.isGroup)
                             Padding(
@@ -387,7 +403,8 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                             msg.time,
                             style: TextStyle(
                               fontSize: 10,
-                              color: isMe ? Colors.white70 : AppColors.textMuted,
+                              color:
+                                  isMe ? Colors.white70 : AppColors.textMuted,
                             ),
                           ),
                         ],
@@ -402,7 +419,8 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: const BoxDecoration(
                 color: AppColors.surface,
-                border: Border(top: BorderSide(color: AppColors.cardBorder, width: 1)),
+                border: Border(
+                    top: BorderSide(color: AppColors.cardBorder, width: 1)),
               ),
               child: Row(
                 children: [
@@ -413,13 +431,16 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                       onSubmitted: (_) => _sendMessage(),
                       decoration: InputDecoration(
                         hintText: 'Type a message...',
-                        hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
+                        hintStyle: const TextStyle(
+                            color: AppColors.textMuted, fontSize: 14),
                         filled: true,
                         fillColor: AppColors.cardBg,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 10),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
-                          borderSide: const BorderSide(color: AppColors.cardBorder),
+                          borderSide:
+                              const BorderSide(color: AppColors.cardBorder),
                         ),
                       ),
                     ),

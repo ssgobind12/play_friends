@@ -18,7 +18,8 @@ class EmailSendResult {
 }
 
 class BrevoEmailService {
-  static const String _brevoSmtpEndpoint = 'https://api.brevo.com/v3/smtp/email';
+  static const String _brevoSmtpEndpoint =
+      'https://api.brevo.com/v3/smtp/email';
 
   /// Sends a 6-digit OTP email via Brevo transactional API with full inbox deliverability features:
   /// - Custom domain sender (SPF/DKIM alignment)
@@ -32,7 +33,8 @@ class BrevoEmailService {
     required String purpose, // 'registration' or 'forgot_password'
   }) async {
     final isRegistration = purpose == 'registration';
-    final name = recipientName.trim().isNotEmpty ? recipientName.trim() : 'Player';
+    final name =
+        recipientName.trim().isNotEmpty ? recipientName.trim() : 'Player';
 
     // Spam-safe natural subject line (avoids spam filter trigger words)
     final subject = isRegistration
@@ -59,13 +61,15 @@ class BrevoEmailService {
         );
         return const EmailSendResult(
           success: true,
-          message: 'Local development simulation active (Brevo API key not provided).',
+          message:
+              'Local development simulation active (Brevo API key not provided).',
           usedBrevoLiveApi: false,
         );
       }
       return const EmailSendResult(
         success: false,
-        message: 'Transactional email service is not configured on this client.',
+        message:
+            'Transactional email service is not configured on this client.',
         usedBrevoLiveApi: false,
       );
     }
@@ -90,22 +94,54 @@ class BrevoEmailService {
         'subject': subject,
         'htmlContent': htmlContent,
         'textContent': textContent,
-        'tags': ['otp', 'transactional', isRegistration ? 'registration' : 'password-reset'],
+        'tags': [
+          'otp',
+          'transactional',
+          isRegistration ? 'registration' : 'password-reset'
+        ],
         'headers': {
           'X-Mailin-Tag': 'otp-verification',
           'X-Entity-Ref-ID': 'pf-${DateTime.now().millisecondsSinceEpoch}',
         },
       };
 
-      final response = await http.post(
-        Uri.parse(_brevoSmtpEndpoint),
-        headers: {
-          'accept': 'application/json',
-          'api-key': BrevoConfig.apiKey.trim(),
-          'content-type': 'application/json; charset=UTF-8',
-        },
-        body: jsonEncode(payload),
-      );
+      // Helper to execute request with given apiKey and senderEmail
+      Future<http.Response> executeSend(String apiKey, String sender) {
+        final p = Map<String, dynamic>.from(payload);
+        p['sender'] = {
+          'name': BrevoConfig.senderName,
+          'email': sender.trim(),
+        };
+        return http.post(
+          Uri.parse(_brevoSmtpEndpoint),
+          headers: {
+            'accept': 'application/json',
+            'api-key': apiKey.trim(),
+            'content-type': 'application/json; charset=UTF-8',
+          },
+          body: jsonEncode(p),
+        );
+      }
+
+      var response =
+          await executeSend(BrevoConfig.apiKey, BrevoConfig.senderEmail);
+
+      // If key not found, retry with fallback API key
+      if (response.statusCode == 401 &&
+          response.body.contains('Key not found') &&
+          BrevoConfig.apiKey != BrevoConfig.fallbackApiKey) {
+        response = await executeSend(
+            BrevoConfig.fallbackApiKey, BrevoConfig.senderEmail);
+      }
+
+      // If sender not verified, retry with direct account email
+      if (response.statusCode >= 400 &&
+          (response.body.contains('sender') ||
+              response.body.contains('unverified')) &&
+          BrevoConfig.senderEmail != BrevoConfig.fallbackSenderEmail) {
+        response = await executeSend(
+            BrevoConfig.fallbackApiKey, BrevoConfig.fallbackSenderEmail);
+      }
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -127,13 +163,19 @@ class BrevoEmailService {
           errorDetail = response.body;
         }
 
+        if (errorDetail.toLowerCase().contains('unrecognised ip') ||
+            errorDetail.toLowerCase().contains('unrecognized ip')) {
+          errorDetail =
+              'Brevo security notice: Unrecognized IP address. Please visit https://app.brevo.com/security/authorised_ips to authorize your IP address or disable IP restrictions.';
+        }
+
         if (kDebugMode) {
           debugPrint('Brevo API delivery error: $errorDetail');
         }
 
         return EmailSendResult(
           success: false,
-          message: 'Brevo delivery issue: $errorDetail',
+          message: errorDetail,
           usedBrevoLiveApi: true,
         );
       }
@@ -155,7 +197,8 @@ class BrevoEmailService {
     required String otpCode,
     required bool isRegistration,
   }) {
-    final action = isRegistration ? 'complete your registration' : 'reset your password';
+    final action =
+        isRegistration ? 'complete your registration' : 'reset your password';
     return '''
 Play Friends - Verification Code
 
@@ -182,7 +225,9 @@ https://ssgobind.space
     required String otpCode,
     required bool isRegistration,
   }) {
-    final title = isRegistration ? 'Verify Your Play Friends Account' : 'Reset Your Play Friends Password';
+    final title = isRegistration
+        ? 'Verify Your Play Friends Account'
+        : 'Reset Your Play Friends Password';
     final actionDesc = isRegistration
         ? 'Thank you for joining Play Friends! Use the one-time 6-digit verification code below to verify your email address and activate your player profile.'
         : 'We received a request to reset your Play Friends password. Enter the one-time 6-digit code below in the application to create a new password.';

@@ -1,9 +1,6 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../config/brevo_config.dart';
-import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 
 class OtpVerificationView extends StatefulWidget {
@@ -68,23 +65,13 @@ class _OtpVerificationViewState extends State<OtpVerificationView> {
     super.dispose();
   }
 
-  String get _currentOtp =>
-      _controllers.map((c) => c.text.trim()).join();
-
-  void _autofillCode(String code) {
-    if (code.length == 6) {
-      for (int i = 0; i < 6; i++) {
-        _controllers[i].text = code[i];
-      }
-      _focusNodes.last.requestFocus();
-      setState(() => _errorMessage = null);
-    }
-  }
+  String get _currentOtp => _controllers.map((c) => c.text.trim()).join();
 
   Future<void> _handleVerify() async {
     final otp = _currentOtp;
     if (otp.length != 6) {
-      setState(() => _errorMessage = 'Please enter the complete 6-digit OTP code.');
+      setState(
+          () => _errorMessage = 'Please enter the complete 6-digit OTP code.');
       return;
     }
 
@@ -127,11 +114,6 @@ class _OtpVerificationViewState extends State<OtpVerificationView> {
 
   @override
   Widget build(BuildContext context) {
-    final activeOtp = AuthService().getLatestOtpForEmail(
-      widget.email,
-      purpose: widget.purpose,
-    );
-
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Column(
@@ -172,7 +154,8 @@ class _OtpVerificationViewState extends State<OtpVerificationView> {
           // Subtitle & Email
           Text(
             widget.subtitle,
-            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            style:
+                const TextStyle(fontSize: 13, color: AppColors.textSecondary),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 2),
@@ -187,131 +170,42 @@ class _OtpVerificationViewState extends State<OtpVerificationView> {
           ),
           const SizedBox(height: 16),
 
-          // EMAIL DELIVERY STATUS & NOTIFICATION CARD (Debug development mode only; hidden in production)
-          if (kDebugMode && activeOtp != null)
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1E284A), Color(0xFF161E38)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: BrevoConfig.isConfigured
-                      ? AppColors.onlineGreen.withValues(alpha: 0.6)
-                      : AppColors.primaryBlueLight.withValues(alpha: 0.5),
-                  width: 1.2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: (BrevoConfig.isConfigured ? AppColors.onlineGreen : AppColors.primaryBlue)
-                        .withValues(alpha: 0.2),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+          // EMAIL DISPATCH CONFIRMATION CARD
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF1E284A), Color(0xFF161E38)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        BrevoConfig.isConfigured
-                            ? Icons.mark_email_read_rounded
-                            : Icons.email_outlined,
-                        color: BrevoConfig.isConfigured
-                            ? AppColors.onlineGreen
-                            : AppColors.primaryBlueLight,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          BrevoConfig.isConfigured
-                              ? 'Brevo Live Email Dispatched'
-                              : 'Simulated Email Inbox Notification',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: BrevoConfig.isConfigured
-                                ? AppColors.onlineGreen
-                                : AppColors.primaryBlueLight,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: (BrevoConfig.isConfigured ? AppColors.onlineGreen : AppColors.primaryBlue)
-                              .withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          BrevoConfig.isConfigured ? 'LIVE BREVO' : 'SIMULATION',
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            color: BrevoConfig.isConfigured ? AppColors.onlineGreen : AppColors.primaryBlueLight,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    BrevoConfig.isConfigured
-                        ? 'Sent via Brevo to ${widget.email}. Please also check your spam/junk folder.'
-                        : 'To: ${widget.email}\nSubject: Your Play Friends 6-Digit OTP Code',
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, height: 1.3),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          const Text(
-                            'One-Time OTP: ',
-                            style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryPurple.withValues(alpha: 0.35),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppColors.primaryPurpleLight),
-                            ),
-                            child: Text(
-                              activeOtp,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                letterSpacing: 2,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.flash_on_rounded, size: 14),
-                        label: const Text('Auto-fill', style: TextStyle(fontSize: 11)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primaryBlue,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        onPressed: () => _autofillCode(activeOtp),
-                      ),
-                    ],
-                  ),
-                ],
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppColors.primaryBlueLight.withValues(alpha: 0.4),
+                width: 1.2,
               ),
             ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.mark_email_read_rounded,
+                  color: AppColors.onlineGreen,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'A 6-digit verification code has been dispatched to ${widget.email}. Please enter it below. Be sure to check your spam/junk folder if needed.',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
 
           const SizedBox(height: 20),
 
@@ -327,12 +221,14 @@ class _OtpVerificationViewState extends State<OtpVerificationView> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.error_outline_rounded, color: AppColors.dangerRose, size: 20),
+                  const Icon(Icons.error_outline_rounded,
+                      color: AppColors.dangerRose, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       _errorMessage!,
-                      style: const TextStyle(color: AppColors.dangerRose, fontSize: 12),
+                      style: const TextStyle(
+                          color: AppColors.dangerRose, fontSize: 12),
                     ),
                   ),
                 ],

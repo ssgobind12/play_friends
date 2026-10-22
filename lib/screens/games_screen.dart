@@ -39,7 +39,9 @@ class _GamesScreenState extends State<GamesScreen> {
 
   List<GameModel> get _filteredGames {
     return SampleData.games.where((game) {
-      final matchesSearch = game.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+      final matchesSearch = game.title
+              .toLowerCase()
+              .contains(_searchQuery.toLowerCase()) ||
           game.description.toLowerCase().contains(_searchQuery.toLowerCase());
 
       if (!matchesSearch) return false;
@@ -92,15 +94,18 @@ class _GamesScreenState extends State<GamesScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: AppColors.surfaceDark,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Row(
             children: [
-              const Icon(Icons.lock_rounded, color: AppColors.coinAmber, size: 26),
+              const Icon(Icons.lock_rounded,
+                  color: AppColors.coinAmber, size: 26),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   '${game.title} Locked',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -111,7 +116,8 @@ class _GamesScreenState extends State<GamesScreen> {
             children: [
               Text(
                 'Unlocks automatically when you reach Level ${game.requiredLevel} or win ${game.requiredWins} games!',
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
+                style: const TextStyle(
+                    color: AppColors.textSecondary, fontSize: 13, height: 1.4),
               ),
               const SizedBox(height: 16),
               Container(
@@ -127,20 +133,32 @@ class _GamesScreenState extends State<GamesScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Win Progress', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                        Text('$wins / ${game.requiredWins} Wins', style: const TextStyle(color: AppColors.coinAmber, fontWeight: FontWeight.bold, fontSize: 12)),
+                        const Text('Win Progress',
+                            style: TextStyle(
+                                color: AppColors.textSecondary, fontSize: 12)),
+                        Text('$wins / ${game.requiredWins} Wins',
+                            style: const TextStyle(
+                                color: AppColors.coinAmber,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12)),
                       ],
                     ),
                     const SizedBox(height: 8),
                     LinearProgressIndicator(
-                      value: (wins / (game.requiredWins > 0 ? game.requiredWins : 1)).clamp(0.0, 1.0),
+                      value: (wins /
+                              (game.requiredWins > 0 ? game.requiredWins : 1))
+                          .clamp(0.0, 1.0),
                       backgroundColor: AppColors.surfaceLight,
-                      valueColor: const AlwaysStoppedAnimation<Color>(AppColors.coinAmber),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                          AppColors.coinAmber),
                       minHeight: 8,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     const SizedBox(height: 10),
-                    Text('Player Level: $level (Required: Level ${game.requiredLevel})', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                    Text(
+                        'Player Level: $level (Required: Level ${game.requiredLevel})',
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 12)),
                   ],
                 ),
               ),
@@ -149,15 +167,19 @@ class _GamesScreenState extends State<GamesScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Close', style: TextStyle(color: AppColors.textSecondary)),
+              child: const Text('Close',
+                  style: TextStyle(color: AppColors.textSecondary)),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryPurple),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryPurple),
               onPressed: () {
                 Navigator.of(ctx).pop();
-                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TicTacToeScreen()));
+                Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const TicTacToeScreen()));
               },
-              child: const Text('Play & Level Up', style: TextStyle(color: Colors.white)),
+              child: const Text('Play & Level Up',
+                  style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -177,7 +199,8 @@ class _GamesScreenState extends State<GamesScreen> {
             title: const Text('Game Arcade'),
             actions: [
               IconButton(
-                icon: const Icon(Icons.music_note_rounded, color: AppColors.accentCyan),
+                icon: const Icon(Icons.music_note_rounded,
+                    color: AppColors.accentCyan),
                 tooltip: 'Music Store & Upload',
                 onPressed: () => MusicPlayerSheet.show(context),
               ),
@@ -188,7 +211,8 @@ class _GamesScreenState extends State<GamesScreen> {
               children: [
                 // Search Bar
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: TextField(
                     controller: _searchController,
                     onChanged: (val) {
@@ -198,8 +222,10 @@ class _GamesScreenState extends State<GamesScreen> {
                     },
                     decoration: InputDecoration(
                       hintText: 'Search games (e.g. Ludo, Carrom, Space)...',
-                      hintStyle: const TextStyle(color: AppColors.textMuted, fontSize: 14),
-                      prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary),
+                      hintStyle: const TextStyle(
+                          color: AppColors.textMuted, fontSize: 14),
+                      prefixIcon: const Icon(Icons.search_rounded,
+                          color: AppColors.textSecondary),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
                               icon: const Icon(Icons.clear_rounded, size: 18),
@@ -213,18 +239,22 @@ class _GamesScreenState extends State<GamesScreen> {
                           : null,
                       filled: true,
                       fillColor: AppColors.cardBg,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: AppColors.cardBorder),
+                        borderSide:
+                            const BorderSide(color: AppColors.cardBorder),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: AppColors.cardBorder),
+                        borderSide:
+                            const BorderSide(color: AppColors.cardBorder),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: AppColors.primaryPurple, width: 1.5),
+                        borderSide: const BorderSide(
+                            color: AppColors.primaryPurple, width: 1.5),
                       ),
                     ),
                   ),
@@ -254,14 +284,20 @@ class _GamesScreenState extends State<GamesScreen> {
                           selectedColor: AppColors.primaryPurple,
                           checkmarkColor: Colors.white,
                           labelStyle: TextStyle(
-                            color: isSelected ? Colors.white : AppColors.textSecondary,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected
+                                ? Colors.white
+                                : AppColors.textSecondary,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                             fontSize: 13,
                           ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                             side: BorderSide(
-                              color: isSelected ? AppColors.primaryPurple : AppColors.cardBorder,
+                              color: isSelected
+                                  ? AppColors.primaryPurple
+                                  : AppColors.cardBorder,
                             ),
                           ),
                         ),
@@ -282,18 +318,21 @@ class _GamesScreenState extends State<GamesScreen> {
                               Icon(
                                 Icons.sports_esports_outlined,
                                 size: 48,
-                                color: AppColors.textMuted.withValues(alpha: 0.6),
+                                color:
+                                    AppColors.textMuted.withValues(alpha: 0.6),
                               ),
                               const SizedBox(height: 12),
                               const Text(
                                 'No games found matching your search',
-                                style: TextStyle(color: AppColors.textSecondary),
+                                style:
+                                    TextStyle(color: AppColors.textSecondary),
                               ),
                             ],
                           ),
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
                           itemCount: games.length,
                           itemBuilder: (context, index) {
                             final game = games[index];

@@ -45,7 +45,8 @@ class RoomModel {
       gameTitle: map['gameTitle']?.toString() ?? 'Game Room',
       hostName: map['hostName']?.toString() ?? 'Host',
       hostPhoto: map['hostPhoto']?.toString(),
-      currentPlayers: map['currentPlayers'] is int ? map['currentPlayers'] as int : 1,
+      currentPlayers:
+          map['currentPlayers'] is int ? map['currentPlayers'] as int : 1,
       maxPlayers: map['maxPlayers'] is int ? map['maxPlayers'] as int : 100,
       isPrivate: map['isPrivate'] == true,
       status: map['status']?.toString() ?? 'Live Voice Party',

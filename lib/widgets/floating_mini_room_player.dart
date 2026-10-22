@@ -16,6 +16,7 @@ class FloatingMiniRoomPlayer extends StatefulWidget {
 class _FloatingMiniRoomPlayerState extends State<FloatingMiniRoomPlayer>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseCtrl;
+  Offset? _position;
 
   @override
   void initState() {
@@ -70,10 +71,28 @@ class _FloatingMiniRoomPlayerState extends State<FloatingMiniRoomPlayer>
         final room = roomManager.activeRoom!;
         final hostImage = _resolveImage(room.hostPhoto);
 
+        final mediaQuery = MediaQuery.of(context);
+        final screenSize = mediaQuery.size;
+        final padding = mediaQuery.padding;
+
+        // Default position: bottom-left above navigation / safe area
+        final defaultPos = Offset(14, screenSize.height - padding.bottom - 135);
+        final currentPos = _position ?? defaultPos;
+
         return Positioned(
-          left: 14,
-          bottom: 12,
+          left: currentPos.dx,
+          top: currentPos.dy,
           child: GestureDetector(
+            onPanUpdate: (details) {
+              setState(() {
+                final newX = (currentPos.dx + details.delta.dx)
+                    .clamp(8.0, screenSize.width - 70.0);
+                final newY = (currentPos.dy + details.delta.dy).clamp(
+                    padding.top + 8.0,
+                    screenSize.height - padding.bottom - 74.0);
+                _position = Offset(newX, newY);
+              });
+            },
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
@@ -124,7 +143,9 @@ class _FloatingMiniRoomPlayerState extends State<FloatingMiniRoomPlayer>
                               color: AppColors.primaryPurple,
                               child: Center(
                                 child: Text(
-                                  room.hostName.isNotEmpty ? room.hostName[0] : '🎵',
+                                  room.hostName.isNotEmpty
+                                      ? room.hostName[0]
+                                      : '🎵',
                                   style: const TextStyle(
                                     fontSize: 22,
                                     fontWeight: FontWeight.bold,
@@ -141,7 +162,8 @@ class _FloatingMiniRoomPlayerState extends State<FloatingMiniRoomPlayer>
                       left: 6,
                       right: 6,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 4, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.7),
                           borderRadius: BorderRadius.circular(6),

@@ -43,7 +43,8 @@ class FriendModel {
       name: map['name']?.toString() ?? '',
       tag: map['tag']?.toString() ?? '',
       initial: map['initial']?.toString() ?? 'P',
-      avatarColor: Color(map['avatarColor'] is int ? map['avatarColor'] as int : 0xFF7C3AED),
+      avatarColor: Color(
+          map['avatarColor'] is int ? map['avatarColor'] as int : 0xFF7C3AED),
       level: map['level'] is int ? map['level'] as int : 1,
       isOnline: map['isOnline'] == true,
       statusText: map['statusText']?.toString() ?? '',

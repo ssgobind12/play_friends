@@ -33,7 +33,8 @@ class CarromGameScreen extends StatefulWidget {
   State<CarromGameScreen> createState() => _CarromGameScreenState();
 }
 
-class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerProviderStateMixin {
+class _CarromGameScreenState extends State<CarromGameScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animController;
   final List<CarromPiece> _pieces = [];
   late CarromPiece _striker;
@@ -49,7 +50,8 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
   @override
   void initState() {
     super.initState();
-    _animController = AnimationController(vsync: this, duration: const Duration(milliseconds: 16))
+    _animController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 16))
       ..addListener(_updatePhysics);
     _resetBoard();
   }
@@ -60,8 +62,12 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
     super.dispose();
   }
 
-  int get _targetScore => _difficulty == CarromDifficulty.easy ? 20 : (_difficulty == CarromDifficulty.medium ? 25 : 30);
-  int get _initialShots => _difficulty == CarromDifficulty.easy ? 10 : (_difficulty == CarromDifficulty.medium ? 8 : 6);
+  int get _targetScore => _difficulty == CarromDifficulty.easy
+      ? 20
+      : (_difficulty == CarromDifficulty.medium ? 25 : 30);
+  int get _initialShots => _difficulty == CarromDifficulty.easy
+      ? 10
+      : (_difficulty == CarromDifficulty.medium ? 8 : 6);
 
   void _resetBoard() {
     _pieces.clear();
@@ -182,7 +188,12 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
 
           // Elastic collision momentum exchange
           final k = normal;
-          final p = 2 * (a.velocity.dx * k.dx + a.velocity.dy * k.dy - b.velocity.dx * k.dx - b.velocity.dy * k.dy) / 2;
+          final p = 2 *
+              (a.velocity.dx * k.dx +
+                  a.velocity.dy * k.dy -
+                  b.velocity.dx * k.dx -
+                  b.velocity.dy * k.dy) /
+              2;
           a.velocity -= k * p * 0.85;
           b.velocity += k * p * 0.85;
           stillMoving = true;
@@ -237,12 +248,14 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            Icon(won ? Icons.emoji_events_rounded : Icons.sports_score_rounded, color: AppColors.coinAmber),
+            Icon(won ? Icons.emoji_events_rounded : Icons.sports_score_rounded,
+                color: AppColors.coinAmber),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 won ? 'Match Won!' : 'Match Ended',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -253,12 +266,18 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
           children: [
             Text(
               'Final Score: $_score Points in $_initialShots Shots!',
-              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Text(
-              won ? 'Outstanding striking skills! Target achieved.' : 'Good try! Score $_targetScore+ points to claim victory.',
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              won
+                  ? 'Outstanding striking skills! Target achieved.'
+                  : 'Good try! Score $_targetScore+ points to claim victory.',
+              style:
+                  const TextStyle(color: AppColors.textSecondary, fontSize: 13),
             ),
             const SizedBox(height: 16),
             Container(
@@ -270,9 +289,12 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _statItem(Icons.bolt_rounded, won ? '+100 XP' : '+30 XP', AppColors.primaryBlueLight),
-                  _statItem(Icons.monetization_on_rounded, won ? '+50 Coins' : '+15 Coins', AppColors.coinAmber),
-                  _statItem(Icons.star_rounded, 'Score: $_score', AppColors.onlineGreen),
+                  _statItem(Icons.bolt_rounded, won ? '+100 XP' : '+30 XP',
+                      AppColors.primaryBlueLight),
+                  _statItem(Icons.monetization_on_rounded,
+                      won ? '+50 Coins' : '+15 Coins', AppColors.coinAmber),
+                  _statItem(Icons.star_rounded, 'Score: $_score',
+                      AppColors.onlineGreen),
                 ],
               ),
             ),
@@ -281,7 +303,8 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [AppColors.primaryPurple, AppColors.accentCyan]),
+                  gradient: const LinearGradient(
+                      colors: [AppColors.primaryPurple, AppColors.accentCyan]),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
@@ -291,7 +314,10 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
                     Expanded(
                       child: Text(
                         '🎉 NEW GAME UNLOCKED: $unlockedTitle!',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12),
                       ),
                     ),
                   ],
@@ -306,15 +332,18 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
               Navigator.of(ctx).pop();
               Navigator.of(context).pop();
             },
-            child: const Text('Exit to Arcade', style: TextStyle(color: AppColors.textSecondary)),
+            child: const Text('Exit to Arcade',
+                style: TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryPurple),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryPurple),
             onPressed: () {
               Navigator.of(ctx).pop();
               _resetBoard();
             },
-            child: const Text('Play Again', style: TextStyle(color: Colors.white)),
+            child:
+                const Text('Play Again', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -326,7 +355,9 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
       children: [
         Icon(icon, color: color, size: 20),
         const SizedBox(height: 4),
-        Text(text, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+        Text(text,
+            style: TextStyle(
+                color: color, fontWeight: FontWeight.bold, fontSize: 12)),
       ],
     );
   }
@@ -338,7 +369,8 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Carrom Clash Arena', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Carrom Clash Arena',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           PopupMenuButton<CarromDifficulty>(
             icon: const Icon(Icons.tune_rounded),
@@ -351,7 +383,8 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
               });
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Difficulty set to ${mode.name.toUpperCase()} (Target: $_targetScore pts, Shots: $_initialShots)'),
+                  content: Text(
+                      'Difficulty set to ${mode.name.toUpperCase()} (Target: $_targetScore pts, Shots: $_initialShots)'),
                   duration: const Duration(milliseconds: 1200),
                 ),
               );
@@ -363,7 +396,8 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
                   children: [
                     const Icon(Icons.stars_rounded, color: Colors.green),
                     const SizedBox(width: 8),
-                    Text('Easy (10 shots, 20 pts) ${_difficulty == CarromDifficulty.easy ? "✓" : ""}'),
+                    Text(
+                        'Easy (10 shots, 20 pts) ${_difficulty == CarromDifficulty.easy ? "✓" : ""}'),
                   ],
                 ),
               ),
@@ -373,7 +407,8 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
                   children: [
                     const Icon(Icons.stars_rounded, color: Colors.amber),
                     const SizedBox(width: 8),
-                    Text('Medium (8 shots, 25 pts) ${_difficulty == CarromDifficulty.medium ? "✓" : ""}'),
+                    Text(
+                        'Medium (8 shots, 25 pts) ${_difficulty == CarromDifficulty.medium ? "✓" : ""}'),
                   ],
                 ),
               ),
@@ -383,7 +418,8 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
                   children: [
                     const Icon(Icons.stars_rounded, color: Colors.redAccent),
                     const SizedBox(width: 8),
-                    Text('Hard (6 shots, 30 pts) ${_difficulty == CarromDifficulty.hard ? "✓" : ""}'),
+                    Text(
+                        'Hard (6 shots, 30 pts) ${_difficulty == CarromDifficulty.hard ? "✓" : ""}'),
                   ],
                 ),
               ),
@@ -406,7 +442,8 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _badge('Score', '$_score pts', AppColors.coinAmber),
-                  _badge('Shots Left', '$_shotsRemaining', AppColors.primaryBlueLight),
+                  _badge('Shots Left', '$_shotsRemaining',
+                      AppColors.primaryBlueLight),
                   _badge('Target', '$_targetScore pts', AppColors.onlineGreen),
                 ],
               ),
@@ -427,7 +464,11 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
                     setState(() => _dragCurrent = details.localPosition);
                   },
                   onPanEnd: (details) {
-                    if (_isMoving || _dragStart == null || _dragCurrent == null) return;
+                    if (_isMoving ||
+                        _dragStart == null ||
+                        _dragCurrent == null) {
+                      return;
+                    }
                     final delta = _dragStart! - _dragCurrent!;
                     final power = (delta.distance / 8).clamp(2.0, 18.0);
                     if (delta.distance > 10) {
@@ -444,7 +485,8 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
                     decoration: BoxDecoration(
                       color: const Color(0xFFD4A373), // Warm wood finish
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFF582F0E), width: 14),
+                      border:
+                          Border.all(color: const Color(0xFF582F0E), width: 14),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.6),
@@ -479,9 +521,14 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.tune_rounded, size: 18, color: AppColors.textSecondary),
+                      const Icon(Icons.tune_rounded,
+                          size: 18, color: AppColors.textSecondary),
                       const SizedBox(width: 8),
-                      const Text('Position Striker:', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                      const Text('Position Striker:',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold)),
                       Expanded(
                         child: Slider(
                           value: _strikerX,
@@ -501,7 +548,8 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
                   ),
                   const Text(
                     'Drag back on the board to aim and set power, then release to strike!',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                    style:
+                        TextStyle(color: AppColors.textSecondary, fontSize: 12),
                   ),
                 ],
               ),
@@ -522,9 +570,13 @@ class _CarromGameScreenState extends State<CarromGameScreen> with SingleTickerPr
       ),
       child: Column(
         children: [
-          Text(title, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+          Text(title,
+              style: const TextStyle(
+                  color: AppColors.textSecondary, fontSize: 11)),
           const SizedBox(height: 2),
-          Text(val, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 15)),
+          Text(val,
+              style: TextStyle(
+                  color: color, fontWeight: FontWeight.bold, fontSize: 15)),
         ],
       ),
     );
@@ -555,7 +607,8 @@ class _CarromPainter extends CustomPainter {
     canvas.drawCircle(const Offset(14, 14), pocketRadius, pocketPaint);
     canvas.drawCircle(Offset(size.width - 14, 14), pocketRadius, pocketPaint);
     canvas.drawCircle(Offset(14, size.height - 14), pocketRadius, pocketPaint);
-    canvas.drawCircle(Offset(size.width - 14, size.height - 14), pocketRadius, pocketPaint);
+    canvas.drawCircle(
+        Offset(size.width - 14, size.height - 14), pocketRadius, pocketPaint);
 
     // Board line markings
     final linePaint = Paint()
@@ -610,7 +663,8 @@ class _CarromPainter extends CustomPainter {
       final delta = dragStart! - dragCurrent!;
       if (delta.distance > 8) {
         final aimDir = delta / delta.distance;
-        final aimTarget = striker.position + aimDir * (delta.distance * 1.5).clamp(20, 140);
+        final aimTarget =
+            striker.position + aimDir * (delta.distance * 1.5).clamp(20, 140);
 
         final guidePaint = Paint()
           ..color = AppColors.accentCyan

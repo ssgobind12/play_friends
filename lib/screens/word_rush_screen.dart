@@ -17,8 +17,16 @@ class WordRushScreen extends StatefulWidget {
 
 class _WordRushScreenState extends State<WordRushScreen> {
   final List<String> _targetWords = [
-    'FRIEND', 'GAMING', 'ARCADE', 'CLASH', 'VICTORY',
-    'STRIKER', 'WINNER', 'CHAMPION', 'MASTER', 'LEGEND',
+    'FRIEND',
+    'GAMING',
+    'ARCADE',
+    'CLASH',
+    'VICTORY',
+    'STRIKER',
+    'WINNER',
+    'CHAMPION',
+    'MASTER',
+    'LEGEND',
   ];
 
   late String _currentWord;
@@ -124,7 +132,8 @@ class _WordRushScreenState extends State<WordRushScreen> {
       GameSoundService.gameOver();
     }
 
-    final unlocked = AuthService().recordMatchResult(gameId: 'word_rush', won: won);
+    final unlocked =
+        AuthService().recordMatchResult(gameId: 'word_rush', won: won);
 
     showDialog(
       context: context,
@@ -135,7 +144,8 @@ class _WordRushScreenState extends State<WordRushScreen> {
         title: Row(
           children: [
             Icon(won ? Icons.emoji_events_rounded : Icons.sports_score_rounded,
-                color: won ? AppColors.trophyGold : AppColors.textSecondary, size: 28),
+                color: won ? AppColors.trophyGold : AppColors.textSecondary,
+                size: 28),
             const SizedBox(width: 10),
             Text(won ? 'Word Rush Won!' : 'Time Up!'),
           ],
@@ -155,14 +165,19 @@ class _WordRushScreenState extends State<WordRushScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _statItem(Icons.bolt_rounded, won ? '+120 XP' : '+30 XP', AppColors.primaryBlueLight),
-                  _statItem(Icons.monetization_on_rounded, won ? '+60 Coins' : '+15 Coins', AppColors.coinAmber),
+                  _statItem(Icons.bolt_rounded, won ? '+120 XP' : '+30 XP',
+                      AppColors.primaryBlueLight),
+                  _statItem(Icons.monetization_on_rounded,
+                      won ? '+60 Coins' : '+15 Coins', AppColors.coinAmber),
                 ],
               ),
             ),
             if (unlocked != null) ...[
               const SizedBox(height: 10),
-              Text('🎉 UNLOCKED: $unlocked!', style: const TextStyle(color: AppColors.onlineGreen, fontWeight: FontWeight.bold)),
+              Text('🎉 UNLOCKED: $unlocked!',
+                  style: const TextStyle(
+                      color: AppColors.onlineGreen,
+                      fontWeight: FontWeight.bold)),
             ],
           ],
         ),
@@ -191,7 +206,9 @@ class _WordRushScreenState extends State<WordRushScreen> {
       children: [
         Icon(icon, color: color, size: 20),
         const SizedBox(height: 2),
-        Text(text, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
+        Text(text,
+            style: TextStyle(
+                color: color, fontWeight: FontWeight.bold, fontSize: 12)),
       ],
     );
   }
@@ -201,7 +218,8 @@ class _WordRushScreenState extends State<WordRushScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
-        title: const Text('Word Sprint Rush', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Word Sprint Rush',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
             icon: const Icon(Icons.music_note_rounded),
@@ -217,9 +235,18 @@ class _WordRushScreenState extends State<WordRushScreen> {
               _startRound();
             },
             itemBuilder: (ctx) => [
-              PopupMenuItem(value: WordDifficulty.easy, child: Text('Easy ${_difficulty == WordDifficulty.easy ? "✓" : ""}')),
-              PopupMenuItem(value: WordDifficulty.medium, child: Text('Medium ${_difficulty == WordDifficulty.medium ? "✓" : ""}')),
-              PopupMenuItem(value: WordDifficulty.hard, child: Text('Hard ${_difficulty == WordDifficulty.hard ? "✓" : ""}')),
+              PopupMenuItem(
+                  value: WordDifficulty.easy,
+                  child: Text(
+                      'Easy ${_difficulty == WordDifficulty.easy ? "✓" : ""}')),
+              PopupMenuItem(
+                  value: WordDifficulty.medium,
+                  child: Text(
+                      'Medium ${_difficulty == WordDifficulty.medium ? "✓" : ""}')),
+              PopupMenuItem(
+                  value: WordDifficulty.hard,
+                  child: Text(
+                      'Hard ${_difficulty == WordDifficulty.hard ? "✓" : ""}')),
             ],
           ),
           IconButton(
@@ -244,8 +271,14 @@ class _WordRushScreenState extends State<WordRushScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _hudBadge('You', '$_playerScore pts', AppColors.primaryBlueLight),
-                    _hudBadge('Timer', '${_timeLeft}s', _timeLeft < 10 ? Colors.redAccent : AppColors.coinAmber),
+                    _hudBadge(
+                        'You', '$_playerScore pts', AppColors.primaryBlueLight),
+                    _hudBadge(
+                        'Timer',
+                        '${_timeLeft}s',
+                        _timeLeft < 10
+                            ? Colors.redAccent
+                            : AppColors.coinAmber),
                     _hudBadge('AI Bot', '$_aiScore pts', AppColors.dangerRose),
                   ],
                 ),
@@ -253,7 +286,9 @@ class _WordRushScreenState extends State<WordRushScreen> {
 
               const SizedBox(height: 24),
 
-              const Text('Unscramble the Gaming Word:', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+              const Text('Unscramble the Gaming Word:',
+                  style:
+                      TextStyle(color: AppColors.textSecondary, fontSize: 13)),
               const SizedBox(height: 12),
 
               // Current Input Container
@@ -264,7 +299,9 @@ class _WordRushScreenState extends State<WordRushScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF1E293B),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.6), width: 2),
+                  border: Border.all(
+                      color: AppColors.accentCyan.withValues(alpha: 0.6),
+                      width: 2),
                 ),
                 child: Text(
                   _currentInput.isEmpty ? 'TAP LETTERS BELOW' : _currentInput,
@@ -272,7 +309,9 @@ class _WordRushScreenState extends State<WordRushScreen> {
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 4,
-                    color: _currentInput.isEmpty ? Colors.white24 : AppColors.accentCyan,
+                    color: _currentInput.isEmpty
+                        ? Colors.white24
+                        : AppColors.accentCyan,
                   ),
                 ),
               ),
@@ -300,12 +339,18 @@ class _WordRushScreenState extends State<WordRushScreen> {
                         ),
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
-                          BoxShadow(color: AppColors.primaryPurple.withValues(alpha: 0.4), blurRadius: 8),
+                          BoxShadow(
+                              color: AppColors.primaryPurple
+                                  .withValues(alpha: 0.4),
+                              blurRadius: 8),
                         ],
                       ),
                       child: Text(
                         char,
-                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                        style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white),
                       ),
                     ),
                   );
@@ -319,12 +364,14 @@ class _WordRushScreenState extends State<WordRushScreen> {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   icon: const Icon(Icons.backspace_rounded, size: 18),
-                  label: const Text('Clear Letters', style: TextStyle(fontWeight: FontWeight.bold)),
+                  label: const Text('Clear Letters',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     side: const BorderSide(color: AppColors.dangerRose),
                     foregroundColor: AppColors.dangerRose,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
                   ),
                   onPressed: _clearInput,
                 ),
@@ -339,9 +386,13 @@ class _WordRushScreenState extends State<WordRushScreen> {
   Widget _hudBadge(String label, String value, Color color) {
     return Column(
       children: [
-        Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+        Text(label,
+            style:
+                const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
         const SizedBox(height: 2),
-        Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16)),
+        Text(value,
+            style: TextStyle(
+                color: color, fontWeight: FontWeight.bold, fontSize: 16)),
       ],
     );
   }

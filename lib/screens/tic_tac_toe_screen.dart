@@ -185,7 +185,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
     const winningPatterns = [
       [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
       [0, 3, 6], [1, 4, 7], [2, 5, 8], // Cols
-      [0, 4, 8], [2, 4, 6],             // Diagonals
+      [0, 4, 8], [2, 4, 6], // Diagonals
     ];
 
     for (final pattern in winningPatterns) {
@@ -204,7 +204,7 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
     const winningPatterns = [
       [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
       [0, 3, 6], [1, 4, 7], [2, 5, 8], // Cols
-      [0, 4, 8], [2, 4, 6],             // Diagonals
+      [0, 4, 8], [2, 4, 6], // Diagonals
     ];
 
     for (final pattern in winningPatterns) {
@@ -295,7 +295,8 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
             children: [
               Text(
                 message,
-                style: const TextStyle(fontSize: 15, color: AppColors.textPrimary),
+                style:
+                    const TextStyle(fontSize: 15, color: AppColors.textPrimary),
               ),
               const SizedBox(height: 14),
               Container(
@@ -303,38 +304,52 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
                 decoration: BoxDecoration(
                   color: AppColors.cardBg,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.primaryPurple.withValues(alpha: 0.3)),
+                  border: Border.all(
+                      color: AppColors.primaryPurple.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _rewardItem(Icons.bolt_rounded, isWon ? '+100 XP' : '+25 XP', AppColors.primaryBlueLight),
-                    _rewardItem(Icons.monetization_on_rounded, isWon ? '+50 Coins' : '+10 Coins', AppColors.coinAmber),
-                    _rewardItem(Icons.military_tech_rounded, 'Level ${user?.level ?? 1}', AppColors.onlineGreen),
+                    _rewardItem(
+                        Icons.bolt_rounded,
+                        isWon ? '+100 XP' : '+25 XP',
+                        AppColors.primaryBlueLight),
+                    _rewardItem(Icons.monetization_on_rounded,
+                        isWon ? '+50 Coins' : '+10 Coins', AppColors.coinAmber),
+                    _rewardItem(Icons.military_tech_rounded,
+                        'Level ${user?.level ?? 1}', AppColors.onlineGreen),
                   ],
                 ),
               ),
               const SizedBox(height: 10),
               Text(
                 'Wins: ${user?.totalWins ?? 0}/20 towards Ludo Friends (Level 5)',
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                style: const TextStyle(
+                    color: AppColors.textSecondary, fontSize: 12),
               ),
               if (unlockedTitle != null) ...[
                 const SizedBox(height: 10),
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [AppColors.primaryPurple, AppColors.accentCyan]),
+                    gradient: const LinearGradient(colors: [
+                      AppColors.primaryPurple,
+                      AppColors.accentCyan
+                    ]),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.lock_open_rounded, color: Colors.white, size: 20),
+                      const Icon(Icons.lock_open_rounded,
+                          color: Colors.white, size: 20),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           '🎉 NEW GAME UNLOCKED: $unlockedTitle!',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12),
                         ),
                       ),
                     ],
@@ -375,7 +390,9 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
       children: [
         Icon(icon, color: color, size: 18),
         const SizedBox(height: 2),
-        Text(text, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11)),
+        Text(text,
+            style: TextStyle(
+                color: color, fontWeight: FontWeight.bold, fontSize: 11)),
       ],
     );
   }
@@ -397,7 +414,8 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
               });
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Bot difficulty set to ${mode.name.toUpperCase()}'),
+                  content:
+                      Text('Bot difficulty set to ${mode.name.toUpperCase()}'),
                   duration: const Duration(milliseconds: 900),
                 ),
               );
@@ -407,9 +425,11 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
                 value: TicTacToeDifficulty.easy,
                 child: Row(
                   children: [
-                    const Icon(Icons.sentiment_satisfied_alt_rounded, color: Colors.green),
+                    const Icon(Icons.sentiment_satisfied_alt_rounded,
+                        color: Colors.green),
                     const SizedBox(width: 8),
-                    Text('Easy Bot ${_difficulty == TicTacToeDifficulty.easy ? "✓" : ""}'),
+                    Text(
+                        'Easy Bot ${_difficulty == TicTacToeDifficulty.easy ? "✓" : ""}'),
                   ],
                 ),
               ),
@@ -419,7 +439,8 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
                   children: [
                     const Icon(Icons.smart_toy_rounded, color: Colors.amber),
                     const SizedBox(width: 8),
-                    Text('Medium Bot ${_difficulty == TicTacToeDifficulty.medium ? "✓" : ""}'),
+                    Text(
+                        'Medium Bot ${_difficulty == TicTacToeDifficulty.medium ? "✓" : ""}'),
                   ],
                 ),
               ),
@@ -427,9 +448,11 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
                 value: TicTacToeDifficulty.hard,
                 child: Row(
                   children: [
-                    const Icon(Icons.psychology_rounded, color: Colors.redAccent),
+                    const Icon(Icons.psychology_rounded,
+                        color: Colors.redAccent),
                     const SizedBox(width: 8),
-                    Text('Hard Bot (Master) ${_difficulty == TicTacToeDifficulty.hard ? "✓" : ""}'),
+                    Text(
+                        'Hard Bot (Master) ${_difficulty == TicTacToeDifficulty.hard ? "✓" : ""}'),
                   ],
                 ),
               ),
@@ -540,7 +563,8 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
 
               // Scoreboard Card
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
                   color: AppColors.cardBg,
                   borderRadius: BorderRadius.circular(20),
@@ -555,14 +579,16 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
                       color: AppColors.primaryBlueLight,
                       isActive: _isXTurn && _winner == null && !_isDraw,
                     ),
-                    Container(width: 1, height: 36, color: AppColors.cardBorder),
+                    Container(
+                        width: 1, height: 36, color: AppColors.cardBorder),
                     _buildScoreItem(
                       label: 'Ties',
                       score: _draws,
                       color: AppColors.textSecondary,
                       isActive: false,
                     ),
-                    Container(width: 1, height: 36, color: AppColors.cardBorder),
+                    Container(
+                        width: 1, height: 36, color: AppColors.cardBorder),
                     _buildScoreItem(
                       label: _mode == GameMode.vsAI ? 'AI Bot (O)' : 'Player O',
                       score: _oWins,
@@ -578,7 +604,8 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
               // Status indicator
               AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: _winner != null
                       ? AppColors.trophyGold.withValues(alpha: 0.15)
@@ -640,8 +667,12 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
                     ] else ...[
                       Text(
                         _isXTurn
-                            ? (_mode == GameMode.vsAI ? "Your Turn (X)" : "Player X's Turn")
-                            : (_mode == GameMode.vsAI ? "AI's Turn (O)" : "Player O's Turn"),
+                            ? (_mode == GameMode.vsAI
+                                ? "Your Turn (X)"
+                                : "Player X's Turn")
+                            : (_mode == GameMode.vsAI
+                                ? "AI's Turn (O)"
+                                : "Player O's Turn"),
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -679,7 +710,8 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
                   ),
                   child: GridView.builder(
                     physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 3,
                       crossAxisSpacing: 10,
                       mainAxisSpacing: 10,
@@ -703,8 +735,10 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
                                   ? AppColors.trophyGold
                                   : (value != null
                                       ? (value == 'X'
-                                          ? AppColors.primaryBlue.withValues(alpha: 0.5)
-                                          : AppColors.primaryPurple.withValues(alpha: 0.5))
+                                          ? AppColors.primaryBlue
+                                              .withValues(alpha: 0.5)
+                                          : AppColors.primaryPurple
+                                              .withValues(alpha: 0.5))
                                       : AppColors.cardBorder),
                               width: isWinningCell ? 2.5 : 1,
                             ),
@@ -726,8 +760,10 @@ class _TicTacToeScreenState extends State<TicTacToeScreen> {
                                         shadows: [
                                           Shadow(
                                             color: value == 'X'
-                                                ? AppColors.primaryBlue.withValues(alpha: 0.8)
-                                                : AppColors.primaryPurple.withValues(alpha: 0.8),
+                                                ? AppColors.primaryBlue
+                                                    .withValues(alpha: 0.8)
+                                                : AppColors.primaryPurple
+                                                    .withValues(alpha: 0.8),
                                             blurRadius: 14,
                                           ),
                                         ],

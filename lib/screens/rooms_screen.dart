@@ -56,7 +56,8 @@ class _RoomsScreenState extends State<RoomsScreen> {
       maxAllowedMembers = 100;
     }
 
-    final roomNameCtrl = TextEditingController(text: "$currentUserName's Party Lounge 🎧");
+    final roomNameCtrl =
+        TextEditingController(text: "$currentUserName's Party Lounge 🎧");
     String selectedGame = 'All-in-One Multi-Game Party';
     int maxPlayers = min(100, maxAllowedMembers);
     bool isPrivate = false;
@@ -93,37 +94,46 @@ class _RoomsScreenState extends State<RoomsScreen> {
                 children: [
                   const Row(
                     children: [
-                      Icon(Icons.add_box_rounded, color: AppColors.primaryBlueLight),
+                      Icon(Icons.add_box_rounded,
+                          color: AppColors.primaryBlueLight),
                       SizedBox(width: 10),
                       Text(
                         'Create Custom Voice Room',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
                   const SizedBox(height: 14),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: AppColors.primaryPurple.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.primaryPurple.withValues(alpha: 0.4)),
+                      border: Border.all(
+                          color:
+                              AppColors.primaryPurple.withValues(alpha: 0.4)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.military_tech_rounded, color: AppColors.coinAmber, size: 20),
+                        const Icon(Icons.military_tech_rounded,
+                            color: AppColors.coinAmber, size: 20),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Your Level: $userLevel • Room capacity: Max $maxAllowedMembers persons\n(Level 1 = 100, Lvl 5 = 150, Lvl 10 = 250, Lvl 20 = 500, Lvl 50 = 1,000+!)',
-                            style: const TextStyle(fontSize: 11, color: Colors.white, height: 1.3),
+                            style: const TextStyle(
+                                fontSize: 11, color: Colors.white, height: 1.3),
                           ),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 14),
-                  const Text('Custom Room Name:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const Text('Custom Room Name:',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 8),
                   TextField(
                     controller: roomNameCtrl,
@@ -132,12 +142,16 @@ class _RoomsScreenState extends State<RoomsScreen> {
                       hintText: 'Enter your custom room name',
                       filled: true,
                       fillColor: AppColors.cardBg,
-                      prefixIcon: const Icon(Icons.meeting_room_rounded, color: AppColors.accentCyan),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      prefixIcon: const Icon(Icons.meeting_room_rounded,
+                          color: AppColors.accentCyan),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14)),
                     ),
                   ),
                   const SizedBox(height: 14),
-                  const Text('Featured Game (You can play ANY game inside!):', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const Text('Featured Game (You can play ANY game inside!):',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                     initialValue: selectedGame,
@@ -145,7 +159,8 @@ class _RoomsScreenState extends State<RoomsScreen> {
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: AppColors.cardBg,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14)),
                     ),
                     items: const [
                       DropdownMenuItem(
@@ -158,23 +173,28 @@ class _RoomsScreenState extends State<RoomsScreen> {
                       ),
                       DropdownMenuItem(
                         value: 'Ludo Friends',
-                        child: Text('Ludo Friends (Unlocked at Lvl 5 / 20 Wins)'),
+                        child:
+                            Text('Ludo Friends (Unlocked at Lvl 5 / 20 Wins)'),
                       ),
                       DropdownMenuItem(
                         value: 'Carrom Clash',
-                        child: Text('Carrom Clash (Unlocked at Lvl 10 / 40 Wins)'),
+                        child:
+                            Text('Carrom Clash (Unlocked at Lvl 10 / 40 Wins)'),
                       ),
                       DropdownMenuItem(
                         value: 'Cyber Space Dodge',
-                        child: Text('Cyber Space Dodge (Unlocked at Lvl 15 / 60 Wins)'),
+                        child: Text(
+                            'Cyber Space Dodge (Unlocked at Lvl 15 / 60 Wins)'),
                       ),
                       DropdownMenuItem(
                         value: 'Neon Arena Brawl',
-                        child: Text('Neon Arena Brawl (Unlocked at Lvl 20 / 80 Wins)'),
+                        child: Text(
+                            'Neon Arena Brawl (Unlocked at Lvl 20 / 80 Wins)'),
                       ),
                       DropdownMenuItem(
                         value: 'Word Sprint Rush',
-                        child: Text('Word Sprint Rush (Unlocked at Lvl 25 / 100 Wins)'),
+                        child: Text(
+                            'Word Sprint Rush (Unlocked at Lvl 25 / 100 Wins)'),
                       ),
                     ],
                     onChanged: (val) {
@@ -186,7 +206,9 @@ class _RoomsScreenState extends State<RoomsScreen> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  Text('Max Players (Capacity limited by Level $userLevel):', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  Text('Max Players (Capacity limited by Level $userLevel):',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -198,8 +220,11 @@ class _RoomsScreenState extends State<RoomsScreen> {
                         selectedColor: AppColors.primaryPurple,
                         backgroundColor: AppColors.cardBg,
                         labelStyle: TextStyle(
-                          color: isSelected ? Colors.white : AppColors.textSecondary,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          color: isSelected
+                              ? Colors.white
+                              : AppColors.textSecondary,
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.w500,
                         ),
                         onSelected: (val) {
                           if (val) {
@@ -218,12 +243,15 @@ class _RoomsScreenState extends State<RoomsScreen> {
                           children: [
                             Text(
                               'Private Room',
-                              style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary),
                             ),
                             SizedBox(height: 2),
                             Text(
                               'Require 6-digit PIN to join',
-                              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                              style: TextStyle(
+                                  fontSize: 12, color: AppColors.textSecondary),
                             ),
                           ],
                         ),
@@ -243,7 +271,8 @@ class _RoomsScreenState extends State<RoomsScreen> {
                     child: ElevatedButton(
                       onPressed: () {
                         Navigator.of(ctx).pop();
-                        final randomCode = 'PF-${1000 + Random().nextInt(9000)}';
+                        final randomCode =
+                            'PF-${1000 + Random().nextInt(9000)}';
                         final roomTitle = roomNameCtrl.text.trim().isNotEmpty
                             ? roomNameCtrl.text.trim()
                             : '$currentUserName\'s Party Lounge 🎮';
@@ -252,7 +281,8 @@ class _RoomsScreenState extends State<RoomsScreen> {
                           id: 'r_${DateTime.now().millisecondsSinceEpoch}',
                           roomCode: randomCode,
                           gameTitle: roomTitle,
-                          hostName: AuthService().currentUser?.name ?? 'Player 1',
+                          hostName:
+                              AuthService().currentUser?.name ?? 'Player 1',
                           hostPhoto: AuthService().currentUser?.profilePhoto,
                           currentPlayers: 1,
                           maxPlayers: maxPlayers,
@@ -303,7 +333,8 @@ class _RoomsScreenState extends State<RoomsScreen> {
                 hintText: 'PF-XXXX',
                 filled: true,
                 fillColor: AppColors.cardBg,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
               ),
             ),
           ],
@@ -318,7 +349,8 @@ class _RoomsScreenState extends State<RoomsScreen> {
               final code = codeCtrl.text.trim();
               Navigator.of(ctx).pop();
               if (code.isNotEmpty) {
-                final match = _rooms.where((r) => r.roomCode.toLowerCase() == code.toLowerCase());
+                final match = _rooms.where(
+                    (r) => r.roomCode.toLowerCase() == code.toLowerCase());
                 if (match.isNotEmpty) {
                   _openRoomLobby(match.first);
                 } else {
@@ -367,7 +399,8 @@ class _RoomsScreenState extends State<RoomsScreen> {
             title: const Text('Game Rooms & Lobbies'),
             actions: [
               IconButton(
-                icon: const Icon(Icons.music_note_rounded, color: AppColors.accentCyan),
+                icon: const Icon(Icons.music_note_rounded,
+                    color: AppColors.accentCyan),
                 tooltip: 'Music Store & Upload',
                 onPressed: () => MusicPlayerSheet.show(context),
               ),
@@ -378,7 +411,8 @@ class _RoomsScreenState extends State<RoomsScreen> {
               children: [
                 // Top action buttons
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: Row(
                     children: [
                       Expanded(
@@ -402,7 +436,8 @@ class _RoomsScreenState extends State<RoomsScreen> {
 
                 // Section Header
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -435,7 +470,8 @@ class _RoomsScreenState extends State<RoomsScreen> {
                                 Icon(
                                   Icons.meeting_room_outlined,
                                   size: 64,
-                                  color: AppColors.textMuted.withValues(alpha: 0.45),
+                                  color: AppColors.textMuted
+                                      .withValues(alpha: 0.45),
                                 ),
                                 const SizedBox(height: 16),
                                 const Text(
@@ -450,7 +486,9 @@ class _RoomsScreenState extends State<RoomsScreen> {
                                 const Text(
                                   'Create a custom game room or enter a PIN to invite your friends!',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                                  style: TextStyle(
+                                      fontSize: 14,
+                                      color: AppColors.textSecondary),
                                 ),
                                 const SizedBox(height: 20),
                                 ElevatedButton.icon(
@@ -463,7 +501,8 @@ class _RoomsScreenState extends State<RoomsScreen> {
                           ),
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 6),
                           itemCount: displayRooms.length,
                           itemBuilder: (context, index) {
                             final room = displayRooms[index];

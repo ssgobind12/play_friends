@@ -27,7 +27,8 @@ class MusicPlayerSheet extends StatelessWidget {
     if (!canManage) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('🔒 Only Room Host or assigned Admins can control room music.'),
+          content: Text(
+              '🔒 Only Room Host or assigned Admins can control room music.'),
           backgroundColor: Colors.redAccent,
           duration: Duration(seconds: 2),
         ),
@@ -57,10 +58,12 @@ class MusicPlayerSheet extends StatelessWidget {
         builder: (context, setDialogState) {
           return AlertDialog(
             backgroundColor: AppColors.surfaceDark,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
             title: const Row(
               children: [
-                Icon(Icons.cloud_upload_rounded, color: AppColors.accentCyan, size: 26),
+                Icon(Icons.cloud_upload_rounded,
+                    color: AppColors.accentCyan, size: 26),
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -88,14 +91,17 @@ class MusicPlayerSheet extends StatelessWidget {
                         backgroundColor: const Color(0xFF06B6D4),
                         foregroundColor: Colors.black,
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
                       ),
                       onPressed: () async {
-                        final picked = await PhoneMediaPickerService.pickMusicFromPhoneStorage();
+                        final picked = await PhoneMediaPickerService
+                            .pickMusicFromPhoneStorage();
                         if (picked != null) {
                           final title = picked['title'] ?? 'Uploaded Song';
                           final path = picked['path'] ?? '';
-                          final newTrack = InAppMusicService().uploadCustomMusic(
+                          final newTrack =
+                              InAppMusicService().uploadCustomMusic(
                             title: title,
                             genre: 'Phone Audio',
                             bpm: '128 BPM',
@@ -107,7 +113,8 @@ class MusicPlayerSheet extends StatelessWidget {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Uploaded "${newTrack.title}" from Phone! Now playing in room.'),
+                                content: Text(
+                                    'Uploaded "${newTrack.title}" from Phone! Now playing in room.'),
                                 backgroundColor: AppColors.onlineGreen,
                               ),
                             );
@@ -120,7 +127,10 @@ class MusicPlayerSheet extends StatelessWidget {
                   const Center(
                     child: Text(
                       '— OR SELECT LOCAL PRESET FILE —',
-                      style: TextStyle(fontSize: 10, color: AppColors.textMuted, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          fontSize: 10,
+                          color: AppColors.textMuted,
+                          fontWeight: FontWeight.bold),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -130,19 +140,28 @@ class MusicPlayerSheet extends StatelessWidget {
                     dropdownColor: AppColors.cardBg,
                     decoration: InputDecoration(
                       labelText: 'Audio File from Storage',
-                      prefixIcon: const Icon(Icons.audio_file_rounded, color: AppColors.accentCyan),
+                      prefixIcon: const Icon(Icons.audio_file_rounded,
+                          color: AppColors.accentCyan),
                       filled: true,
                       fillColor: AppColors.cardBg,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14)),
                     ),
                     items: presetLocalFiles
-                        .map((f) => DropdownMenuItem(value: f, child: Text(f, style: const TextStyle(fontSize: 13))))
+                        .map((f) => DropdownMenuItem(
+                            value: f,
+                            child:
+                                Text(f, style: const TextStyle(fontSize: 13))))
                         .toList(),
                     onChanged: (val) {
                       if (val != null) {
                         setDialogState(() {
                           selectedLocalFile = val;
-                          final clean = val.replaceAll('🎵 ', '').replaceAll('.mp3', '').replaceAll('.wav', '').replaceAll('_', ' ');
+                          final clean = val
+                              .replaceAll('🎵 ', '')
+                              .replaceAll('.mp3', '')
+                              .replaceAll('.wav', '')
+                              .replaceAll('_', ' ');
                           if (titleCtrl.text.isEmpty) {
                             titleCtrl.text = clean;
                           }
@@ -158,7 +177,8 @@ class MusicPlayerSheet extends StatelessWidget {
                       hintText: 'e.g. Neon Horizon',
                       filled: true,
                       fillColor: AppColors.cardBg,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14)),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -172,7 +192,8 @@ class MusicPlayerSheet extends StatelessWidget {
                             hintText: 'e.g. Lofi, Rock, EDM',
                             filled: true,
                             fillColor: AppColors.cardBg,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14)),
                           ),
                         ),
                       ),
@@ -185,7 +206,8 @@ class MusicPlayerSheet extends StatelessWidget {
                             hintText: 'e.g. 120 BPM',
                             filled: true,
                             fillColor: AppColors.cardBg,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14)),
                           ),
                         ),
                       ),
@@ -197,16 +219,20 @@ class MusicPlayerSheet extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: AppColors.primaryPurple.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.primaryPurple.withValues(alpha: 0.3)),
+                      border: Border.all(
+                          color:
+                              AppColors.primaryPurple.withValues(alpha: 0.3)),
                     ),
                     child: const Row(
                       children: [
-                        Icon(Icons.check_circle_rounded, color: AppColors.onlineGreen, size: 18),
+                        Icon(Icons.check_circle_rounded,
+                            color: AppColors.onlineGreen, size: 18),
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Uploaded tracks will play live in room lobbies and multiplayer games!',
-                            style: TextStyle(fontSize: 11, color: Colors.white70),
+                            style:
+                                TextStyle(fontSize: 11, color: Colors.white70),
                           ),
                         ),
                       ],
@@ -218,7 +244,8 @@ class MusicPlayerSheet extends StatelessWidget {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+                child: const Text('Cancel',
+                    style: TextStyle(color: AppColors.textSecondary)),
               ),
               ElevatedButton.icon(
                 icon: const Icon(Icons.upload_file_rounded, size: 18),
@@ -226,14 +253,21 @@ class MusicPlayerSheet extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryPurple,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
                 onPressed: () {
                   final title = titleCtrl.text.trim().isNotEmpty
                       ? titleCtrl.text.trim()
-                      : selectedLocalFile.replaceAll('🎵 ', '').replaceAll('.mp3', '');
-                  final genre = genreCtrl.text.trim().isNotEmpty ? genreCtrl.text.trim() : 'Custom Beat';
-                  final bpm = bpmCtrl.text.trim().isNotEmpty ? bpmCtrl.text.trim() : '124 BPM';
+                      : selectedLocalFile
+                          .replaceAll('🎵 ', '')
+                          .replaceAll('.mp3', '');
+                  final genre = genreCtrl.text.trim().isNotEmpty
+                      ? genreCtrl.text.trim()
+                      : 'Custom Beat';
+                  final bpm = bpmCtrl.text.trim().isNotEmpty
+                      ? bpmCtrl.text.trim()
+                      : '124 BPM';
 
                   final newTrack = InAppMusicService().uploadCustomMusic(
                     title: title,
@@ -247,10 +281,12 @@ class MusicPlayerSheet extends StatelessWidget {
                     SnackBar(
                       content: Row(
                         children: [
-                          const Icon(Icons.music_note_rounded, color: AppColors.onlineGreen),
+                          const Icon(Icons.music_note_rounded,
+                              color: AppColors.onlineGreen),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: Text('Uploaded "${newTrack.title}" from Phone! Playing in room.'),
+                            child: Text(
+                                'Uploaded "${newTrack.title}" from Phone! Playing in room.'),
                           ),
                         ],
                       ),
@@ -293,21 +329,29 @@ class MusicPlayerSheet extends StatelessWidget {
                           color: current.accentColor.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Icon(Icons.music_note_rounded, color: current.accentColor),
+                        child: Icon(Icons.music_note_rounded,
+                            color: current.accentColor),
                       ),
                       const SizedBox(width: 10),
                       const Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Game & Room Music Store', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          Text('Upload and play music live in rooms', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                          Text('Game & Room Music Store',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text('Upload and play music live in rooms',
+                              style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 12)),
                         ],
                       ),
                     ],
                   ),
                   IconButton(
                     icon: Icon(
-                      musicService.isPlaying ? Icons.pause_circle_filled_rounded : Icons.play_circle_fill_rounded,
+                      musicService.isPlaying
+                          ? Icons.pause_circle_filled_rounded
+                          : Icons.play_circle_fill_rounded,
                       color: current.accentColor,
                       size: 38,
                     ),
@@ -324,20 +368,26 @@ class MusicPlayerSheet extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  icon: const Icon(Icons.audio_file_rounded, size: 20, color: Colors.black),
+                  icon: const Icon(Icons.audio_file_rounded,
+                      size: 20, color: Colors.black),
                   label: const Text(
                     '📁 Upload Music from Phone Storage (.mp3)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black),
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Colors.black),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF06B6D4),
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
                     elevation: 3,
                   ),
                   onPressed: () async {
                     if (!_checkPermission(context)) return;
-                    final picked = await PhoneMediaPickerService.pickMusicFromPhoneStorage();
+                    final picked = await PhoneMediaPickerService
+                        .pickMusicFromPhoneStorage();
                     if (picked != null) {
                       final title = picked['title'] ?? 'Uploaded Song';
                       final path = picked['path'] ?? '';
@@ -350,7 +400,8 @@ class MusicPlayerSheet extends StatelessWidget {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Uploaded "$title" from Phone! Now playing in room.'),
+                            content: Text(
+                                'Uploaded "$title" from Phone! Now playing in room.'),
                             backgroundColor: AppColors.onlineGreen,
                           ),
                         );
@@ -377,7 +428,8 @@ class MusicPlayerSheet extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppColors.cardBorder),
                     padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
                   ),
                   onPressed: () {
                     if (!_checkPermission(context)) return;
@@ -391,7 +443,8 @@ class MusicPlayerSheet extends StatelessWidget {
               // Volume slider
               Row(
                 children: [
-                  const Icon(Icons.volume_down_rounded, size: 20, color: AppColors.textSecondary),
+                  const Icon(Icons.volume_down_rounded,
+                      size: 20, color: AppColors.textSecondary),
                   Expanded(
                     child: Slider(
                       value: musicService.volume,
@@ -399,7 +452,8 @@ class MusicPlayerSheet extends StatelessWidget {
                       onChanged: musicService.setVolume,
                     ),
                   ),
-                  const Icon(Icons.volume_up_rounded, size: 20, color: AppColors.textSecondary),
+                  const Icon(Icons.volume_up_rounded,
+                      size: 20, color: AppColors.textSecondary),
                 ],
               ),
               const SizedBox(height: 10),
@@ -407,10 +461,13 @@ class MusicPlayerSheet extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Select Background Track:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const Text('Select Background Track:',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   Text(
                     '${musicService.tracks.length} Tracks',
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.textSecondary),
                   ),
                 ],
               ),
@@ -426,7 +483,8 @@ class MusicPlayerSheet extends StatelessWidget {
                   itemCount: musicService.tracks.length,
                   itemBuilder: (context, i) {
                     final track = musicService.tracks[i];
-                    final isSelected = track.id == musicService.currentTrackIndex;
+                    final isSelected =
+                        track.id == musicService.currentTrackIndex;
 
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
@@ -437,18 +495,24 @@ class MusicPlayerSheet extends StatelessWidget {
                         },
                         borderRadius: BorderRadius.circular(14),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
                           decoration: BoxDecoration(
-                            color: isSelected ? track.accentColor.withValues(alpha: 0.18) : AppColors.cardBg,
+                            color: isSelected
+                                ? track.accentColor.withValues(alpha: 0.18)
+                                : AppColors.cardBg,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: isSelected ? track.accentColor : AppColors.cardBorder,
+                              color: isSelected
+                                  ? track.accentColor
+                                  : AppColors.cardBorder,
                               width: isSelected ? 1.5 : 1,
                             ),
                           ),
                           child: Row(
                             children: [
-                              Icon(track.icon, color: track.accentColor, size: 22),
+                              Icon(track.icon,
+                                  color: track.accentColor, size: 22),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
@@ -461,16 +525,20 @@ class MusicPlayerSheet extends StatelessWidget {
                                           style: TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 13,
-                                            color: isSelected ? track.accentColor : Colors.white,
+                                            color: isSelected
+                                                ? track.accentColor
+                                                : Colors.white,
                                           ),
                                         ),
                                         if (track.isUserUploaded) ...[
                                           const SizedBox(width: 6),
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 5, vertical: 2),
                                             decoration: BoxDecoration(
                                               color: const Color(0xFFEC4899),
-                                              borderRadius: BorderRadius.circular(6),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
                                             ),
                                             child: const Text(
                                               'UPLOADED',
@@ -486,14 +554,18 @@ class MusicPlayerSheet extends StatelessWidget {
                                     ),
                                     Text(
                                       '${track.genre} • ${track.bpm}',
-                                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                      style: const TextStyle(
+                                          fontSize: 11,
+                                          color: AppColors.textSecondary),
                                     ),
                                   ],
                                 ),
                               ),
                               if (isSelected)
                                 Icon(
-                                  musicService.isPlaying ? Icons.graphic_eq_rounded : Icons.check_circle_rounded,
+                                  musicService.isPlaying
+                                      ? Icons.graphic_eq_rounded
+                                      : Icons.check_circle_rounded,
                                   color: track.accentColor,
                                   size: 20,
                                 ),
