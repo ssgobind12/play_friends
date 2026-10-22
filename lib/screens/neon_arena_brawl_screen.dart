@@ -404,126 +404,162 @@ class _NeonArenaBrawlScreenState extends State<NeonArenaBrawlScreen>
                   final w = constraints.maxWidth;
                   final h = constraints.maxHeight;
 
-                  return Container(
-                    margin: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0F172A),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                          color: AppColors.primaryPurple.withValues(alpha: 0.5),
-                          width: 3),
-                      boxShadow: [
-                        BoxShadow(
-                            color:
-                                AppColors.primaryPurple.withValues(alpha: 0.3),
-                            blurRadius: 18),
-                      ],
-                    ),
-                    child: Stack(
-                      children: [
-                        // Lasers P1
-                        ..._p1Lasers.map((l) => Positioned(
-                              left: l.x * w,
-                              top: l.y * h,
-                              child: Container(
-                                width: 14,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: AppColors.accentCyan,
-                                  borderRadius: BorderRadius.circular(4),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                        color: AppColors.accentCyan,
-                                        blurRadius: 8)
-                                  ],
+                  return GestureDetector(
+                    onPanStart: (details) {
+                      if (_isGameOver) return;
+                      final nx =
+                          (details.localPosition.dx / w).clamp(0.08, 0.92);
+                      final ny =
+                          (details.localPosition.dy / h).clamp(0.12, 0.88);
+                      setState(() {
+                        _p1X = nx;
+                        _p1Y = ny;
+                      });
+                    },
+                    onPanUpdate: (details) {
+                      if (_isGameOver) return;
+                      final nx =
+                          (details.localPosition.dx / w).clamp(0.08, 0.92);
+                      final ny =
+                          (details.localPosition.dy / h).clamp(0.12, 0.88);
+                      setState(() {
+                        _p1X = nx;
+                        _p1Y = ny;
+                      });
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                            color: AppColors.primaryPurple.withValues(alpha: 0.5),
+                            width: 3),
+                        boxShadow: [
+                          BoxShadow(
+                              color: AppColors.primaryPurple
+                                  .withValues(alpha: 0.3),
+                              blurRadius: 18),
+                        ],
+                      ),
+                      child: Stack(
+                        children: [
+                          // Lasers P1
+                          ..._p1Lasers.map((l) => Positioned(
+                                left: l.x * w,
+                                top: l.y * h,
+                                child: Container(
+                                  width: 14,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accentCyan,
+                                    borderRadius: BorderRadius.circular(4),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                          color: AppColors.accentCyan,
+                                          blurRadius: 8)
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            )),
+                              )),
 
-                        // Lasers P2
-                        ..._p2Lasers.map((l) => Positioned(
-                              left: l.x * w,
-                              top: l.y * h,
-                              child: Container(
-                                width: 14,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: AppColors.dangerRose,
-                                  borderRadius: BorderRadius.circular(4),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                        color: AppColors.dangerRose,
-                                        blurRadius: 8)
-                                  ],
+                          // Lasers P2
+                          ..._p2Lasers.map((l) => Positioned(
+                                left: l.x * w,
+                                top: l.y * h,
+                                child: Container(
+                                  width: 14,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.dangerRose,
+                                    borderRadius: BorderRadius.circular(4),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                          color: AppColors.dangerRose,
+                                          blurRadius: 8)
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            )),
+                              )),
 
-                        // Player 1 Fighter
-                        Positioned(
-                          left: (_p1X * w) - 22,
-                          top: (_p1Y * h) - 22,
-                          child: Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: const RadialGradient(colors: [
-                                AppColors.accentCyan,
-                                Color(0xFF0284C7)
-                              ]),
-                              border: Border.all(
-                                color:
-                                    _p1Shielding ? Colors.amber : Colors.white,
-                                width: _p1Shielding ? 4 : 2,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
+                          // Player 1 Fighter
+                          Positioned(
+                            left: (_p1X * w) - 22,
+                            top: (_p1Y * h) - 22,
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: const RadialGradient(colors: [
+                                  AppColors.accentCyan,
+                                  Color(0xFF0284C7)
+                                ]),
+                                border: Border.all(
                                   color: _p1Shielding
                                       ? Colors.amber
-                                      : AppColors.accentCyan,
-                                  blurRadius: _p1Attacking ? 20 : 10,
+                                      : Colors.white,
+                                  width: _p1Shielding ? 4 : 2,
                                 ),
-                              ],
-                            ),
-                            child: const Center(
-                              child: Icon(Icons.flash_on_rounded,
-                                  color: Colors.white, size: 24),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: _p1Shielding
+                                        ? Colors.amber
+                                        : AppColors.accentCyan,
+                                    blurRadius: _p1Attacking ? 20 : 10,
+                                  ),
+                                ],
+                              ),
+                              child: const Center(
+                                child: Icon(Icons.flash_on_rounded,
+                                    color: Colors.white, size: 24),
+                              ),
                             ),
                           ),
-                        ),
 
-                        // Player 2 Fighter (AI)
-                        Positioned(
-                          left: (_p2X * w) - 22,
-                          top: (_p2Y * h) - 22,
-                          child: Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: const RadialGradient(colors: [
-                                AppColors.dangerRose,
-                                Color(0xFF991B1B)
-                              ]),
-                              border: Border.all(color: Colors.white, width: 2),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.dangerRose,
-                                  blurRadius: _p2Attacking ? 20 : 10,
-                                ),
-                              ],
-                            ),
-                            child: const Center(
-                              child: Icon(Icons.smart_toy_rounded,
-                                  color: Colors.white, size: 24),
+                          // Player 2 Fighter (AI)
+                          Positioned(
+                            left: (_p2X * w) - 22,
+                            top: (_p2Y * h) - 22,
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: const RadialGradient(colors: [
+                                  AppColors.dangerRose,
+                                  Color(0xFF991B1B)
+                                ]),
+                                border: Border.all(color: Colors.white, width: 2),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.dangerRose,
+                                    blurRadius: _p2Attacking ? 20 : 10,
+                                  ),
+                                ],
+                              ),
+                              child: const Center(
+                                child: Icon(Icons.smart_toy_rounded,
+                                    color: Colors.white, size: 24),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   );
                 },
+              ),
+            ),
+
+            const Padding(
+              padding: EdgeInsets.only(bottom: 4),
+              child: Text(
+                '💡 Drag directly on arena by touch to move brawler freely!',
+                style: TextStyle(
+                    color: AppColors.accentCyan,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600),
               ),
             ),
 

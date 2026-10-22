@@ -221,13 +221,64 @@ app.get('/api/v1/songs/:userId', async (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// 5. LEGACY ACTION DISPATCH (COMPATIBILITY ROUTE)
+// 5. LIVE ROOMS API
+// -----------------------------------------------------------------------------
+app.get('/api/v1/rooms', async (req, res) => {
+  try {
+    const rooms = await Storage.getRooms();
+    res.json(rooms);
+  } catch (err) {
+    console.error('Route error GET /api/v1/rooms:', err.message);
+    res.status(500).json({ error: 'Failed to fetch rooms.' });
+  }
+});
+
+app.post('/api/v1/rooms', async (req, res) => {
+  try {
+    const room = req.body;
+    if (!room || !room.id) {
+      return res.status(400).json({ error: 'Room data and id required.' });
+    }
+    await Storage.saveRoom(room);
+    res.status(201).json({ success: true, room });
+  } catch (err) {
+    console.error('Route error POST /api/v1/rooms:', err.message);
+    res.status(500).json({ error: 'Failed to save room.' });
+  }
+});
+
+app.delete('/api/v1/rooms/:roomId', async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    await Storage.deleteRoom(roomId);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Route error DELETE /api/v1/rooms:', err.message);
+    res.status(500).json({ error: 'Failed to delete room.' });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// 6. LEGACY ACTION DISPATCH (COMPATIBILITY ROUTE)
 // -----------------------------------------------------------------------------
 app.post('/', async (req, res) => {
   const action = req.body?.action;
   const sessionToken = extractBearerToken(req);
 
   try {
+    if (action === 'getRooms') {
+      const rooms = await Storage.getRooms();
+      return res.json(rooms);
+    }
+    if (action === 'createRoom') {
+      const room = req.body.room || req.body;
+      await Storage.saveRoom(room);
+      return res.json({ success: true, room });
+    }
+    if (action === 'deleteRoom') {
+      await Storage.deleteRoom(req.body.roomId);
+      return res.json({ success: true });
+    }
     if (action === 'ping') {
       return res.json({ status: 'ok', message: 'Play Friends AWS Backend Online' });
     }

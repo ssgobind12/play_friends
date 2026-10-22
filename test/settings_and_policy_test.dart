@@ -149,7 +149,7 @@ void main() {
       expect(find.text('User Agreement'), findsOneWidget);
       expect(find.text('Last Updated: 05-09-2026'), findsOneWidget);
       expect(
-          find.text('Operated by RAABTA TECHNOLOGY PTE. LTD.'), findsOneWidget);
+          find.text('Operated by ssgobind.space'), findsOneWidget);
       expect(find.text('1. Special Notices'), findsOneWidget);
       expect(find.text('2. Services Content'), findsOneWidget);
       expect(find.text('4. Paid Services & Virtual Items'), findsOneWidget);
@@ -175,7 +175,7 @@ void main() {
       expect(find.text('Play Friends Privacy Policy'), findsOneWidget);
       expect(find.text('Updated on: February 2, 2026'), findsOneWidget);
       expect(
-          find.text('Operated by RAABTA TECHNOLOGY PTE. LTD.'), findsOneWidget);
+          find.text('Operated by ssgobind.space'), findsOneWidget);
       expect(find.text('1. What information does Play Friends collect?'),
           findsOneWidget);
       expect(find.text('2. System permission inquired by Play Friends'),

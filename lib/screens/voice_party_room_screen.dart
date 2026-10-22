@@ -265,76 +265,18 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
       return MicSeatData(seatIndex: i + 1);
     });
 
-    // Initial Room Welcome Messages
+    // Initial Room Welcome Notice
     _messages = [
       RoomChatMessage(
         id: 'msg_welcome',
-        senderName: 'System Bot',
+        senderName: 'System Notice',
         senderColor: AppColors.accentCyan,
         message:
-            'Welcome to ${widget.room.roomCode}! Be polite, share music, and have fun!',
-      ),
-      const RoomChatMessage(
-        id: 'join_1',
-        senderName: 'Brinda 🦄',
-        senderColor: Color(0xFFF472B6),
-        level: 4,
-        message: 'entered the room',
-        isJoinAnnouncement: true,
-      ),
-      const RoomChatMessage(
-        id: 'join_2',
-        senderName: 'SimplyChetana 🧿',
-        senderColor: Color(0xFF38BDF8),
-        level: 8,
-        message: 'entered the room',
-        isJoinAnnouncement: true,
-      ),
-      const RoomChatMessage(
-        id: 'msg_1',
-        senderName: 'Pragati 🦄',
-        senderColor: Color(0xFFA78BFA),
-        level: 3,
-        message: 'Hello everyone! Great music in this room 🎶',
+            'Welcome to ${widget.room.gameTitle}! Enjoy voice chat, music, and social games with friends.',
       ),
     ];
 
-    // Simulate realistic room spectators & activity
-    _activeSpectators =
-        max(widget.room.currentPlayers, 85 + Random().nextInt(50));
-    _startSimulatedTraffic();
-  }
-
-  void _startSimulatedTraffic() {
-    _simulatedTrafficTimer =
-        Timer.periodic(const Duration(seconds: 14), (timer) {
-      if (!mounted) return;
-      final names = [
-        'Kabir 👑',
-        'Aanya 🌸',
-        'Rohan Gamer',
-        'Pooja ✨',
-        'Deepak ⚡'
-      ];
-      final randomName = names[Random().nextInt(names.length)];
-      final randomLevel = 1 + Random().nextInt(20);
-
-      setState(() {
-        _activeSpectators = min(widget.room.maxPlayers, _activeSpectators + 1);
-        _messages.add(
-          RoomChatMessage(
-            id: 'sim_join_${DateTime.now().millisecondsSinceEpoch}',
-            senderName: randomName,
-            senderColor: Color((Random().nextDouble() * 0xFFFFFF).toInt())
-                .withValues(alpha: 1.0),
-            level: randomLevel,
-            message: 'entered the room',
-            isJoinAnnouncement: true,
-          ),
-        );
-      });
-      _scrollToBottom();
-    });
+    _activeSpectators = max(1, widget.room.currentPlayers);
   }
 
   @override
@@ -1305,7 +1247,7 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
     final hostImage = _resolveAvatarImage(hostPhoto);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       child: FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.centerLeft,
@@ -1321,9 +1263,9 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
               tooltip: 'Minimize Room',
               onPressed: () => Navigator.of(context).pop(),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
 
-            // Host Profile Pill with Room Title and ID (Tap to inspect Room Profile)
+            // Host Profile & Prominent Room Title (Tap to inspect Room Profile)
             GestureDetector(
               onTap: () => RoomProfileDialog.show(context, room: widget.room),
               child: Container(
@@ -1338,7 +1280,7 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     CircleAvatar(
-                      radius: 13,
+                      radius: 14,
                       backgroundColor: AppColors.primaryPurple,
                       backgroundImage: hostImage,
                       child: hostImage != null
@@ -1350,12 +1292,12 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: Colors.white,
-                                  fontSize: 11),
+                                  fontSize: 12),
                             ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
                     ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 125),
+                      constraints: const BoxConstraints(maxWidth: 160),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
@@ -1365,61 +1307,55 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11),
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13.5,
+                              letterSpacing: 0.1,
+                            ),
                           ),
-                          Text(
-                            'ID: ${widget.room.roomCode}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.7),
-                                fontSize: 9),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'ID: ${widget.room.roomCode}',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.75),
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 4, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.trophyGold
+                                        .withValues(alpha: 0.25),
+                                    borderRadius: BorderRadius.circular(5),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.emoji_events_rounded,
+                                          size: 9, color: AppColors.trophyGold),
+                                      const SizedBox(width: 2),
+                                      Text(
+                                        '$_charmPoints',
+                                        style: const TextStyle(
+                                            fontSize: 8.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.trophyGold),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    // Charm Score Badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 5, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.trophyGold.withValues(alpha: 0.25),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.emoji_events_rounded,
-                              size: 10, color: AppColors.trophyGold),
-                          const SizedBox(width: 2),
-                          Text(
-                            '$_charmPoints',
-                            style: const TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.trophyGold),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    // Room Level Badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 5, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryPurple.withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'Lv.${LevelProgressionService.calculateLevel(_charmPoints)}',
-                        style: const TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.accentCyan),
                       ),
                     ),
                   ],
@@ -1429,7 +1365,8 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
 
             const SizedBox(width: 6),
 
-            // Follow Room Button (+ Follow / Following ✓)
+            // Right Controls: Follow, Spectators, Themes, Leave
+            // Follow Room Button
             ListenableBuilder(
               listenable: VoiceRoomManager(),
               builder: (context, _) {
@@ -1449,17 +1386,17 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
                   },
                   child: Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                     decoration: BoxDecoration(
                       color: isFollowed
                           ? AppColors.onlineGreen
                           : AppColors.primaryPurple,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       isFollowed ? 'Following ✓' : '+ Follow',
                       style: const TextStyle(
-                          fontSize: 9,
+                          fontSize: 9.5,
                           fontWeight: FontWeight.bold,
                           color: Colors.white),
                     ),
@@ -1467,49 +1404,48 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
                 );
               },
             ),
-
             const SizedBox(width: 4),
 
             // Spectators Count Pill
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: 0.35),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(Icons.people_alt_rounded,
-                      size: 12, color: AppColors.accentCyan),
-                  const SizedBox(width: 3),
+                      size: 11, color: AppColors.accentCyan),
+                  const SizedBox(width: 2),
                   Text(
                     '$_activeSpectators/${widget.room.maxPlayers}',
                     style: const TextStyle(
-                        fontSize: 10,
+                        fontSize: 9.5,
                         fontWeight: FontWeight.bold,
                         color: Colors.white),
                   ),
                 ],
               ),
             ),
+            const SizedBox(width: 2),
 
-            const SizedBox(width: 4),
-
-            // 10 Room Themes Switcher Button
+            // Themes Button
             IconButton(
               icon: const Icon(Icons.palette_rounded,
-                  color: AppColors.coinAmber, size: 20),
+                  color: AppColors.coinAmber, size: 19),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
               tooltip: '10 Room Themes',
               onPressed: () => _showThemeSelectorSheet(context),
             ),
-
             const SizedBox(width: 4),
+
+            // Power / Exit Button
             IconButton(
               icon: const Icon(Icons.power_settings_new_rounded,
-                  color: Colors.white, size: 22),
+                  color: Colors.white, size: 20),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
               tooltip: 'Leave / Minimize Room',

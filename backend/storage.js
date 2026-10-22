@@ -42,6 +42,7 @@ const TABLE_SESSIONS = `${TABLE_USERS}_Sessions`;
 const TABLE_OTPS = `${TABLE_USERS}_Otps`;
 const TABLE_TOKENS = `${TABLE_USERS}_Tokens`;
 const TABLE_SONGS = `${TABLE_USERS}_Songs`;
+const TABLE_ROOMS = `${TABLE_USERS}_Rooms`;
 
 // -----------------------------------------------------------------------------
 // IN-MEMORY DATA STORE (FOR TESTING / LOCAL DEV)
@@ -51,6 +52,7 @@ const memSessions = new Map();
 const memOtps = new Map();
 const memTokens = new Map();
 const memSongs = new Map();
+const memRooms = new Map();
 
 class Storage {
   static isMemoryMode() {
@@ -63,6 +65,7 @@ class Storage {
     memOtps.clear();
     memTokens.clear();
     memSongs.clear();
+    memRooms.clear();
   }
 
   // ---------------------------------------------------------------------------
@@ -545,6 +548,72 @@ class Storage {
     } catch (err) {
       console.error('Storage getSongsByUserId error:', err.message);
       throw err;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // LIVE ROOMS
+  // ---------------------------------------------------------------------------
+
+  static async getRooms() {
+    if (this.isMemoryMode()) {
+      return Array.from(memRooms.values());
+    }
+
+    try {
+      const res = await docClient.send(new ScanCommand({
+        TableName: TABLE_ROOMS
+      }));
+      return res.Items || [];
+    } catch (err) {
+      console.error('Storage getRooms error:', err.message);
+      return Array.from(memRooms.values());
+    }
+  }
+
+  static async saveRoom(room) {
+    if (!room || !room.id) return false;
+    if (this.isMemoryMode()) {
+      memRooms.set(room.id, { ...room, updatedAt: new Date().toISOString() });
+      return true;
+    }
+
+    try {
+      await docClient.send(new PutCommand({
+        TableName: TABLE_ROOMS,
+        Item: { ...room, updatedAt: new Date().toISOString() }
+      }));
+      return true;
+    } catch (err) {
+      console.error('Storage saveRoom error:', err.message);
+      memRooms.set(room.id, { ...room, updatedAt: new Date().toISOString() });
+      return true;
+    }
+  }
+
+  static async deleteRoom(roomId) {
+    if (!roomId) return false;
+    if (this.isMemoryMode()) {
+      let removed = memRooms.delete(roomId);
+      for (const [id, r] of memRooms.entries()) {
+        if (r.roomCode === roomId) {
+          memRooms.delete(id);
+          removed = true;
+        }
+      }
+      return removed;
+    }
+
+    try {
+      await docClient.send(new DeleteCommand({
+        TableName: TABLE_ROOMS,
+        Key: { id: roomId }
+      }));
+      return true;
+    } catch (err) {
+      console.error('Storage deleteRoom error:', err.message);
+      memRooms.delete(roomId);
+      return true;
     }
   }
 }

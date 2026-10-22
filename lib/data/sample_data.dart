@@ -5,15 +5,6 @@ import '../models/room_model.dart';
 import '../models/chat_model.dart';
 
 class SampleData {
-  // Current user info
-  static const String currentUserName = "Alex Vance";
-  static const String currentUserTag = "@alex_play";
-  static const int currentUserLevel = 1;
-  static const int currentUserCoins = 500;
-  static const int currentUserTrophies = 0;
-  static const double currentUserWinRate = 0.0;
-  static const int currentUserTotalMatches = 0;
-
   // Games Catalog (Real Playable Games with Progression Unlocks)
   static const List<GameModel> games = [
     GameModel(

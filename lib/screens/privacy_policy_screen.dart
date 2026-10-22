@@ -82,7 +82,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 14),
                     const Text(
-                      'Operated by RAABTA TECHNOLOGY PTE. LTD.',
+                      'Operated by ssgobind.space',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -97,7 +97,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
 
               // Overview
               _buildParagraph(
-                'Welcome to Play Friends (referred to as "Play Friends" or "the App"). Play Friends is owned and operated by RAABTA TECHNOLOGY PTE. LTD. (referred to as "Play Friends," "we," or "us"). This Privacy Policy outlines how we protect your personal data, which is of utmost importance to you. The following topics are covered in this policy:\n\n'
+                'Welcome to Play Friends (referred to as "Play Friends" or "the App"). Play Friends is owned and operated by ssgobind.space (referred to as "Play Friends," "we," or "us"). This Privacy Policy outlines how we protect your personal data, which is of utmost importance to you. The following topics are covered in this policy:\n\n'
                 '• Information Collection and Acquisition: We explain what information we collect and the methods we employ to collect it.\n\n'
                 '• Information Usage and Sharing: We detail how we use the collected information and with whom we share it.\n\n'
                 '• Accessing and Updating Your Information: We provide guidance on how you can access and update the information we hold about you.\n\n'

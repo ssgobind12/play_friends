@@ -551,7 +551,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             SizedBox(height: 12),
             Text(
-              'Owned & Operated by RAABTA TECHNOLOGY PTE. LTD.',
+              'Owned & Operated by ssgobind.space',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,

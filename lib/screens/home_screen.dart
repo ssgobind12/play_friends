@@ -143,9 +143,7 @@ class HomeScreen extends StatelessWidget {
         final userLevel = user?.level ?? 1;
         final userCoins = user?.coins ?? 500;
         final friends = auth.friends;
-        final liveRooms = auth.activeRooms.isNotEmpty
-            ? auth.activeRooms
-            : AuthService.defaultPartyRooms;
+        final liveRooms = auth.activeRooms;
 
         return Scaffold(
           body: SafeArea(

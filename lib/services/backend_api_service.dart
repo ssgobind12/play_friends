@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../config/backend_config.dart';
 import '../config/brevo_config.dart';
+import '../models/room_model.dart';
 import '../models/user_model.dart';
 import '../services/brevo_email_service.dart';
 import '../services/local_storage_service.dart';
@@ -948,6 +949,85 @@ class BackendApiService {
         }
       }
       return false;
+    }
+    return true;
+  }
+
+  // ---------------------------------------------------------------------------
+  // LIVE ROOMS SYNC
+  // ---------------------------------------------------------------------------
+
+  Future<List<RoomModel>> getRooms() async {
+    if (!isTestMode && BackendConfig.isConfigured) {
+      try {
+        final uri = Uri.parse('${BackendConfig.apiBaseUrl}/api/v1/rooms');
+        final response = await http
+            .get(
+              uri,
+              headers: {
+                if (BackendConfig.apiKey.isNotEmpty)
+                  'x-api-key': BackendConfig.apiKey,
+              },
+            )
+            .timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data is List) {
+            return data
+                .map((item) =>
+                    RoomModel.fromMap(Map<String, dynamic>.from(item)))
+                .toList();
+          }
+        }
+      } catch (e) {
+        debugPrint('BackendApiService getRooms error: $e');
+      }
+    }
+    return LocalStorageService.loadActiveRooms();
+  }
+
+  Future<bool> createRoom(RoomModel room) async {
+    if (!isTestMode && BackendConfig.isConfigured) {
+      try {
+        final uri = Uri.parse('${BackendConfig.apiBaseUrl}/api/v1/rooms');
+        final response = await http
+            .post(
+              uri,
+              headers: {
+                'Content-Type': 'application/json',
+                if (BackendConfig.apiKey.isNotEmpty)
+                  'x-api-key': BackendConfig.apiKey,
+              },
+              body: jsonEncode(room.toMap()),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          return true;
+        }
+      } catch (e) {
+        debugPrint('BackendApiService createRoom error: $e');
+      }
+    }
+    return true;
+  }
+
+  Future<bool> deleteRoom(String roomId) async {
+    if (!isTestMode && BackendConfig.isConfigured) {
+      try {
+        final uri =
+            Uri.parse('${BackendConfig.apiBaseUrl}/api/v1/rooms/$roomId');
+        await http.delete(
+          uri,
+          headers: {
+            if (BackendConfig.apiKey.isNotEmpty)
+              'x-api-key': BackendConfig.apiKey,
+          },
+        ).timeout(const Duration(seconds: 4));
+      } catch (e) {
+        debugPrint('BackendApiService deleteRoom error: $e');
+      }
     }
     return true;
   }

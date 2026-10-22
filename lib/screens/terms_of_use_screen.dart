@@ -83,7 +83,7 @@ class TermsOfUseScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 14),
                     const Text(
-                      'Operated by RAABTA TECHNOLOGY PTE. LTD.',
+                      'Operated by ssgobind.space',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -98,7 +98,7 @@ class TermsOfUseScreen extends StatelessWidget {
 
               // Introduction
               _buildParagraph(
-                'Welcome to Play Friends (the "Platform" or "App"). Play Friends is owned and operated by RAABTA TECHNOLOGY PTE. LTD. These Terms of Service (the "Terms") constitute a legally binding agreement between you ("You" or "User") and RAABTA TECHNOLOGY PTE. LTD., the owner and operator of the Platform and App. By accessing or using the Platform or any of its services, features, or content, you acknowledge that you have read, understood, and agree to be bound by these Terms.\n\n'
+                'Welcome to Play Friends (the "Platform" or "App"). Play Friends is owned and operated by ssgobind.space. These Terms of Service (the "Terms") constitute a legally binding agreement between you ("You" or "User") and ssgobind.space, the owner and operator of the Platform and App. By accessing or using the Platform or any of its services, features, or content, you acknowledge that you have read, understood, and agree to be bound by these Terms.\n\n'
                 'This Agreement explains your rights and obligations as a user of the Platform and the terms under which Play Friends provides access to its services, features, and content. Whether you are a registered user, a guest, or simply browsing the Platform, these Terms govern your use of Play Friends.\n\n'
                 'If you do not agree with any part of these Terms, you must stop using the Platform and exit the App immediately. Please read these Terms carefully before using Play Friends. We also recommend that you review our Privacy Policy, which explains how we collect, use, and protect personal data.',
               ),

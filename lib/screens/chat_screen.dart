@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data/sample_data.dart';
 import '../models/chat_model.dart';
+import '../services/auth_service.dart';
 import '../services/privacy_filter_service.dart';
 import '../services/voice_room_manager.dart';
 import '../theme/app_theme.dart';
@@ -292,11 +293,13 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
       return;
     }
 
+    final currentName = AuthService().currentUser?.name ?? 'Me';
+    final currentInitial = currentName.isNotEmpty ? currentName[0].toUpperCase() : 'M';
     final newMsg = ChatMessage(
       id: 'm_${DateTime.now().millisecondsSinceEpoch}',
-      senderName: SampleData.currentUserName,
-      senderInitial: 'A',
-      senderColor: AppColors.primaryPurple,
+      senderName: currentName,
+      senderInitial: currentInitial,
+      senderColor: AuthService().currentUser?.avatarColor ?? AppColors.primaryPurple,
       message: text,
       time: 'Just now',
       isMe: true,

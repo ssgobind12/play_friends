@@ -39,12 +39,13 @@ class _CarromGameScreenState extends State<CarromGameScreen>
   final List<CarromPiece> _pieces = [];
   late CarromPiece _striker;
   double _strikerX = 0.5; // normalized 0..1 along baseline
+  bool _isSlidingStriker = false;
   Offset? _dragStart;
   Offset? _dragCurrent;
   int _score = 0;
   int _shotsRemaining = 8;
   bool _isMoving = false;
-  final double _boardSize = 340.0;
+  double _boardSize = 370.0;
   CarromDifficulty _difficulty = CarromDifficulty.medium;
 
   @override
@@ -452,60 +453,100 @@ class _CarromGameScreenState extends State<CarromGameScreen>
             // Carrom Board
             Expanded(
               child: Center(
-                child: GestureDetector(
-                  onPanStart: (details) {
-                    if (_isMoving) return;
-                    _dragStart = details.localPosition;
-                    _dragCurrent = details.localPosition;
-                    setState(() {});
-                  },
-                  onPanUpdate: (details) {
-                    if (_isMoving) return;
-                    setState(() => _dragCurrent = details.localPosition);
-                  },
-                  onPanEnd: (details) {
-                    if (_isMoving ||
-                        _dragStart == null ||
-                        _dragCurrent == null) {
-                      return;
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final side = min(constraints.maxWidth - 12.0, constraints.maxHeight - 12.0).clamp(320.0, 420.0);
+                    if ((_boardSize - side).abs() > 1.0) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) {
+                          setState(() {
+                            _boardSize = side;
+                            _resetStriker();
+                          });
+                        }
+                      });
                     }
-                    final delta = _dragStart! - _dragCurrent!;
-                    final power = (delta.distance / 8).clamp(2.0, 18.0);
-                    if (delta.distance > 10) {
-                      final dir = delta / delta.distance;
-                      _fireStriker(dir * power);
-                    }
-                    _dragStart = null;
-                    _dragCurrent = null;
-                    setState(() {});
-                  },
-                  child: Container(
-                    width: _boardSize,
-                    height: _boardSize,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD4A373), // Warm wood finish
-                      borderRadius: BorderRadius.circular(18),
-                      border:
-                          Border.all(color: const Color(0xFF582F0E), width: 14),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.6),
-                          blurRadius: 18,
-                          spreadRadius: 4,
+
+                    return GestureDetector(
+                      onPanStart: (details) {
+                        if (_isMoving) return;
+                        final localPos = details.localPosition;
+                        final baselineY = _boardSize - 50.0;
+                        if ((localPos.dy - baselineY).abs() <= 38 ||
+                            (localPos - _striker.position).distance <= 36) {
+                          _isSlidingStriker = true;
+                          _strikerX =
+                              ((localPos.dx - 40.0) / (_boardSize - 80.0))
+                                  .clamp(0.0, 1.0);
+                          _resetStriker();
+                          _dragStart = null;
+                          _dragCurrent = null;
+                        } else {
+                          _isSlidingStriker = false;
+                          _dragStart = localPos;
+                          _dragCurrent = localPos;
+                        }
+                        setState(() {});
+                      },
+                      onPanUpdate: (details) {
+                        if (_isMoving) return;
+                        final localPos = details.localPosition;
+                        if (_isSlidingStriker) {
+                          _strikerX =
+                              ((localPos.dx - 40.0) / (_boardSize - 80.0))
+                                  .clamp(0.0, 1.0);
+                          _resetStriker();
+                        } else {
+                          _dragCurrent = localPos;
+                        }
+                        setState(() {});
+                      },
+                      onPanEnd: (details) {
+                        if (_isMoving) return;
+                        if (!_isSlidingStriker &&
+                            _dragStart != null &&
+                            _dragCurrent != null) {
+                          final delta = _dragStart! - _dragCurrent!;
+                          final power = (delta.distance / 8).clamp(2.0, 18.0);
+                          if (delta.distance > 10) {
+                            final dir = delta / delta.distance;
+                            _fireStriker(dir * power);
+                          }
+                        }
+                        _isSlidingStriker = false;
+                        _dragStart = null;
+                        _dragCurrent = null;
+                        setState(() {});
+                      },
+                      child: Container(
+                        width: _boardSize,
+                        height: _boardSize,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD4A373), // Warm wood finish
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                              color: const Color(0xFF582F0E), width: 14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.6),
+                              blurRadius: 18,
+                              spreadRadius: 4,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    child: CustomPaint(
-                      size: Size(_boardSize, _boardSize),
-                      painter: _CarromPainter(
-                        pieces: _pieces,
-                        striker: _striker,
-                        dragStart: _dragStart,
-                        dragCurrent: _dragCurrent,
-                        boardSize: _boardSize,
+                        child: CustomPaint(
+                          size: Size(_boardSize, _boardSize),
+                          painter: _CarromPainter(
+                            pieces: _pieces,
+                            striker: _striker,
+                            dragStart: _dragStart,
+                            dragCurrent: _dragCurrent,
+                            boardSize: _boardSize,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ),
             ),
@@ -547,7 +588,7 @@ class _CarromGameScreenState extends State<CarromGameScreen>
                     ],
                   ),
                   const Text(
-                    'Drag back on the board to aim and set power, then release to strike!',
+                    'Slide striker along baseline by touch or slider, pull back to aim & release!',
                     style:
                         TextStyle(color: AppColors.textSecondary, fontSize: 12),
                   ),
@@ -627,6 +668,8 @@ class _CarromPainter extends CustomPainter {
       Offset(size.width - 40, size.height - 50),
       linePaint,
     );
+    canvas.drawCircle(Offset(40, size.height - 50), 12, linePaint);
+    canvas.drawCircle(Offset(size.width - 40, size.height - 50), 12, linePaint);
 
     // Draw Pieces
     for (final p in pieces) {

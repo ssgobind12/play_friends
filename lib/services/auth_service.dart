@@ -102,8 +102,6 @@ class AuthService extends ChangeNotifier {
       if (savedRooms.isNotEmpty) {
         _activeRooms.clear();
         _activeRooms.addAll(savedRooms);
-      } else if (_activeRooms.isEmpty) {
-        _activeRooms.addAll(defaultPartyRooms);
       }
 
       if (_currentUser != null) {
@@ -948,48 +946,35 @@ class AuthService extends ChangeNotifier {
   // REAL ROOMS MANAGEMENT (Fresh & Real)
   // --------------------------------------------------------------------------
 
-  static const List<RoomModel> defaultPartyRooms = [
-    RoomModel(
-      id: 'r_seed_1',
-      roomCode: 'PF-8821',
-      gameTitle: '🎵 Bollywood & Gaming Beats',
-      hostName: 'Kabir 👑',
-      currentPlayers: 142,
-      maxPlayers: 250,
-      isPrivate: false,
-      status: 'Live Voice Party',
-      giftPoints: 3400,
-    ),
-    RoomModel(
-      id: 'r_seed_2',
-      roomCode: 'PF-4912',
-      gameTitle: '🎲 Ludo Friends & Gift Party',
-      hostName: 'Aanya 🌸',
-      currentPlayers: 88,
-      maxPlayers: 150,
-      isPrivate: false,
-      status: 'Live Voice Party',
-      giftPoints: 1850,
-    ),
-    RoomModel(
-      id: 'r_seed_3',
-      roomCode: 'PF-1034',
-      gameTitle: '✨ Chill Lounge & Songs',
-      hostName: 'Rohan 🎧',
-      currentPlayers: 195,
-      maxPlayers: 500,
-      isPrivate: false,
-      status: 'Live Voice Party',
-      giftPoints: 5200,
-    ),
-  ];
+  static const List<RoomModel> defaultPartyRooms = [];
 
   final List<RoomModel> _activeRooms = [];
   List<RoomModel> get activeRooms => List.unmodifiable(_activeRooms);
 
+  /// Synchronizes rooms created across devices
+  Future<void> fetchRooms() async {
+    try {
+      final remoteRooms = await BackendApiService().getRooms();
+      if (remoteRooms.isNotEmpty) {
+        // Merge without losing freshly created local rooms
+        for (final r in remoteRooms) {
+          if (!_activeRooms.any((local) => local.id == r.id || local.roomCode == r.roomCode)) {
+            _activeRooms.add(r);
+          }
+        }
+        _persistState();
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('AuthService fetchRooms error: $e');
+    }
+  }
+
   void addRoom(RoomModel room) {
+    _activeRooms.removeWhere((r) => r.id == room.id || r.roomCode == room.roomCode);
     _activeRooms.insert(0, room);
     _persistState();
+    BackendApiService().createRoom(room);
     notifyListeners();
   }
 
@@ -1004,6 +989,7 @@ class AuthService extends ChangeNotifier {
         VoiceRoomManager().leaveRoom();
       }
       _persistState();
+      BackendApiService().deleteRoom(roomId);
       notifyListeners();
     }
     return removed;

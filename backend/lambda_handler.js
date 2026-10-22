@@ -10,6 +10,7 @@
  */
 
 const AuthService = require('./auth_service');
+const Storage = require('./storage');
 
 function response(statusCode, body) {
   return {
@@ -164,6 +165,25 @@ exports.handler = async (event) => {
         sessionToken
       });
       return response(res.statusCode, res);
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. ROOMS
+    // -------------------------------------------------------------------------
+    if (rawPath === '/api/v1/rooms' || action === 'getRooms') {
+      if (httpMethod === 'POST' || action === 'createRoom') {
+        const room = body.room || body;
+        await Storage.saveRoom(room);
+        return response(201, { success: true, room });
+      }
+      const rooms = await Storage.getRooms();
+      return response(200, rooms);
+    }
+
+    if (rawPath.startsWith('/api/v1/rooms/') || action === 'deleteRoom') {
+      const roomId = body.roomId || rawPath.split('/').pop();
+      await Storage.deleteRoom(roomId);
+      return response(200, { success: true });
     }
 
     return response(404, { error: `Not found: action=${action || 'none'}, path=${rawPath || 'none'}` });

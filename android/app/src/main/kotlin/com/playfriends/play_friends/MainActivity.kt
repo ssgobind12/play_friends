@@ -134,10 +134,6 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    override fun onBackPressed() {
-        moveTaskToBack(true)
-    }
-
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         val activeResult = pendingMethodResult ?: return

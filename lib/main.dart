@@ -16,11 +16,9 @@ import 'widgets/floating_mini_room_player.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Use local mock backend since no live server is deployed yet.
-  // When your real backend is live, set isTestMode = false and configure
-  // BackendConfig.apiBaseUrl with your server URL.
-  BackendApiService.isTestMode = true;
-  AwsStorageService.mockMode = true;
+  // Production live mode (tests override isTestMode = true in their test harnesses)
+  BackendApiService.isTestMode = false;
+  AwsStorageService.mockMode = false;
 
   await AuthService().init();
   runApp(const PlayFriendsApp());
@@ -57,6 +55,7 @@ class MainNavigationScaffold extends StatefulWidget {
 
 class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
   int _currentIndex = 0;
+  DateTime? _lastBackPressTime;
 
   void _onSelectTab(int index) {
     setState(() {
@@ -100,8 +99,22 @@ class _MainNavigationScaffoldState extends State<MainNavigationScaffold> {
             _currentIndex = 0;
           });
         } else {
-          // Cleanly minimize app to background without terminating process or closing
-          PhoneMediaPickerService.minimizeApp();
+          final now = DateTime.now();
+          if (_lastBackPressTime == null ||
+              now.difference(_lastBackPressTime!) >
+                  const Duration(seconds: 2)) {
+            _lastBackPressTime = now;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Press back again to exit Play Friends'),
+                duration: Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          } else {
+            // Cleanly minimize app to background without terminating process or closing
+            PhoneMediaPickerService.minimizeApp();
+          }
         }
       },
       child: Scaffold(

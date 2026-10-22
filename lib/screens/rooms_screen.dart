@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/room_model.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
@@ -20,18 +21,23 @@ class _RoomsScreenState extends State<RoomsScreen> {
   @override
   void initState() {
     super.initState();
-    if (AuthService().activeRooms.isEmpty) {
-      for (final r in AuthService.defaultPartyRooms) {
-        AuthService().addRoom(r);
-      }
-    }
     _rooms = List.from(AuthService().activeRooms);
+    AuthService().fetchRooms().then((_) {
+      if (mounted) {
+        setState(() {
+          _rooms = List.from(AuthService().activeRooms);
+        });
+      }
+    });
   }
 
-  void _refreshRooms() {
-    setState(() {
-      _rooms = List.from(AuthService().activeRooms);
-    });
+  Future<void> _refreshRooms() async {
+    await AuthService().fetchRooms();
+    if (mounted) {
+      setState(() {
+        _rooms = List.from(AuthService().activeRooms);
+      });
+    }
   }
 
   void _handleCreateRoom() {
@@ -56,8 +62,11 @@ class _RoomsScreenState extends State<RoomsScreen> {
       maxAllowedMembers = 100;
     }
 
-    final roomNameCtrl =
-        TextEditingController(text: "$currentUserName's Party Lounge 🎧");
+    final defaultBase = currentUserName.length > 9
+        ? currentUserName.substring(0, 9)
+        : currentUserName;
+    final initialRoomName = "$defaultBase's Room";
+    final roomNameCtrl = TextEditingController(text: initialRoomName);
     String selectedGame = 'All-in-One Multi-Game Party';
     int maxPlayers = min(100, maxAllowedMembers);
     bool isPrivate = false;
@@ -137,9 +146,14 @@ class _RoomsScreenState extends State<RoomsScreen> {
                   const SizedBox(height: 8),
                   TextField(
                     controller: roomNameCtrl,
+                    maxLength: 16,
+                    inputFormatters: [
+                      LengthLimitingTextInputFormatter(16),
+                    ],
                     style: const TextStyle(color: Colors.white, fontSize: 14),
                     decoration: InputDecoration(
-                      hintText: 'Enter your custom room name',
+                      hintText: 'Enter room name (max 16 chars)',
+                      counterText: '',
                       filled: true,
                       fillColor: AppColors.cardBg,
                       prefixIcon: const Icon(Icons.meeting_room_rounded,
@@ -273,9 +287,12 @@ class _RoomsScreenState extends State<RoomsScreen> {
                         Navigator.of(ctx).pop();
                         final randomCode =
                             'PF-${1000 + Random().nextInt(9000)}';
-                        final roomTitle = roomNameCtrl.text.trim().isNotEmpty
+                        final rawTitle = roomNameCtrl.text.trim().isNotEmpty
                             ? roomNameCtrl.text.trim()
-                            : '$currentUserName\'s Party Lounge 🎮';
+                            : initialRoomName;
+                        final roomTitle = rawTitle.length > 16
+                            ? rawTitle.substring(0, 16)
+                            : rawTitle;
 
                         final newRoom = RoomModel(
                           id: 'r_${DateTime.now().millisecondsSinceEpoch}',
@@ -390,9 +407,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
     return ListenableBuilder(
       listenable: AuthService(),
       builder: (context, _) {
-        final displayRooms = AuthService().activeRooms.isNotEmpty
-            ? AuthService().activeRooms
-            : (_rooms.isNotEmpty ? _rooms : AuthService.defaultPartyRooms);
+        final displayRooms = AuthService().activeRooms;
 
         return Scaffold(
           appBar: AppBar(
