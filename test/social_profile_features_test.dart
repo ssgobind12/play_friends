@@ -263,7 +263,7 @@ void main() {
 
   group('Profile Dialogs Widget Tests', () {
     testWidgets(
-        'UserProfileDialog renders followers, following, visitors, level and gamer tag',
+        'UserProfileDialog renders followers, following, level and gamer tag (no fake visitors)',
         (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
@@ -284,7 +284,7 @@ void main() {
       expect(find.text('Lv.7'), findsOneWidget);
       expect(find.text('Followers'), findsOneWidget);
       expect(find.text('Following'), findsOneWidget);
-      expect(find.text('Visitors'), findsOneWidget);
+      expect(find.text('Visitors'), findsNothing);
       expect(find.text('+ Follow'), findsOneWidget);
     });
 

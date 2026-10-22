@@ -292,8 +292,10 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
     super.initState();
     _messages = List.from(widget.thread.messages);
     _fetchLiveMessages();
+    VoiceRoomManager().syncFollowsFromServer();
     _liveSyncTimer = Timer.periodic(const Duration(milliseconds: 2000), (_) {
       _fetchLiveMessages();
+      VoiceRoomManager().syncFollowsFromServer();
     });
   }
 
@@ -593,7 +595,9 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
               builder: (context, _) {
                 final vm = VoiceRoomManager();
                 final isMutual = widget.thread.isGroup ||
-                    vm.isMutualFollow(widget.thread.title);
+                    vm.isMutualFollow(widget.thread.title) ||
+                    (_messages.any((m) => m.isMe) &&
+                        _messages.any((m) => !m.isMe));
                 final isFollowing = vm.isFollowingUser(widget.thread.title);
 
                 if (!isMutual) {
@@ -662,10 +666,24 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                                 style: const TextStyle(
                                     fontSize: 12, fontWeight: FontWeight.bold),
                               ),
-                              onPressed: () {
-                                vm.toggleFollowUser(widget.thread.title);
+                              onPressed: () async {
+                                final friend = AuthService().friends.where((f) =>
+                                    f.name.toLowerCase() == widget.thread.title.toLowerCase()).firstOrNull;
+                                await vm.toggleFollowUser(widget.thread.title, tag: friend?.tag);
+                                await vm.syncFollowsFromServer();
+                                if (mounted) setState(() {});
                               },
                             ),
+                            if (isFollowing)
+                              IconButton(
+                                icon: const Icon(Icons.sync_rounded,
+                                    color: AppColors.accentCyan, size: 20),
+                                tooltip: 'Check Follow Back Status',
+                                onPressed: () async {
+                                  await vm.syncFollowsFromServer();
+                                  if (mounted) setState(() {});
+                                },
+                              ),
                             OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AppColors.accentCyan,

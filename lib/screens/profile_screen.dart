@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../services/aws_storage_service.dart';
+import '../services/voice_room_manager.dart';
+import '../widgets/user_profile_dialog.dart';
 import '../services/game_sound_service.dart';
 import '../services/phone_media_picker_service.dart';
 import '../theme/app_theme.dart';
@@ -17,6 +20,11 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    VoiceRoomManager().syncFollowsFromServer();
+  }
   bool _soundEnabled = true;
   bool _hapticsEnabled = true;
   bool _notificationsEnabled = true;
@@ -345,6 +353,106 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               onPressed: () => MusicPlayerSheet.show(context),
                             ),
                           ],
+                        ),
+
+                        const SizedBox(height: 14),
+
+                        // Followers & Following Clickable Cards
+                        ListenableBuilder(
+                          listenable: VoiceRoomManager(),
+                          builder: (context, _) {
+                            final vm = VoiceRoomManager();
+                            final uName = user?.name ?? "Player";
+                            final followersCount = vm.getUserFollowers(uName);
+                            final followingCount = vm.getUserFollowing(uName);
+
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.25),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                children: [
+                                  InkWell(
+                                    borderRadius: BorderRadius.circular(12),
+                                    onTap: () => _showFollowersSheet(context, user?.id ?? uName),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.people_alt_rounded, size: 16, color: AppColors.accentCyan),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                "$followersCount",
+                                                style: const TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 2),
+                                          const Text(
+                                            "Followers",
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: AppColors.textSecondary,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  Container(width: 1, height: 28, color: Colors.white.withValues(alpha: 0.15)),
+                                  InkWell(
+                                    borderRadius: BorderRadius.circular(12),
+                                    onTap: () => _showFollowingSheet(context, user?.id ?? uName),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.person_add_rounded, size: 16, color: AppColors.primaryPurpleLight),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                "$followingCount",
+                                                style: const TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 2),
+                                          const Text(
+                                            "Following",
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: AppColors.textSecondary,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
                         ),
 
                         const SizedBox(height: 16),
@@ -1363,6 +1471,244 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showFollowersSheet(BuildContext context, String targetUser) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1B4B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return FutureBuilder<List<Map<String, dynamic>>>(
+          future: AwsStorageService.getFollowers(targetUser),
+          builder: (context, snapshot) {
+            final list = snapshot.data ?? [];
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.people_alt_rounded,
+                          color: AppColors.accentCyan, size: 22),
+                      SizedBox(width: 8),
+                      Text(
+                        'Your Followers',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (snapshot.connectionState == ConnectionState.waiting)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: CircularProgressIndicator(color: AppColors.accentCyan),
+                      ),
+                    )
+                  else if (list.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.person_off_rounded,
+                              size: 36, color: AppColors.textMuted),
+                          SizedBox(height: 8),
+                          Text(
+                            'No followers yet',
+                            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(context).size.height * 0.45,
+                      ),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: list.length,
+                        separatorBuilder: (_, __) =>
+                            const Divider(color: Colors.white12, height: 1),
+                        itemBuilder: (context, idx) {
+                          final u = list[idx];
+                          final uName = u['name']?.toString() ?? 'Player';
+                          final uTag = u['tag']?.toString() ?? '@gamer';
+                          final uLevel = (u['level'] as num?)?.toInt() ?? 1;
+                          final uPhoto = u['profilePhoto']?.toString();
+                          final initial = uName.isNotEmpty ? uName[0].toUpperCase() : 'P';
+
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                            leading: CircleAvatar(
+                              backgroundColor: AppColors.primaryPurple,
+                              backgroundImage: (uPhoto != null && uPhoto.isNotEmpty)
+                                  ? NetworkImage(uPhoto)
+                                  : null,
+                              child: (uPhoto == null || uPhoto.isEmpty)
+                                  ? Text(initial,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold, color: Colors.white))
+                                  : null,
+                            ),
+                            title: Text(uName,
+                                style: const TextStyle(
+                                    color: Colors.white, fontWeight: FontWeight.bold)),
+                            subtitle: Text('$uTag • Level $uLevel',
+                                style: const TextStyle(
+                                    color: AppColors.textSecondary, fontSize: 12)),
+                            onTap: () {
+                              Navigator.of(ctx).pop();
+                              UserProfileDialog.show(
+                                context,
+                                name: uName,
+                                tag: uTag,
+                                profilePhoto: uPhoto,
+                                avatarColor: AppColors.primaryPurple,
+                                level: uLevel,
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showFollowingSheet(BuildContext context, String targetUser) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1B4B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return FutureBuilder<List<Map<String, dynamic>>>(
+          future: AwsStorageService.getFollowing(targetUser),
+          builder: (context, snapshot) {
+            final list = snapshot.data ?? [];
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.person_add_rounded,
+                          color: AppColors.primaryPurpleLight, size: 22),
+                      SizedBox(width: 8),
+                      Text(
+                        'People You Follow',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (snapshot.connectionState == ConnectionState.waiting)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: CircularProgressIndicator(color: AppColors.primaryPurpleLight),
+                      ),
+                    )
+                  else if (list.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.person_outline_rounded,
+                              size: 36, color: AppColors.textMuted),
+                          SizedBox(height: 8),
+                          Text(
+                            'Not following anyone yet',
+                            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(context).size.height * 0.45,
+                      ),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: list.length,
+                        separatorBuilder: (_, __) =>
+                            const Divider(color: Colors.white12, height: 1),
+                        itemBuilder: (context, idx) {
+                          final u = list[idx];
+                          final uName = u['name']?.toString() ?? 'Player';
+                          final uTag = u['tag']?.toString() ?? '@gamer';
+                          final uLevel = (u['level'] as num?)?.toInt() ?? 1;
+                          final uPhoto = u['profilePhoto']?.toString();
+                          final initial = uName.isNotEmpty ? uName[0].toUpperCase() : 'P';
+
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                            leading: CircleAvatar(
+                              backgroundColor: AppColors.primaryPurple,
+                              backgroundImage: (uPhoto != null && uPhoto.isNotEmpty)
+                                  ? NetworkImage(uPhoto)
+                                  : null,
+                              child: (uPhoto == null || uPhoto.isEmpty)
+                                  ? Text(initial,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold, color: Colors.white))
+                                  : null,
+                            ),
+                            title: Text(uName,
+                                style: const TextStyle(
+                                    color: Colors.white, fontWeight: FontWeight.bold)),
+                            subtitle: Text('$uTag • Level $uLevel',
+                                style: const TextStyle(
+                                    color: AppColors.textSecondary, fontSize: 12)),
+                            onTap: () {
+                              Navigator.of(ctx).pop();
+                              UserProfileDialog.show(
+                                context,
+                                name: uName,
+                                tag: uTag,
+                                profilePhoto: uPhoto,
+                                avatarColor: AppColors.primaryPurple,
+                                level: uLevel,
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

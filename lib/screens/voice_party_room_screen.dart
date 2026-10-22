@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../services/aws_storage_service.dart';
 import '../models/room_model.dart';
 import '../models/room_theme_model.dart';
 import '../services/auth_service.dart';
@@ -1535,6 +1537,17 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
             ),
             const SizedBox(width: 2),
 
+            // Share Room Button
+            IconButton(
+              icon: const Icon(Icons.share_rounded,
+                  color: AppColors.accentCyan, size: 19),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              tooltip: 'Share Room Code',
+              onPressed: _shareRoom,
+            ),
+            const SizedBox(width: 4),
+
             // Themes Button
             IconButton(
               icon: const Icon(Icons.palette_rounded,
@@ -1573,6 +1586,15 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
                       style: const TextStyle(fontSize: 13, height: 1.4),
                     ),
                     actions: [
+                      if (isHost)
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(ctx).pop();
+                            _clearRoomChat();
+                          },
+                          child: const Text('Clear Room Chat',
+                              style: TextStyle(color: AppColors.coinAmber)),
+                        ),
                       if (isHost)
                         TextButton(
                           onPressed: () async {
@@ -2469,5 +2491,59 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
         ),
       ),
     );
+  }
+
+  void _shareRoom() {
+    final roomCode = widget.room.roomCode;
+    final title = widget.room.gameTitle;
+    final shareText = '🎮 Join my voice party room "$title" on Play Friends! Room Code: $roomCode';
+    Clipboard.setData(ClipboardData(text: shareText));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Room Code $roomCode copied to clipboard! Share it with friends! 🚀'),
+        backgroundColor: AppColors.primaryPurple,
+        duration: const Duration(seconds: 3),
+        action: SnackBarAction(
+          label: 'OK',
+          textColor: AppColors.accentCyan,
+          onPressed: () {},
+        ),
+      ),
+    );
+  }
+
+  Future<void> _clearRoomChat() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1B4B),
+        title: const Text('Clear Room Chat?'),
+        content: const Text('This will delete all saved chat messages in this room for all participants.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.dangerRose),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Clear Chat', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      setState(() {
+        _messages.clear();
+      });
+      final currentUserId = AuthService().currentUser?.id ?? '';
+      await AwsStorageService.clearRoomChat(roomId: widget.room.id, hostId: currentUserId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Room chat messages cleared.')),
+        );
+      }
+    }
   }
 }

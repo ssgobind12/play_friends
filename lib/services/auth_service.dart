@@ -1060,22 +1060,42 @@ class AuthService extends ChangeNotifier {
   final List<RoomModel> _activeRooms = [];
   List<RoomModel> get activeRooms => List.unmodifiable(_activeRooms);
 
-  /// Synchronizes rooms created across devices
+  /// Synchronizes rooms created across devices and purges deleted rooms
   Future<void> fetchRooms() async {
     try {
       final remoteRooms = await BackendApiService().getRooms();
       _activeRooms.removeWhere((r) => BackendApiService.isDemoRoom(r));
-      if (remoteRooms.isNotEmpty) {
-        // Merge without losing freshly created local rooms
-        for (final r in remoteRooms) {
-          if (!BackendApiService.isDemoRoom(r) &&
-              !_activeRooms.any((local) => local.id == r.id || local.roomCode == r.roomCode)) {
+
+      final remoteMap = <String, RoomModel>{};
+      for (final r in remoteRooms) {
+        if (!BackendApiService.isDemoRoom(r)) {
+          remoteMap[r.id] = r;
+          remoteMap[r.roomCode.toLowerCase()] = r;
+        }
+      }
+
+      // Purge rooms that no longer exist on remote server
+      _activeRooms.removeWhere((local) {
+        final hasMatch = remoteMap.containsKey(local.id) ||
+            remoteMap.containsKey(local.roomCode.toLowerCase());
+        return !hasMatch;
+      });
+
+      // Update or insert active remote rooms
+      for (final r in remoteRooms) {
+        if (!BackendApiService.isDemoRoom(r)) {
+          final idx = _activeRooms.indexWhere(
+              (local) => local.id == r.id || local.roomCode.toLowerCase() == r.roomCode.toLowerCase());
+          if (idx >= 0) {
+            _activeRooms[idx] = r;
+          } else {
             _activeRooms.add(r);
           }
         }
-        _persistState();
-        notifyListeners();
       }
+
+      _persistState();
+      notifyListeners();
     } catch (e) {
       debugPrint('AuthService fetchRooms error: $e');
     }
@@ -1091,19 +1111,22 @@ class AuthService extends ChangeNotifier {
 
   /// Deletes a room created by user, persists updated room list, and leaves if inside it
   bool deleteRoom(String roomId) {
-    final initialCount = _activeRooms.length;
-    _activeRooms.removeWhere((r) => r.id == roomId || r.roomCode == roomId);
-    final removed = _activeRooms.length < initialCount;
-    if (removed) {
-      if (VoiceRoomManager().activeRoom?.id == roomId ||
-          VoiceRoomManager().activeRoom?.roomCode == roomId) {
-        VoiceRoomManager().leaveRoom();
-      }
-      _persistState();
-      BackendApiService().deleteRoom(roomId);
-      notifyListeners();
+    final cleanCode = roomId.replaceFirst('PF-', '').toLowerCase();
+    _activeRooms.removeWhere((r) =>
+        r.id == roomId ||
+        r.roomCode == roomId ||
+        r.roomCode.toLowerCase() == roomId.toLowerCase() ||
+        r.roomCode.replaceFirst('PF-', '').toLowerCase() == cleanCode);
+
+    if (VoiceRoomManager().activeRoom?.id == roomId ||
+        VoiceRoomManager().activeRoom?.roomCode == roomId ||
+        VoiceRoomManager().activeRoom?.roomCode.toLowerCase() == roomId.toLowerCase()) {
+      VoiceRoomManager().leaveRoom();
     }
-    return removed;
+    _persistState();
+    BackendApiService().deleteRoom(roomId);
+    notifyListeners();
+    return true;
   }
 
   void resetStatsForTesting() {

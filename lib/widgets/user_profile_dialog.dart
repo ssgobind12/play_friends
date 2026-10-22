@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/chat_model.dart';
 import '../screens/chat_screen.dart';
 import '../services/auth_service.dart';
+import '../services/aws_storage_service.dart';
 import '../services/voice_room_manager.dart';
 import '../theme/app_theme.dart';
 
@@ -69,7 +70,6 @@ class UserProfileDialog extends StatelessWidget {
 
         final followersCount = vm.getUserFollowers(name);
         final followingCount = vm.getUserFollowing(name);
-        final visitorsCount = vm.getUserVisitors(name);
 
         final initial = name.isNotEmpty ? name[0].toUpperCase() : 'P';
         final hasPhoto = profilePhoto != null && profilePhoto!.isNotEmpty;
@@ -311,7 +311,7 @@ class UserProfileDialog extends StatelessWidget {
 
                 const SizedBox(height: 18),
 
-                // Stats Row: Followers, Following, Visitors
+                // Stats Row: Followers, Following (Clickable to view users)
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -322,22 +322,32 @@ class UserProfileDialog extends StatelessWidget {
                         Border.all(color: Colors.white.withValues(alpha: 0.08)),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _buildStatColumn(
-                          'Followers', '$followersCount', AppColors.accentCyan),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () => _showFollowersSheet(context, name),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 4),
+                          child: _buildStatColumn(
+                              'Followers', '$followersCount', AppColors.accentCyan),
+                        ),
+                      ),
                       Container(
                           width: 1,
                           height: 28,
                           color: Colors.white.withValues(alpha: 0.15)),
-                      _buildStatColumn('Following', '$followingCount',
-                          AppColors.primaryPurpleLight),
-                      Container(
-                          width: 1,
-                          height: 28,
-                          color: Colors.white.withValues(alpha: 0.15)),
-                      _buildStatColumn(
-                          'Visitors', '$visitorsCount', AppColors.coinAmber),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () => _showFollowingSheet(context, name),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 4),
+                          child: _buildStatColumn('Following', '$followingCount',
+                              AppColors.primaryPurpleLight),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -608,11 +618,23 @@ class UserProfileDialog extends StatelessWidget {
         Navigator.of(sheetCtx).pop();
         final success = AuthService().spendCoins(cost);
         if (success) {
+          final currentUser = AuthService().currentUser;
+          if (currentUser != null) {
+            AwsStorageService.sendGift(
+              senderId: currentUser.email,
+              senderName: currentUser.name,
+              recipientId: name,
+              coins: cost,
+              giftName: title,
+              giftIcon: emoji,
+            );
+          }
           AuthService().promoteLevelFromCoins(cost ~/ 2, 2);
           ScaffoldMessenger.of(parentCtx).showSnackBar(
             SnackBar(
-              content: Text('Sent $emoji $title to $name! (Spent $cost Coins)'),
-              backgroundColor: AppColors.surfaceLight,
+              content: Text(
+                  '🎉 Sent $emoji $title to $name! ($name received +$cost Coins)'),
+              backgroundColor: AppColors.onlineGreen,
             ),
           );
         } else {
@@ -649,6 +671,244 @@ class UserProfileDialog extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  void _showFollowersSheet(BuildContext context, String targetUser) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1B4B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return FutureBuilder<List<Map<String, dynamic>>>(
+          future: AwsStorageService.getFollowers(targetUser),
+          builder: (context, snapshot) {
+            final list = snapshot.data ?? [];
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.people_alt_rounded,
+                          color: AppColors.accentCyan, size: 22),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Followers of $targetUser',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (snapshot.connectionState == ConnectionState.waiting)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: CircularProgressIndicator(color: AppColors.accentCyan),
+                      ),
+                    )
+                  else if (list.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.person_off_rounded,
+                              size: 36, color: AppColors.textMuted),
+                          SizedBox(height: 8),
+                          Text(
+                            'No followers yet',
+                            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(context).size.height * 0.45,
+                      ),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: list.length,
+                        separatorBuilder: (_, __) =>
+                            const Divider(color: Colors.white12, height: 1),
+                        itemBuilder: (context, idx) {
+                          final u = list[idx];
+                          final uName = u['name']?.toString() ?? 'Player';
+                          final uTag = u['tag']?.toString() ?? '@gamer';
+                          final uLevel = (u['level'] as num?)?.toInt() ?? 1;
+                          final uPhoto = u['profilePhoto']?.toString();
+                          final initial = uName.isNotEmpty ? uName[0].toUpperCase() : 'P';
+
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                            leading: CircleAvatar(
+                              backgroundColor: AppColors.primaryPurple,
+                              backgroundImage: (uPhoto != null && uPhoto.isNotEmpty)
+                                  ? NetworkImage(uPhoto)
+                                  : null,
+                              child: (uPhoto == null || uPhoto.isEmpty)
+                                  ? Text(initial,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold, color: Colors.white))
+                                  : null,
+                            ),
+                            title: Text(uName,
+                                style: const TextStyle(
+                                    color: Colors.white, fontWeight: FontWeight.bold)),
+                            subtitle: Text('$uTag • Level $uLevel',
+                                style: const TextStyle(
+                                    color: AppColors.textSecondary, fontSize: 12)),
+                            onTap: () {
+                              Navigator.of(ctx).pop();
+                              UserProfileDialog.show(
+                                context,
+                                name: uName,
+                                tag: uTag,
+                                profilePhoto: uPhoto,
+                                avatarColor: AppColors.primaryPurple,
+                                level: uLevel,
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showFollowingSheet(BuildContext context, String targetUser) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1B4B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return FutureBuilder<List<Map<String, dynamic>>>(
+          future: AwsStorageService.getFollowing(targetUser),
+          builder: (context, snapshot) {
+            final list = snapshot.data ?? [];
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.person_add_rounded,
+                          color: AppColors.primaryPurpleLight, size: 22),
+                      const SizedBox(width: 8),
+                      Text(
+                        'People $targetUser Follows',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (snapshot.connectionState == ConnectionState.waiting)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: CircularProgressIndicator(color: AppColors.primaryPurpleLight),
+                      ),
+                    )
+                  else if (list.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.person_outline_rounded,
+                              size: 36, color: AppColors.textMuted),
+                          SizedBox(height: 8),
+                          Text(
+                            'Not following anyone yet',
+                            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(context).size.height * 0.45,
+                      ),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: list.length,
+                        separatorBuilder: (_, __) =>
+                            const Divider(color: Colors.white12, height: 1),
+                        itemBuilder: (context, idx) {
+                          final u = list[idx];
+                          final uName = u['name']?.toString() ?? 'Player';
+                          final uTag = u['tag']?.toString() ?? '@gamer';
+                          final uLevel = (u['level'] as num?)?.toInt() ?? 1;
+                          final uPhoto = u['profilePhoto']?.toString();
+                          final initial = uName.isNotEmpty ? uName[0].toUpperCase() : 'P';
+
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                            leading: CircleAvatar(
+                              backgroundColor: AppColors.primaryPurple,
+                              backgroundImage: (uPhoto != null && uPhoto.isNotEmpty)
+                                  ? NetworkImage(uPhoto)
+                                  : null,
+                              child: (uPhoto == null || uPhoto.isEmpty)
+                                  ? Text(initial,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold, color: Colors.white))
+                                  : null,
+                            ),
+                            title: Text(uName,
+                                style: const TextStyle(
+                                    color: Colors.white, fontWeight: FontWeight.bold)),
+                            subtitle: Text('$uTag • Level $uLevel',
+                                style: const TextStyle(
+                                    color: AppColors.textSecondary, fontSize: 12)),
+                            onTap: () {
+                              Navigator.of(ctx).pop();
+                              UserProfileDialog.show(
+                                context,
+                                name: uName,
+                                tag: uTag,
+                                profilePhoto: uPhoto,
+                                avatarColor: AppColors.primaryPurple,
+                                level: uLevel,
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

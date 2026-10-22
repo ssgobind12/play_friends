@@ -89,7 +89,7 @@ class AwsStorageService {
             'profilePhoto': u['profilePhoto'],
             'followersCount': 0,
             'followingCount': 0,
-            'visitorsCount': 10,
+            'visitorsCount': 0,
           });
         }
       }
@@ -135,7 +135,7 @@ class AwsStorageService {
                     'profilePhoto': item['profilePhoto'],
                     'followersCount': item['followersCount'] ?? 0,
                     'followingCount': item['followingCount'] ?? 0,
-                    'visitorsCount': item['visitorsCount'] ?? 10,
+                    'visitorsCount': item['visitorsCount'] ?? 0,
                   });
                 }
               }
@@ -1159,7 +1159,7 @@ class AwsStorageService {
     return true;
   }
 
-  /// Get comprehensive room state (members, seats, music, deletion status)
+  /// Get comprehensive room state (members, seats, music, deletion status, chat messages, kicked users)
   static Future<({
     bool success,
     bool roomDeleted,
@@ -1168,6 +1168,8 @@ class AwsStorageService {
     List<dynamic> seats,
     Map<String, dynamic>? currentSong,
     int currentPlayers,
+    List<Map<String, dynamic>> chatMessages,
+    List<String> kickedUsers,
   })> getRoomState(String roomIdOrCode) async {
     if (mockMode) {
       final r = _cloudRooms.firstWhere(
@@ -1192,6 +1194,8 @@ class AwsStorageService {
         seats: [],
         currentSong: null,
         currentPlayers: m.length,
+        chatMessages: <Map<String, dynamic>>[],
+        kickedUsers: <String>[],
       );
     }
 
@@ -1230,6 +1234,12 @@ class AwsStorageService {
                 ? Map<String, dynamic>.from(data['currentSong'])
                 : null;
             final count = data['currentPlayers'] is int ? data['currentPlayers'] as int : membersList.length;
+            final chatList = data['chatMessages'] is List
+                ? (data['chatMessages'] as List).cast<Map<String, dynamic>>()
+                : <Map<String, dynamic>>[];
+            final kickedList = data['kickedUsers'] is List
+                ? (data['kickedUsers'] as List).map((x) => x.toString()).toList()
+                : <String>[];
 
             return (
               success: true,
@@ -1239,6 +1249,8 @@ class AwsStorageService {
               seats: seatsList,
               currentSong: currentSong,
               currentPlayers: count,
+              chatMessages: chatList,
+              kickedUsers: kickedList,
             );
           }
         } else if (response.statusCode == 404) {
@@ -1252,6 +1264,8 @@ class AwsStorageService {
             seats: [],
             currentSong: null,
             currentPlayers: 0,
+            chatMessages: <Map<String, dynamic>>[],
+            kickedUsers: <String>[],
           );
         }
       } catch (e) {
@@ -1267,6 +1281,8 @@ class AwsStorageService {
       seats: [],
       currentSong: null,
       currentPlayers: 0,
+      chatMessages: <Map<String, dynamic>>[],
+      kickedUsers: <String>[],
     );
   }
 
@@ -1599,6 +1615,237 @@ class AwsStorageService {
     }
 
     return List<Map<String, dynamic>>.from(_roomMembersMap[roomId] ?? []);
+  }
+
+  /// Kick / remove a user from room (authorized for host)
+  static Future<bool> kickUser({
+    required String roomId,
+    required String targetUserId,
+    required String hostId,
+  }) async {
+    if (mockMode) return true;
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'kickUser',
+                'roomId': roomId,
+                'targetUserId': targetUserId,
+                'hostId': hostId,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        return response.statusCode == 200;
+      } catch (e) {
+        debugPrint('AwsStorageService kickUser error: $e');
+      }
+    }
+    return false;
+  }
+
+  /// Send a persistent message to the voice room chat
+  static Future<bool> sendRoomMessage({
+    required String roomId,
+    required Map<String, dynamic> message,
+  }) async {
+    if (mockMode) return true;
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'sendRoomMessage',
+                'roomId': roomId,
+                'message': message,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        return response.statusCode == 200;
+      } catch (e) {
+        debugPrint('AwsStorageService sendRoomMessage error: $e');
+      }
+    }
+    return false;
+  }
+
+  /// Clear all persistent room messages (authorized for host)
+  static Future<bool> clearRoomChat({
+    required String roomId,
+    required String hostId,
+  }) async {
+    if (mockMode) return true;
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'clearRoomChat',
+                'roomId': roomId,
+                'hostId': hostId,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        return response.statusCode == 200;
+      } catch (e) {
+        debugPrint('AwsStorageService clearRoomChat error: $e');
+      }
+    }
+    return false;
+  }
+
+  /// Send gift to recipient: deducts sender coins and increments recipient coins on server
+  static Future<Map<String, dynamic>> sendGift({
+    required String senderId,
+    required String senderName,
+    required String recipientId,
+    required int coins,
+    required String giftName,
+    required String giftIcon,
+  }) async {
+    if (mockMode) {
+      return {'success': true, 'coinsAwarded': coins};
+    }
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'sendGift',
+                'senderId': senderId,
+                'senderName': senderName,
+                'recipientId': recipientId,
+                'coins': coins,
+                'giftName': giftName,
+                'giftIcon': giftIcon,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 5));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data is Map) {
+            return Map<String, dynamic>.from(data);
+          }
+        }
+      } catch (e) {
+        debugPrint('AwsStorageService sendGift error: $e');
+      }
+    }
+
+    return {'success': false};
+  }
+
+  /// Get real-time notifications for a user (follower alerts, gifts received)
+  static Future<List<Map<String, dynamic>>> getNotifications(String userIdOrEmail) async {
+    if (mockMode) return [];
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'getNotifications',
+                'userId': userIdOrEmail,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data is Map && data['notifications'] is List) {
+            return (data['notifications'] as List).cast<Map<String, dynamic>>();
+          }
+        }
+      } catch (e) {
+        debugPrint('AwsStorageService getNotifications error: $e');
+      }
+    }
+    return [];
+  }
+
+  /// Clear or mark read all notifications for a user
+  static Future<bool> markNotificationsRead(String userIdOrEmail) async {
+    if (mockMode) return true;
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'markNotificationsRead',
+                'userId': userIdOrEmail,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        return response.statusCode == 200;
+      } catch (e) {
+        debugPrint('AwsStorageService markNotificationsRead error: $e');
+      }
+    }
+    return false;
   }
 
   /// Send a 1-on-1 direct message between mutual friends

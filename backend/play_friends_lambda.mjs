@@ -1,5 +1,5 @@
 // =============================================================================
-// Play Friends - Authoritative Production AWS Lambda Handler (Node.js 20.x ESM)
+// Play Friends - Authoritative Production AWS Lambda Handler (Node.js 20.x)
 // Table: PlayFriends_Users (Primary Key: Email [String])
 // Region: ap-southeast-2 (Sydney)
 // Single-Table Architecture: Users, Rooms, Seats, Songs, & Direct Messages
@@ -201,7 +201,8 @@ export const handler = async (event) => {
                 following: [],
                 followersCount: 0,
                 followingCount: 0,
-                visitorsCount: 10,
+                visitorsCount: 0,
+                notifications: [],
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
@@ -355,7 +356,7 @@ export const handler = async (event) => {
                     profilePhoto: u.profilePhoto || null,
                     followersCount: Array.isArray(u.followers) ? u.followers.length : (u.followersCount || 0),
                     followingCount: Array.isArray(u.following) ? u.following.length : (u.followingCount || 0),
-                    visitorsCount: u.visitorsCount || 10,
+                    visitorsCount: (typeof u.visitorsCount === 'number') ? u.visitorsCount : 0,
                     createdAt: u.createdAt || new Date().toISOString()
                 }));
 
@@ -397,7 +398,7 @@ export const handler = async (event) => {
                     profilePhoto: u.profilePhoto || null,
                     followersCount: Array.isArray(u.followers) ? u.followers.length : (u.followersCount || 0),
                     followingCount: Array.isArray(u.following) ? u.following.length : (u.followingCount || 0),
-                    visitorsCount: u.visitorsCount || 10
+                    visitorsCount: (typeof u.visitorsCount === 'number') ? u.visitorsCount : 0
                 }));
 
             return makeResponse(200, matches);
@@ -428,11 +429,12 @@ export const handler = async (event) => {
                 const itemEmail = (item.email || item.Email || "").toLowerCase();
                 const itemTag = (item.tag || item.gamerTag || "").toLowerCase().replace(/^@/, "");
                 const itemId = (item.userId || item.id || "").toLowerCase();
+                const itemName = (item.name || "").toLowerCase().trim();
 
-                if (!followerUser && (itemEmail === followerId || itemId === followerId || itemTag === followerId.replace(/^@/, ""))) {
+                if (!followerUser && (itemEmail === followerId || itemId === followerId || itemTag === followerId.replace(/^@/, "") || itemName === followerId)) {
                     followerUser = item;
                 }
-                if (!targetUser && (itemEmail === targetId || itemId === targetId || itemTag === targetId)) {
+                if (!targetUser && (itemEmail === targetId || itemId === targetId || itemTag === targetId || itemName === targetId)) {
                     targetUser = item;
                 }
             }
@@ -453,6 +455,21 @@ export const handler = async (event) => {
                 if (!targetFollowers.includes(followerKey)) {
                     targetFollowers.push(followerKey);
                 }
+                // Push notification to targetUser
+                const notifs = Array.isArray(targetUser.notifications) ? [...targetUser.notifications] : [];
+                notifs.unshift({
+                    id: `notif_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                    type: "follow",
+                    title: "New Follower! 👤",
+                    message: `${followerUser ? followerUser.name : (body.followerName || followerId)} started following you!`,
+                    senderName: followerUser ? followerUser.name : (body.followerName || followerId),
+                    senderTag: followerUser ? (followerUser.tag || followerUser.gamerTag) : "",
+                    senderId: followerUser ? (followerUser.userId || followerUser.id) : followerId,
+                    senderPhoto: followerUser ? followerUser.profilePhoto : null,
+                    createdAt: new Date().toISOString(),
+                    isRead: false
+                });
+                targetUser.notifications = notifs.slice(0, 50);
             } else {
                 const idx = targetFollowers.indexOf(followerKey);
                 if (idx !== -1) targetFollowers.splice(idx, 1);
@@ -521,7 +538,8 @@ export const handler = async (event) => {
                 const email = (u.email || u.Email || "").toLowerCase();
                 const id = (u.userId || u.id || "").toLowerCase();
                 const tag = (u.tag || u.gamerTag || "").toLowerCase().replace(/^@/, "");
-                return email === rawId || id === rawId || tag === rawId;
+                const name = (u.name || "").toLowerCase().trim();
+                return email === rawId || id === rawId || tag === rawId || name === rawId;
             });
 
             if (!target) {
@@ -537,7 +555,8 @@ export const handler = async (event) => {
                     const email = (u.email || u.Email || "").toLowerCase();
                     const id = (u.userId || u.id || "").toLowerCase();
                     const tag = (u.tag || u.gamerTag || "").toLowerCase().replace(/^@/, "");
-                    return email === kLower || id === kLower || tag === kLower;
+                    const name = (u.name || "").toLowerCase().trim();
+                    return email === kLower || id === kLower || tag === kLower || name === kLower;
                 });
                 if (match) {
                     resultList.push({
@@ -572,14 +591,16 @@ export const handler = async (event) => {
                 const email = (u.email || u.Email || "").toLowerCase();
                 const id = (u.userId || u.id || "").toLowerCase();
                 const tag = (u.tag || u.gamerTag || "").toLowerCase().replace(/^@/, "");
-                return email === currentId || id === currentId || tag === currentId;
+                const name = (u.name || "").toLowerCase().trim();
+                return email === currentId || id === currentId || tag === currentId || name === currentId;
             });
 
             const targetUser = items.find(u => {
                 const email = (u.email || u.Email || "").toLowerCase();
                 const id = (u.userId || u.id || "").toLowerCase();
                 const tag = (u.tag || u.gamerTag || "").toLowerCase().replace(/^@/, "");
-                return email === targetId || id === targetId || tag === targetId;
+                const name = (u.name || "").toLowerCase().trim();
+                return email === targetId || id === targetId || tag === targetId || name === targetId;
             });
 
             let isFollowing = false;
@@ -590,6 +611,7 @@ export const handler = async (event) => {
                     (currentUser.userId || "").toLowerCase(),
                     (currentUser.id || "").toLowerCase(),
                     (currentUser.email || currentUser.Email || "").toLowerCase(),
+                    (currentUser.name || "").toLowerCase().trim(),
                     (currentUser.tag || currentUser.gamerTag || "").toLowerCase().replace(/^@/, "")
                 ].filter(Boolean);
 
@@ -597,6 +619,7 @@ export const handler = async (event) => {
                     (targetUser.userId || "").toLowerCase(),
                     (targetUser.id || "").toLowerCase(),
                     (targetUser.email || targetUser.Email || "").toLowerCase(),
+                    (targetUser.name || "").toLowerCase().trim(),
                     (targetUser.tag || targetUser.gamerTag || "").toLowerCase().replace(/^@/, "")
                 ].filter(Boolean);
 
@@ -614,6 +637,135 @@ export const handler = async (event) => {
                 isFollowing,
                 isFollowedBy,
                 isMutual: isFollowing && isFollowedBy
+            });
+        }
+
+        // ---------------------------------------------------------------------
+        // 12B. NOTIFICATIONS: GET & CLEAR
+        // ---------------------------------------------------------------------
+        if (action === "getNotifications") {
+            const rawId = (body.userId || body.email || body.tag || "").toLowerCase().trim().replace(/^@/, "");
+            const scanResult = await docClient.send(new ScanCommand({
+                TableName: TABLE_USERS,
+                Limit: 250
+            }));
+            const items = (scanResult.Items || []).filter(u => !u.entityType || u.entityType === "USER");
+            const target = items.find(u => {
+                const email = (u.email || u.Email || "").toLowerCase();
+                const id = (u.userId || u.id || "").toLowerCase();
+                const tag = (u.tag || u.gamerTag || "").toLowerCase().replace(/^@/, "");
+                const name = (u.name || "").toLowerCase().trim();
+                return email === rawId || id === rawId || tag === rawId || name === rawId;
+            });
+
+            return makeResponse(200, {
+                success: true,
+                notifications: (target && Array.isArray(target.notifications)) ? target.notifications : []
+            });
+        }
+
+        if (action === "markNotificationsRead" || action === "clearNotifications") {
+            const rawId = (body.userId || body.email || body.tag || "").toLowerCase().trim().replace(/^@/, "");
+            const scanResult = await docClient.send(new ScanCommand({
+                TableName: TABLE_USERS,
+                Limit: 250
+            }));
+            const items = (scanResult.Items || []).filter(u => !u.entityType || u.entityType === "USER");
+            const target = items.find(u => {
+                const email = (u.email || u.Email || "").toLowerCase();
+                const id = (u.userId || u.id || "").toLowerCase();
+                const tag = (u.tag || u.gamerTag || "").toLowerCase().replace(/^@/, "");
+                const name = (u.name || "").toLowerCase().trim();
+                return email === rawId || id === rawId || tag === rawId || name === rawId;
+            });
+
+            if (target) {
+                target.notifications = [];
+                target.Email = target.Email || target.email;
+                target.updatedAt = new Date().toISOString();
+                await docClient.send(new PutCommand({
+                    TableName: TABLE_USERS,
+                    Item: target
+                }));
+            }
+            return makeResponse(200, { success: true });
+        }
+
+        // ---------------------------------------------------------------------
+        // 12C. GIFTING: DEDUCT SENDER, RECIPIENT COIN INCREASE & NOTIFICATION
+        // ---------------------------------------------------------------------
+        if (action === "sendGift") {
+            const senderId = (body.senderId || body.senderEmail || "").toLowerCase().trim();
+            const recipientId = (body.recipientId || body.recipientName || body.recipientTag || "").toLowerCase().trim().replace(/^@/, "");
+            const coins = parseInt(body.coins || body.cost || 0, 10);
+            const giftName = body.giftName || "Gift";
+            const giftIcon = body.giftIcon || "🎁";
+
+            if (coins <= 0) {
+                return makeResponse(400, { success: false, error: "coins must be greater than 0." });
+            }
+
+            const scanResult = await docClient.send(new ScanCommand({
+                TableName: TABLE_USERS,
+                Limit: 250
+            }));
+            const items = (scanResult.Items || []).filter(u => !u.entityType || u.entityType === "USER");
+
+            let senderUser = items.find(u => {
+                const email = (u.email || u.Email || "").toLowerCase();
+                const id = (u.userId || u.id || "").toLowerCase();
+                const tag = (u.tag || u.gamerTag || "").toLowerCase().replace(/^@/, "");
+                const name = (u.name || "").toLowerCase().trim();
+                return email === senderId || id === senderId || tag === senderId || name === senderId;
+            });
+
+            let recipientUser = items.find(u => {
+                const email = (u.email || u.Email || "").toLowerCase();
+                const id = (u.userId || u.id || "").toLowerCase();
+                const tag = (u.tag || u.gamerTag || "").toLowerCase().replace(/^@/, "");
+                const name = (u.name || "").toLowerCase().trim();
+                return email === recipientId || id === recipientId || tag === recipientId || name === recipientId;
+            });
+
+            if (recipientUser) {
+                recipientUser.coins = (parseInt(recipientUser.coins || 0, 10)) + coins;
+                const notifs = Array.isArray(recipientUser.notifications) ? [...recipientUser.notifications] : [];
+                notifs.unshift({
+                    id: `notif_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                    type: "gift",
+                    title: "Gift Received! 🎁",
+                    message: `${senderUser ? senderUser.name : (body.senderName || "A friend")} sent you ${giftIcon} ${giftName} (+${coins} coins)!`,
+                    coins: coins,
+                    senderName: senderUser ? senderUser.name : (body.senderName || "A friend"),
+                    giftName: giftName,
+                    giftIcon: giftIcon,
+                    createdAt: new Date().toISOString(),
+                    isRead: false
+                });
+                recipientUser.notifications = notifs.slice(0, 50);
+                recipientUser.Email = recipientUser.Email || recipientUser.email;
+                recipientUser.updatedAt = new Date().toISOString();
+                await docClient.send(new PutCommand({
+                    TableName: TABLE_USERS,
+                    Item: recipientUser
+                }));
+            }
+
+            if (senderUser) {
+                senderUser.coins = Math.max(0, (parseInt(senderUser.coins || 0, 10)) - coins);
+                senderUser.Email = senderUser.Email || senderUser.email;
+                senderUser.updatedAt = new Date().toISOString();
+                await docClient.send(new PutCommand({
+                    TableName: TABLE_USERS,
+                    Item: senderUser
+                }));
+            }
+
+            return makeResponse(200, {
+                success: true,
+                coinsAwarded: coins,
+                senderCoins: senderUser ? senderUser.coins : undefined,
+                recipientCoins: recipientUser ? recipientUser.coins : undefined
             });
         }
 
@@ -699,29 +851,196 @@ export const handler = async (event) => {
         }
 
         if (action === "deleteRoom") {
-            const roomId = (body.roomId || body.id || "").toString();
+            const roomId = (body.roomId || body.id || body.roomCode || "").toString();
             if (roomId) {
-                // Delete or mark deleted
                 const cleanKey = roomId.startsWith("ROOM#") ? roomId : `ROOM#${roomId}`;
                 try {
-                    await docClient.send(new PutCommand({
-                        TableName: TABLE_USERS,
-                        Item: {
-                            Email: cleanKey,
-                            id: roomId,
-                            entityType: "ROOM",
-                            isDeleted: true,
-                            updatedAt: new Date().toISOString()
-                        }
-                    }));
-                } catch (e) {
                     await docClient.send(new DeleteCommand({
                         TableName: TABLE_USERS,
                         Key: { Email: cleanKey }
                     }));
-                }
+                } catch (e) {}
+
+                try {
+                    const scanResult = await docClient.send(new ScanCommand({
+                        TableName: TABLE_USERS,
+                        Limit: 150
+                    }));
+                    const cleanCode = roomId.replace(/^PF-/i, "").toLowerCase();
+                    for (const r of (scanResult.Items || [])) {
+                        if (r.entityType === "ROOM" || (r.Email && r.Email.startsWith("ROOM#"))) {
+                            const rId = (r.id || "").toString().toLowerCase();
+                            const rCode = (r.roomCode || "").toString().replace(/^PF-/i, "").toLowerCase();
+                            if (rId === roomId.toLowerCase() || rCode === cleanCode || r.Email === cleanKey) {
+                                try {
+                                    await docClient.send(new DeleteCommand({
+                                        TableName: TABLE_USERS,
+                                        Key: { Email: r.Email }
+                                    }));
+                                } catch (err) {}
+                            }
+                        }
+                    }
+                } catch (err) {}
             }
             return makeResponse(200, { success: true, message: "Room deleted successfully" });
+        }
+
+        // ---------------------------------------------------------------------
+        // 13B. ROOM MODERATION & PERSISTENT CHAT: KICK USER, SEND/CLEAR CHAT
+        // ---------------------------------------------------------------------
+        if (action === "kickUser") {
+            const rawId = (body.roomId || body.id || body.roomCode || "").toString();
+            const targetId = (body.targetUserId || body.targetUserName || "").toString().toLowerCase().trim();
+            const cleanKey = rawId.startsWith("ROOM#") ? rawId : `ROOM#${rawId}`;
+
+            let roomItem = null;
+            try {
+                const getResult = await docClient.send(new GetCommand({
+                    TableName: TABLE_USERS,
+                    Key: { Email: cleanKey }
+                }));
+                roomItem = getResult.Item;
+            } catch (e) {}
+
+            if (!roomItem) {
+                const scanResult = await docClient.send(new ScanCommand({
+                    TableName: TABLE_USERS,
+                    Limit: 150
+                }));
+                const cleanCode = rawId.replace(/^PF-/i, "").toLowerCase();
+                roomItem = (scanResult.Items || []).find(r => {
+                    const rId = (r.id || "").toString().toLowerCase();
+                    const rCode = (r.roomCode || "").toString().replace(/^PF-/i, "").toLowerCase();
+                    return rId === rawId.toLowerCase() || rCode === cleanCode;
+                });
+            }
+
+            if (roomItem) {
+                const kicked = Array.isArray(roomItem.kickedUsers) ? [...roomItem.kickedUsers] : [];
+                if (!kicked.includes(targetId)) kicked.push(targetId);
+                roomItem.kickedUsers = kicked;
+
+                // Remove from members
+                roomItem.members = (roomItem.members || []).filter(m => {
+                    const mId = (m.userId || m.id || "").toString().toLowerCase();
+                    const mName = (m.name || "").toString().toLowerCase();
+                    return mId !== targetId && mName !== targetId;
+                });
+
+                // Vacate seat
+                roomItem.seats = (roomItem.seats || []).map(s => {
+                    if (!s) return null;
+                    const sId = (s.userId || s.id || "").toString().toLowerCase();
+                    const sName = (s.userName || s.name || "").toString().toLowerCase();
+                    if (sId === targetId || sName === targetId) return null;
+                    return s;
+                });
+
+                roomItem.Email = roomItem.Email || cleanKey;
+                roomItem.updatedAt = new Date().toISOString();
+                await docClient.send(new PutCommand({
+                    TableName: TABLE_USERS,
+                    Item: roomItem
+                }));
+                return makeResponse(200, { success: true, kickedUsers: roomItem.kickedUsers });
+            }
+            return makeResponse(404, { success: false, error: "Room not found" });
+        }
+
+        if (action === "sendRoomMessage") {
+            const rawId = (body.roomId || body.id || body.roomCode || "").toString();
+            const message = body.message;
+            if (!rawId || !message) {
+                return makeResponse(400, { success: false, error: "roomId and message are required" });
+            }
+
+            const cleanKey = rawId.startsWith("ROOM#") ? rawId : `ROOM#${rawId}`;
+            let roomItem = null;
+            try {
+                const getResult = await docClient.send(new GetCommand({
+                    TableName: TABLE_USERS,
+                    Key: { Email: cleanKey }
+                }));
+                roomItem = getResult.Item;
+            } catch (e) {}
+
+            if (!roomItem) {
+                const scanResult = await docClient.send(new ScanCommand({
+                    TableName: TABLE_USERS,
+                    Limit: 150
+                }));
+                const cleanCode = rawId.replace(/^PF-/i, "").toLowerCase();
+                roomItem = (scanResult.Items || []).find(r => {
+                    const rId = (r.id || "").toString().toLowerCase();
+                    const rCode = (r.roomCode || "").toString().replace(/^PF-/i, "").toLowerCase();
+                    return rId === rawId.toLowerCase() || rCode === cleanCode;
+                });
+            }
+
+            if (roomItem) {
+                const messages = Array.isArray(roomItem.chatMessages) ? [...roomItem.chatMessages] : [];
+                messages.push({
+                    id: message.id || `rmsg_${Date.now()}_${Math.random()}`,
+                    senderName: message.senderName || "Player",
+                    senderPhoto: message.senderPhoto || null,
+                    senderColor: message.senderColor || null,
+                    level: message.level || 1,
+                    message: message.message || "",
+                    time: message.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    isGiftAnnouncement: message.isGiftAnnouncement === true,
+                    gift: message.gift || null,
+                    recipientName: message.recipientName || null,
+                    timestamp: Date.now()
+                });
+                roomItem.chatMessages = messages.slice(-100);
+                roomItem.Email = roomItem.Email || cleanKey;
+                roomItem.updatedAt = new Date().toISOString();
+                await docClient.send(new PutCommand({
+                    TableName: TABLE_USERS,
+                    Item: roomItem
+                }));
+                return makeResponse(200, { success: true, count: roomItem.chatMessages.length, messages: roomItem.chatMessages });
+            }
+            return makeResponse(404, { success: false, error: "Room not found" });
+        }
+
+        if (action === "clearRoomChat") {
+            const rawId = (body.roomId || body.id || body.roomCode || "").toString();
+            const cleanKey = rawId.startsWith("ROOM#") ? rawId : `ROOM#${rawId}`;
+            let roomItem = null;
+            try {
+                const getResult = await docClient.send(new GetCommand({
+                    TableName: TABLE_USERS,
+                    Key: { Email: cleanKey }
+                }));
+                roomItem = getResult.Item;
+            } catch (e) {}
+
+            if (!roomItem) {
+                const scanResult = await docClient.send(new ScanCommand({
+                    TableName: TABLE_USERS,
+                    Limit: 150
+                }));
+                const cleanCode = rawId.replace(/^PF-/i, "").toLowerCase();
+                roomItem = (scanResult.Items || []).find(r => {
+                    const rId = (r.id || "").toString().toLowerCase();
+                    const rCode = (r.roomCode || "").toString().replace(/^PF-/i, "").toLowerCase();
+                    return rId === rawId.toLowerCase() || rCode === cleanCode;
+                });
+            }
+
+            if (roomItem) {
+                roomItem.chatMessages = [];
+                roomItem.Email = roomItem.Email || cleanKey;
+                roomItem.updatedAt = new Date().toISOString();
+                await docClient.send(new PutCommand({
+                    TableName: TABLE_USERS,
+                    Item: roomItem
+                }));
+                return makeResponse(200, { success: true });
+            }
+            return makeResponse(404, { success: false, error: "Room not found" });
         }
 
         // ---------------------------------------------------------------------
@@ -769,7 +1088,9 @@ export const handler = async (event) => {
                 members: roomItem.members || [],
                 seats: roomItem.seats || [],
                 currentSong: roomItem.currentSong || null,
-                currentPlayers: (roomItem.members || []).length
+                currentPlayers: (roomItem.members || []).length,
+                chatMessages: roomItem.chatMessages || [],
+                kickedUsers: roomItem.kickedUsers || []
             });
         }
 
@@ -1167,3 +1488,4 @@ export const handler = async (event) => {
         });
     }
 };
+

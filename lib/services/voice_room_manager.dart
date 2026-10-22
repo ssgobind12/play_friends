@@ -103,37 +103,90 @@ class VoiceRoomManager extends ChangeNotifier {
   bool get activeRoomWasDeleted => _activeRoomWasDeleted;
   void clearRoomDeletedFlag() => _activeRoomWasDeleted = false;
 
+  // Flag set when user is kicked/removed by host
+  bool _kickedFromRoom = false;
+  bool get kickedFromRoom => _kickedFromRoom;
+  void clearKickedFlag() => _kickedFromRoom = false;
+
+  List<Map<String, dynamic>> _activeRoomMessages = [];
+  List<Map<String, dynamic>> get activeRoomMessages =>
+      List.unmodifiable(_activeRoomMessages);
+
   Set<String> get followedRoomCodes => Set.unmodifiable(_followedRoomCodes);
   Set<String> get followedUsers => Set.unmodifiable(_followedUsers);
   Set<String> get userFollowers => Set.unmodifiable(_userFollowers);
 
   bool isFollowingRoom(String roomCode) =>
       _followedRoomCodes.contains(roomCode);
-  bool isFollowingUser(String userName) => _followedUsers.contains(userName);
-  bool isFollowedByUser(String userName) => _userFollowers.contains(userName);
 
-  /// Direct chat is unlocked only when both users follow each other!
-  bool isMutualFollow(String userName) =>
-      isFollowingUser(userName) && isFollowedByUser(userName);
+  bool isFollowingUser(String query) {
+    final clean = query.trim().toLowerCase().replaceAll('@', '');
+    if (clean.isEmpty) return false;
+    for (final u in _followedUsers) {
+      if (u.trim().toLowerCase().replaceAll('@', '') == clean) return true;
+    }
+    final friends = AuthService().friends;
+    for (final f in friends) {
+      if (f.name.trim().toLowerCase() == clean ||
+          f.tag.trim().toLowerCase().replaceAll('@', '') == clean) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool isFollowedByUser(String query) {
+    final clean = query.trim().toLowerCase().replaceAll('@', '');
+    if (clean.isEmpty) return false;
+    for (final u in _userFollowers) {
+      if (u.trim().toLowerCase().replaceAll('@', '') == clean) return true;
+    }
+    final friends = AuthService().friends;
+    for (final f in friends) {
+      if ((f.name.trim().toLowerCase() == clean ||
+              f.tag.trim().toLowerCase().replaceAll('@', '') == clean) &&
+          f.statusText.contains('Mutual')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Direct chat is unlocked when both users follow each other or have mutual badge!
+  bool isMutualFollow(String userName) {
+    final clean = userName.trim().toLowerCase().replaceAll('@', '');
+    if (clean.isEmpty) return false;
+
+    final friends = AuthService().friends;
+    for (final f in friends) {
+      if ((f.name.trim().toLowerCase() == clean ||
+              f.tag.trim().toLowerCase().replaceAll('@', '') == clean) &&
+          f.statusText.contains('Mutual')) {
+        return true;
+      }
+    }
+
+    return isFollowingUser(userName) && isFollowedByUser(userName);
+  }
 
   int getRoomFollowers(String roomCode) {
-    return _roomFollowerCounts[roomCode] ?? 120;
+    return _roomFollowerCounts[roomCode] ?? 0;
   }
 
   int getUserFollowers(String userName) {
-    return _userFollowerCounts[userName] ?? 100;
+    return _userFollowerCounts[userName] ?? 0;
   }
 
   int getUserFollowing(String userName) {
-    return _userFollowingCounts[userName] ?? 25;
+    return _userFollowingCounts[userName] ?? 0;
   }
 
   int getUserVisitors(String userName) {
-    return _userVisitorCounts[userName] ?? 350;
+    return _userVisitorCounts[userName] ?? 0;
   }
 
   void toggleFollowRoom(String roomCode) {
-    final current = _roomFollowerCounts[roomCode] ?? 120;
+    final current = _roomFollowerCounts[roomCode] ?? 0;
     if (_followedRoomCodes.contains(roomCode)) {
       _followedRoomCodes.remove(roomCode);
       _roomFollowerCounts[roomCode] = max(0, current - 1);
@@ -151,7 +204,7 @@ class VoiceRoomManager extends ChangeNotifier {
     Color? avatarColor,
     int? level,
   }) async {
-    final current = _userFollowerCounts[userName] ?? 100;
+    final current = _userFollowerCounts[userName] ?? 0;
     final isNowFollowing = !_followedUsers.contains(userName);
 
     if (!isNowFollowing) {
@@ -221,8 +274,19 @@ class VoiceRoomManager extends ChangeNotifier {
       for (final f in followers) {
         final fName = f['name']?.toString() ?? '';
         final fId = f['id']?.toString() ?? '';
-        if (fName.isNotEmpty) _userFollowers.add(fName);
-        if (fId.isNotEmpty) _userFollowers.add(fId);
+        final fTag = f['tag']?.toString() ?? '';
+        if (fName.isNotEmpty) {
+          _userFollowers.add(fName);
+          _userFollowers.add(fName.toLowerCase());
+        }
+        if (fId.isNotEmpty) {
+          _userFollowers.add(fId);
+          _userFollowers.add(fId.toLowerCase());
+        }
+        if (fTag.isNotEmpty) {
+          _userFollowers.add(fTag);
+          _userFollowers.add(fTag.toLowerCase().replaceAll('@', ''));
+        }
       }
       _userFollowerCounts[currentUser.name] = followers.length;
 
@@ -231,8 +295,19 @@ class VoiceRoomManager extends ChangeNotifier {
       for (final g in following) {
         final gName = g['name']?.toString() ?? '';
         final gId = g['id']?.toString() ?? '';
-        if (gName.isNotEmpty) _followedUsers.add(gName);
-        if (gId.isNotEmpty) _followedUsers.add(gId);
+        final gTag = g['tag']?.toString() ?? '';
+        if (gName.isNotEmpty) {
+          _followedUsers.add(gName);
+          _followedUsers.add(gName.toLowerCase());
+        }
+        if (gId.isNotEmpty) {
+          _followedUsers.add(gId);
+          _followedUsers.add(gId.toLowerCase());
+        }
+        if (gTag.isNotEmpty) {
+          _followedUsers.add(gTag);
+          _followedUsers.add(gTag.toLowerCase().replaceAll('@', ''));
+        }
       }
       _userFollowingCounts[currentUser.name] = following.length;
 
@@ -413,6 +488,28 @@ class VoiceRoomManager extends ChangeNotifier {
             return;
           }
 
+          // Check if current user was kicked/removed from room by host
+          final currentUser = AuthService().currentUser;
+          final myId = (currentUser?.id ?? '').toLowerCase();
+          final myName = (currentUser?.name ?? '').toLowerCase();
+          final isKicked = state.kickedUsers.any((k) {
+            final kLower = k.toLowerCase().trim();
+            return kLower == myId || kLower == myName;
+          });
+
+          if (isKicked) {
+            _kickedFromRoom = true;
+            _roomSyncTimer?.cancel();
+            _roomSyncTimer = null;
+            _activeRoom = null;
+            _activeRoomMembers.clear();
+            _micSeats.clear();
+            _syncedRoomSong = null;
+            InAppMusicService().pauseMusic();
+            notifyListeners();
+            return;
+          }
+
           if (state.success) {
             bool changed = false;
             if (state.room != null && (state.room!.gameTitle != _activeRoom!.gameTitle || state.room!.hostName != _activeRoom!.hostName)) {
@@ -426,6 +523,10 @@ class VoiceRoomManager extends ChangeNotifier {
             }
             if (state.seats.isNotEmpty) {
               _micSeats = state.seats;
+              changed = true;
+            }
+            if (state.chatMessages.isNotEmpty) {
+              _activeRoomMessages = state.chatMessages;
               changed = true;
             }
             if (state.currentSong != null) {

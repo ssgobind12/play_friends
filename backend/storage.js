@@ -742,7 +742,7 @@ class Storage {
           following: u.following || [],
           followersCount: Array.isArray(u.followers) ? u.followers.length : (u.followersCount ?? 0),
           followingCount: Array.isArray(u.following) ? u.following.length : (u.followingCount ?? 0),
-          visitorsCount: u.visitorsCount ?? 15
+          visitorsCount: u.visitorsCount ?? 0
         });
       }
     }

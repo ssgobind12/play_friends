@@ -28,7 +28,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
     super.initState();
     _rooms = List.from(AuthService().activeRooms);
     _refreshRooms();
-    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+    _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       _refreshRooms();
     });
   }

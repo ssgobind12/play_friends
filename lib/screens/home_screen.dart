@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/aws_storage_service.dart';
 import '../services/backend_api_service.dart';
 import '../services/voice_room_manager.dart';
 import '../theme/app_theme.dart';
@@ -28,11 +30,207 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   List<Map<String, dynamic>> _searchResults = [];
   bool _isSearching = false;
+  int _unreadNotificationsCount = 0;
+  List<Map<String, dynamic>> _notifications = [];
+  Timer? _notifTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchNotifications();
+    _notifTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      _fetchNotifications();
+    });
+  }
 
   @override
   void dispose() {
+    _notifTimer?.cancel();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchNotifications() async {
+    final user = AuthService().currentUser;
+    if (user == null) return;
+    try {
+      final list = await AwsStorageService.getNotifications(user.id);
+      if (mounted) {
+        setState(() {
+          _notifications = list;
+          _unreadNotificationsCount = list.where((n) => n['isRead'] != true).length;
+        });
+      }
+    } catch (_) {}
+  }
+
+  void _showNotificationsDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1B4B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.notifications_active_rounded,
+                              color: AppColors.coinAmber, size: 22),
+                          SizedBox(width: 8),
+                          Text(
+                            'Notifications',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_notifications.isNotEmpty)
+                        TextButton(
+                          onPressed: () async {
+                            final user = AuthService().currentUser;
+                            if (user != null) {
+                              await AwsStorageService.markNotificationsRead(user.id);
+                            }
+                            if (mounted) {
+                              setState(() {
+                                _notifications.clear();
+                                _unreadNotificationsCount = 0;
+                              });
+                            }
+                            setModalState(() {});
+                          },
+                          child: const Text('Clear All',
+                              style: TextStyle(color: AppColors.accentCyan)),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (_notifications.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 36),
+                      child: const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.notifications_off_outlined,
+                              size: 40, color: AppColors.textMuted),
+                          SizedBox(height: 10),
+                          Text(
+                            'No new notifications right now',
+                            style: TextStyle(
+                                color: AppColors.textSecondary, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(context).size.height * 0.45,
+                      ),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: _notifications.length,
+                        separatorBuilder: (_, __) =>
+                            const Divider(color: Colors.white12, height: 1),
+                        itemBuilder: (context, idx) {
+                          final n = _notifications[idx];
+                          final isFollow = n['type'] == 'follow';
+                          final isGift = n['type'] == 'gift';
+                          final title = n['title']?.toString() ??
+                              (isFollow
+                                  ? 'New Follower! 👤'
+                                  : 'Gift Received! 🎁');
+                          final message = n['message']?.toString() ?? '';
+                          final senderName =
+                              n['senderName']?.toString() ?? 'Player';
+                          final senderTag = n['senderTag']?.toString();
+
+                          return ListTile(
+                            contentPadding:
+                                const EdgeInsets.symmetric(vertical: 4),
+                            leading: CircleAvatar(
+                              backgroundColor: isGift
+                                  ? AppColors.coinAmber.withValues(alpha: 0.2)
+                                  : AppColors.primaryPurple
+                                      .withValues(alpha: 0.3),
+                              child: Icon(
+                                isGift
+                                    ? Icons.card_giftcard_rounded
+                                    : Icons.person_add_rounded,
+                                color: isGift
+                                    ? AppColors.coinAmber
+                                    : AppColors.accentCyan,
+                                size: 20,
+                              ),
+                            ),
+                            title: Text(
+                              title,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13),
+                            ),
+                            subtitle: Text(
+                              message,
+                              style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 11.5),
+                            ),
+                            trailing: isFollow
+                                ? ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.primaryPurple,
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 6),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    onPressed: () {
+                                      VoiceRoomManager().toggleFollowUser(
+                                        senderName,
+                                        tag: senderTag,
+                                      );
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                              'Following back $senderName! ⭐'),
+                                          duration:
+                                              const Duration(seconds: 1),
+                                        ),
+                                      );
+                                    },
+                                    child: const Text('Follow Back',
+                                        style: TextStyle(fontSize: 11)),
+                                  )
+                                : null,
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _performSearch(String query) async {
@@ -294,6 +492,47 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ],
                           ),
+                        ),
+                        const SizedBox(width: 4),
+                        // Notification Bell with Badge
+                        Stack(
+                          alignment: Alignment.topRight,
+                          children: [
+                            IconButton(
+                              padding: const EdgeInsets.all(6),
+                              constraints: const BoxConstraints(),
+                              icon: const Icon(Icons.notifications_outlined,
+                                  size: 22),
+                              color: AppColors.coinAmber,
+                              tooltip: 'Notifications',
+                              onPressed: _showNotificationsDialog,
+                            ),
+                            if (_unreadNotificationsCount > 0)
+                              Positioned(
+                                top: 4,
+                                right: 4,
+                                child: Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.dangerRose,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 14,
+                                    minHeight: 14,
+                                  ),
+                                  child: Text(
+                                    '$_unreadNotificationsCount',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                         const SizedBox(width: 4),
                         IconButton(
@@ -1082,8 +1321,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final level = (u['level'] as num?)?.toInt() ?? 1;
     final photo = u['profilePhoto']?.toString();
     final hasPhoto = photo != null && photo.isNotEmpty;
-    final followingCount = (u['followingCount'] as num?)?.toInt() ?? 5;
-    final visitorsCount = (u['visitorsCount'] as num?)?.toInt() ?? 20;
+    final followingCount = (u['followingCount'] as num?)?.toInt() ?? 0;
 
     return ListenableBuilder(
       listenable: VoiceRoomManager(),
@@ -1224,7 +1462,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        'Followers: $followersCount • Following: $followingCount • Visitors: $visitorsCount',
+                        'Followers: $followersCount • Following: $followingCount',
                         style: const TextStyle(
                             fontSize: 10, color: AppColors.textSecondary),
                       ),
