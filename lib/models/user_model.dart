@@ -24,10 +24,42 @@ class UserModel {
   final String role; // 'user' or 'admin' (strictly backend authorized)
   final String? sessionToken;
   final String? profilePhoto;
+  final String? gender;
+  final String? birthday;
+  final List<String> interests;
+  final String? education;
+  final String? school;
+  final String? occupation;
+  final String? spokenLanguages;
+  final String? aboutMe;
+  final String? sportsAnswer;
+  final String? musicAnswer;
+  final String? foodAnswer;
 
   /// Returns true only if the user has verified administrator role with a valid session token
   bool get isAdmin =>
       role == 'admin' && (sessionToken != null && sessionToken!.isNotEmpty);
+
+  /// Calculates profile completion percentage based on profile photo, personal info and Q&A answers
+  int get profileCompletionPercentage {
+    int filled = 0;
+    const total = 12;
+    if (profilePhoto != null && profilePhoto!.isNotEmpty) filled++;
+    if (gender != null && gender!.isNotEmpty) filled++;
+    if (name.isNotEmpty) filled++;
+    if (birthday != null && birthday!.isNotEmpty) filled++;
+    if (interests.isNotEmpty) filled++;
+    if (education != null && education!.isNotEmpty) filled++;
+    if (school != null && school!.isNotEmpty) filled++;
+    if (occupation != null && occupation!.isNotEmpty) filled++;
+    if (spokenLanguages != null && spokenLanguages!.isNotEmpty) filled++;
+    if (aboutMe != null && aboutMe!.isNotEmpty) filled++;
+    if (sportsAnswer != null && sportsAnswer!.isNotEmpty) filled++;
+    if (musicAnswer != null && musicAnswer!.isNotEmpty) filled++;
+    if (foodAnswer != null && foodAnswer!.isNotEmpty) filled++;
+    final pct = ((filled / total) * 100).round();
+    return pct.clamp(0, 100);
+  }
 
   const UserModel({
     required this.id,
@@ -52,6 +84,17 @@ class UserModel {
     this.role = 'user',
     this.sessionToken,
     this.profilePhoto,
+    this.gender = 'Male',
+    this.birthday = '1999-01-01',
+    this.interests = const [],
+    this.education,
+    this.school,
+    this.occupation,
+    this.spokenLanguages,
+    this.aboutMe,
+    this.sportsAnswer,
+    this.musicAnswer,
+    this.foodAnswer,
   });
 
   UserModel copyWith({
@@ -77,6 +120,17 @@ class UserModel {
     String? sessionToken,
     String? profilePhoto,
     bool clearProfilePhoto = false,
+    String? gender,
+    String? birthday,
+    List<String>? interests,
+    String? education,
+    String? school,
+    String? occupation,
+    String? spokenLanguages,
+    String? aboutMe,
+    String? sportsAnswer,
+    String? musicAnswer,
+    String? foodAnswer,
   }) {
     return UserModel(
       id: id,
@@ -102,6 +156,17 @@ class UserModel {
       sessionToken: sessionToken ?? this.sessionToken,
       profilePhoto:
           clearProfilePhoto ? null : (profilePhoto ?? this.profilePhoto),
+      gender: gender ?? this.gender,
+      birthday: birthday ?? this.birthday,
+      interests: interests ?? this.interests,
+      education: education ?? this.education,
+      school: school ?? this.school,
+      occupation: occupation ?? this.occupation,
+      spokenLanguages: spokenLanguages ?? this.spokenLanguages,
+      aboutMe: aboutMe ?? this.aboutMe,
+      sportsAnswer: sportsAnswer ?? this.sportsAnswer,
+      musicAnswer: musicAnswer ?? this.musicAnswer,
+      foodAnswer: foodAnswer ?? this.foodAnswer,
     );
   }
 
@@ -129,6 +194,17 @@ class UserModel {
       'role': role,
       'sessionToken': sessionToken,
       'profilePhoto': profilePhoto,
+      'gender': gender,
+      'birthday': birthday,
+      'interests': interests,
+      'education': education,
+      'school': school,
+      'occupation': occupation,
+      'spokenLanguages': spokenLanguages,
+      'aboutMe': aboutMe,
+      'sportsAnswer': sportsAnswer,
+      'musicAnswer': musicAnswer,
+      'foodAnswer': foodAnswer,
     };
   }
 
@@ -174,6 +250,19 @@ class UserModel {
       role: validatedRole,
       sessionToken: rawToken,
       profilePhoto: map['profilePhoto']?.toString(),
+      gender: map['gender']?.toString() ?? 'Male',
+      birthday: map['birthday']?.toString() ?? '1999-01-01',
+      interests: (map['interests'] is List)
+          ? (map['interests'] as List).cast<String>()
+          : const [],
+      education: map['education']?.toString(),
+      school: map['school']?.toString(),
+      occupation: map['occupation']?.toString(),
+      spokenLanguages: map['spokenLanguages']?.toString(),
+      aboutMe: map['aboutMe']?.toString(),
+      sportsAnswer: map['sportsAnswer']?.toString(),
+      musicAnswer: map['musicAnswer']?.toString(),
+      foodAnswer: map['foodAnswer']?.toString(),
     );
   }
 }

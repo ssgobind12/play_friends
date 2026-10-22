@@ -34,7 +34,7 @@ void main() {
       final auth = AuthService();
       // Simulate existing user with @player
       auth.addRegisteredUserForTesting(
-        UserModel(
+        const UserModel(
           id: 'u_player_1',
           name: 'Player One',
           tag: '@player',

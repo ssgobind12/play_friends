@@ -4,6 +4,8 @@ import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/country_picker_dialog.dart';
 import '../widgets/otp_verification_view.dart';
+import 'privacy_policy_screen.dart';
+import 'terms_of_use_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -655,16 +657,63 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             onChanged: (val) =>
                                 setState(() => _agreeGuidelines = val ?? true),
                           ),
-                          const Expanded(
+                          Expanded(
                             child: Padding(
-                              padding: EdgeInsets.only(top: 8),
-                              child: Text(
-                                'I agree to the Fair Play & 100% Non-Gambling Community Terms (no real money betting or paid features).',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.textSecondary,
-                                  height: 1.3,
-                                ),
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  const Text(
+                                    'I agree to ',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                            builder: (_) =>
+                                                const TermsOfUseScreen()),
+                                      );
+                                    },
+                                    child: const Text(
+                                      'Terms of use',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primaryBlueLight,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                  ),
+                                  const Text(
+                                    ' and ',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                            builder: (_) =>
+                                                const PrivacyPolicyScreen()),
+                                      );
+                                    },
+                                    child: const Text(
+                                      'Privacy policy',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.accentCyan,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),

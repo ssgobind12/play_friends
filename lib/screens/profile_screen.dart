@@ -6,6 +6,8 @@ import '../services/game_sound_service.dart';
 import '../services/phone_media_picker_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/music_player_sheet.dart';
+import 'account_edit_screen.dart';
+import 'settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -82,9 +84,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
               if (user != null && !user.isGuest)
                 IconButton(
                   icon: const Icon(Icons.edit_note_rounded),
-                  tooltip: 'Edit Profile',
-                  onPressed: () => _showEditProfileDialog(context, user),
+                  tooltip: 'Edit Profile & Account',
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                          builder: (_) => const AccountEditScreen()),
+                    );
+                  },
                 ),
+              IconButton(
+                icon: const Icon(Icons.settings_outlined, color: Colors.white),
+                tooltip: 'Settings',
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                  );
+                },
+              ),
             ],
           ),
           body: SafeArea(
@@ -613,6 +629,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                         ),
+                        // Prominent Settings Tile
+                        ListTile(
+                          leading: const Icon(Icons.settings_suggest_rounded,
+                              color: AppColors.primaryPurpleLight),
+                          title: const Text(
+                            'Account & App Settings',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: const Text(
+                            'Account info, privacy, language, cache, terms & policy',
+                            style: TextStyle(
+                                color: AppColors.textSecondary, fontSize: 13),
+                          ),
+                          trailing: const Icon(Icons.arrow_forward_ios_rounded,
+                              size: 14),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                  builder: (_) => const SettingsScreen()),
+                            );
+                          },
+                        ),
+                        const Divider(
+                            height: 1, indent: 56, color: AppColors.cardBorder),
                         // Direct access to Music Store & Upload
                         ListTile(
                           leading: const Icon(Icons.music_note_rounded,

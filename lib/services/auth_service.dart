@@ -329,6 +329,19 @@ class AuthService extends ChangeNotifier {
     _registeredUsers.add(user);
   }
 
+  void setCurrentUserForTesting(UserModel? user) {
+    _currentUser = user;
+    if (user != null) {
+      final idx = _registeredUsers.indexWhere((u) => u.id == user.id);
+      if (idx == -1) {
+        _registeredUsers.add(user);
+      } else {
+        _registeredUsers[idx] = user;
+      }
+    }
+    notifyListeners();
+  }
+
   String? validateRegistrationDetails({
     required String name,
     required String tag,
@@ -746,6 +759,53 @@ class AuthService extends ChangeNotifier {
   }
 
   /// Permanently deletes only the active user's own account and all associated data everywhere
+  /// Update extended account profile attributes (gender, birthday, interests, education, etc.)
+  void updateExtendedProfile({
+    String? name,
+    String? gender,
+    String? birthday,
+    List<String>? interests,
+    String? education,
+    String? school,
+    String? occupation,
+    String? spokenLanguages,
+    String? aboutMe,
+    String? sportsAnswer,
+    String? musicAnswer,
+    String? foodAnswer,
+  }) {
+    if (_currentUser == null) return;
+    final cleanName = (name != null && name.trim().isNotEmpty)
+        ? name.trim()
+        : _currentUser!.name;
+    final initial = cleanName.isNotEmpty
+        ? cleanName[0].toUpperCase()
+        : _currentUser!.avatarInitial;
+
+    _currentUser = _currentUser!.copyWith(
+      name: cleanName,
+      avatarInitial: initial,
+      gender: gender ?? _currentUser!.gender,
+      birthday: birthday ?? _currentUser!.birthday,
+      interests: interests ?? _currentUser!.interests,
+      education: education ?? _currentUser!.education,
+      school: school ?? _currentUser!.school,
+      occupation: occupation ?? _currentUser!.occupation,
+      spokenLanguages: spokenLanguages ?? _currentUser!.spokenLanguages,
+      aboutMe: aboutMe ?? _currentUser!.aboutMe,
+      sportsAnswer: sportsAnswer ?? _currentUser!.sportsAnswer,
+      musicAnswer: musicAnswer ?? _currentUser!.musicAnswer,
+      foodAnswer: foodAnswer ?? _currentUser!.foodAnswer,
+    );
+
+    final idx = _registeredUsers.indexWhere((u) => u.id == _currentUser!.id);
+    if (idx != -1) {
+      _registeredUsers[idx] = _currentUser!;
+    }
+    _persistState();
+    notifyListeners();
+  }
+
   bool deleteCurrentUser() {
     if (_currentUser == null) return false;
     final currentUserId = _currentUser!.id;
