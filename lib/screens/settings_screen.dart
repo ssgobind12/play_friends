@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
 import 'account_edit_screen.dart';
 import 'privacy_policy_screen.dart';
+import 'registered_users_screen.dart';
 import 'terms_of_use_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -48,7 +49,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Column(
             children: [
-              // Group 1: Account, Match switch, Privacy
+              // Group 1: Account, Match switch, Privacy, Registered Players
               _buildSettingsTile(
                 icon: Icons.person_outline_rounded,
                 title: 'Account',
@@ -56,6 +57,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                         builder: (_) => const AccountEditScreen()),
+                  );
+                },
+              ),
+              _buildSettingsTile(
+                icon: Icons.people_outline_rounded,
+                title: 'Registered Players Directory',
+                valueText: 'View All',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (_) => const RegisteredUsersScreen()),
                   );
                 },
               ),

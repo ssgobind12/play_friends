@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:play_friends/models/user_model.dart';
 import 'package:play_friends/screens/account_edit_screen.dart';
 import 'package:play_friends/screens/privacy_policy_screen.dart';
+import 'package:play_friends/screens/registered_users_screen.dart';
 import 'package:play_friends/screens/settings_screen.dart';
 import 'package:play_friends/screens/terms_of_use_screen.dart';
 import 'package:play_friends/services/auth_service.dart';
@@ -39,6 +40,7 @@ void main() {
 
       expect(find.text('Settings'), findsOneWidget);
       expect(find.text('Account'), findsOneWidget);
+      expect(find.text('Registered Players Directory'), findsOneWidget);
       expect(find.text('Match switch'), findsOneWidget);
       expect(find.text('Privacy'), findsOneWidget);
       expect(find.text('Notifications'), findsOneWidget);
@@ -183,6 +185,22 @@ void main() {
       expect(find.text('7. Account Deletion'), findsOneWidget);
       expect(find.text('8. Your Rights'), findsOneWidget);
       expect(find.text('playgamefriendes@gmail.com'), findsOneWidget);
+    });
+  });
+
+  group('Registered Users Screen Tests', () {
+    testWidgets('RegisteredUsersScreen renders player directory and search bar',
+        (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: RegisteredUsersScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Registered Players'), findsOneWidget);
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.textContaining('shubh'), findsWidgets);
     });
   });
 }
