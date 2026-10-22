@@ -47,31 +47,103 @@ class VoiceRoomManager extends ChangeNotifier {
   final Set<String> _roomAdmins = {};
   Set<String> get roomAdmins => Set.unmodifiable(_roomAdmins);
 
-  // Followed rooms and followed users
+  // Followed rooms and follower counts
   final Set<String> _followedRoomCodes = {'PF-8821'};
+  final Map<String, int> _roomFollowerCounts = {
+    'PF-8821': 342,
+    'PF-4912': 188,
+    'PF-1034': 415,
+  };
+
+  // Followed users (who current user is following)
   final Set<String> _followedUsers = {'Cutie 🍁', 'Kabir 👑', 'Aanya 🌸'};
+
+  // Followers of the current user (who follow current user)
+  final Set<String> _userFollowers = {
+    'Cutie 🍁',
+    'Kabir 👑',
+    'Aanya 🌸',
+    'Rohan 🎧'
+  };
+
+  // User stats (followers, following, visitors)
+  final Map<String, int> _userFollowerCounts = {
+    'Cutie 🍁': 142,
+    'Kabir 👑': 520,
+    'Aanya 🌸': 288,
+    'Rohan 🎧': 310,
+  };
+  final Map<String, int> _userFollowingCounts = {
+    'Cutie 🍁': 35,
+    'Kabir 👑': 89,
+    'Aanya 🌸': 42,
+    'Rohan 🎧': 65,
+  };
+  final Map<String, int> _userVisitorCounts = {
+    'Cutie 🍁': 840,
+    'Kabir 👑': 2140,
+    'Aanya 🌸': 1120,
+    'Rohan 🎧': 930,
+  };
 
   Set<String> get followedRoomCodes => Set.unmodifiable(_followedRoomCodes);
   Set<String> get followedUsers => Set.unmodifiable(_followedUsers);
+  Set<String> get userFollowers => Set.unmodifiable(_userFollowers);
 
   bool isFollowingRoom(String roomCode) =>
       _followedRoomCodes.contains(roomCode);
   bool isFollowingUser(String userName) => _followedUsers.contains(userName);
+  bool isFollowedByUser(String userName) => _userFollowers.contains(userName);
+
+  /// Direct chat is unlocked only when both users follow each other!
+  bool isMutualFollow(String userName) =>
+      isFollowingUser(userName) && isFollowedByUser(userName);
+
+  int getRoomFollowers(String roomCode) {
+    return _roomFollowerCounts[roomCode] ?? 120;
+  }
+
+  int getUserFollowers(String userName) {
+    return _userFollowerCounts[userName] ?? 100;
+  }
+
+  int getUserFollowing(String userName) {
+    return _userFollowingCounts[userName] ?? 25;
+  }
+
+  int getUserVisitors(String userName) {
+    return _userVisitorCounts[userName] ?? 350;
+  }
 
   void toggleFollowRoom(String roomCode) {
+    final current = _roomFollowerCounts[roomCode] ?? 120;
     if (_followedRoomCodes.contains(roomCode)) {
       _followedRoomCodes.remove(roomCode);
+      _roomFollowerCounts[roomCode] = max(0, current - 1);
     } else {
       _followedRoomCodes.add(roomCode);
+      _roomFollowerCounts[roomCode] = current + 1;
     }
     notifyListeners();
   }
 
   void toggleFollowUser(String userName) {
+    final current = _userFollowerCounts[userName] ?? 100;
     if (_followedUsers.contains(userName)) {
       _followedUsers.remove(userName);
+      _userFollowerCounts[userName] = max(0, current - 1);
     } else {
       _followedUsers.add(userName);
+      _userFollowerCounts[userName] = current + 1;
+    }
+    notifyListeners();
+  }
+
+  void setUserFollowsMe(String userName, bool follows) {
+    if (follows) {
+      _userFollowers.add(userName);
+    } else {
+      _userFollowers.remove(userName);
     }
     notifyListeners();
   }

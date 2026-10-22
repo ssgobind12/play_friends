@@ -402,15 +402,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                       const SizedBox(height: 14),
 
-                      // Gamer Tag
+                      // Gamer Tag (Auto-generated from Email ID — 1 ID = 1 Gamer Tag, zero duplicates)
                       TextFormField(
                         controller: _tagController,
-                        style: const TextStyle(color: Colors.white),
+                        readOnly: true,
+                        style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold),
                         decoration: InputDecoration(
-                          labelText: 'Gamer Tag / Username',
-                          hintText: '@alex_play or @striker99',
+                          labelText: 'Gamer Tag (Auto-Generated from Email ID)',
+                          hintText: '@gamer_tag (Auto-generated from email)',
+                          helperText:
+                              'One ID = One Unique Gamer Tag (Strictly No Duplicates)',
+                          helperStyle: const TextStyle(
+                              color: AppColors.accentCyan, fontSize: 11),
                           prefixIcon: const Icon(Icons.tag_rounded,
                               color: AppColors.primaryBlueLight),
+                          suffixIcon: const Tooltip(
+                            message:
+                                'Gamer Tag is automatically generated from your Email ID to guarantee 100% uniqueness.',
+                            child: Icon(Icons.lock_outline_rounded,
+                                size: 18, color: AppColors.accentCyan),
+                          ),
                           filled: true,
                           fillColor: AppColors.cardBg,
                           border: OutlineInputBorder(
@@ -418,7 +430,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         validator: (val) {
                           if (val == null || val.trim().length < 3) {
-                            return 'Gamer tag must be at least 3 characters.';
+                            return 'Enter email to generate your unique Gamer Tag.';
                           }
                           return null;
                         },
@@ -516,6 +528,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         style: const TextStyle(color: Colors.white),
+                        onChanged: (val) {
+                          if (val.trim().isNotEmpty) {
+                            final generatedTag =
+                                AuthService().generateUniqueTagFromEmail(val);
+                            if (_tagController.text != generatedTag) {
+                              setState(() {
+                                _tagController.text = generatedTag;
+                              });
+                            }
+                          }
+                        },
                         decoration: InputDecoration(
                           labelText: 'Email Address (OTP Sent Here)',
                           hintText: 'you@domain.com',

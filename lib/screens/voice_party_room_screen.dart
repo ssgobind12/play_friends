@@ -11,6 +11,8 @@ import '../services/privacy_filter_service.dart';
 import '../services/voice_room_manager.dart';
 import '../theme/app_theme.dart';
 import '../widgets/music_player_sheet.dart';
+import '../widgets/room_profile_dialog.dart';
+import '../widgets/user_profile_dialog.dart';
 import 'carrom_game_screen.dart';
 import 'ludo_game_screen.dart';
 import 'tic_tac_toe_screen.dart';
@@ -387,18 +389,18 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
         GameSoundService.buttonTap();
       } else {
         // Seat taken by another user
-        final occupant = _seats[seatIndex].userName!;
+        final seat = _seats[seatIndex];
+        final occupant = seat.userName!;
         final isHostMe = widget.room.hostName == user.name;
         if (isHostMe) {
           _showHostUserManageSheet(occupant, seatIndex);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                  'Mic Seat ${seatIndex + 1} is currently in use by $occupant'),
-              backgroundColor: AppColors.surfaceLight,
-              duration: const Duration(seconds: 1),
-            ),
+          UserProfileDialog.show(
+            context,
+            name: occupant,
+            profilePhoto: seat.userPhoto,
+            avatarColor: seat.userColor,
+            level: seat.level,
           );
         }
       }
@@ -425,6 +427,26 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
             const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.person_pin_rounded,
+                  color: AppColors.accentCyan),
+              title: const Text('View User Profile'),
+              subtitle: const Text(
+                  'Inspect followers, following, level & gifts',
+                  style:
+                      TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                final seat = _seats[seatIndex];
+                UserProfileDialog.show(
+                  context,
+                  name: targetUser,
+                  profilePhoto: seat.userPhoto,
+                  avatarColor: seat.userColor,
+                  level: seat.level,
+                );
+              },
+            ),
             ListTile(
               leading: Icon(
                 isAdmin
@@ -1301,103 +1323,107 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
             ),
             const SizedBox(width: 8),
 
-            // Host Profile Pill with Room Title and ID
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircleAvatar(
-                    radius: 13,
-                    backgroundColor: AppColors.primaryPurple,
-                    backgroundImage: hostImage,
-                    child: hostImage != null
-                        ? null
-                        : Text(
-                            widget.room.hostName.isNotEmpty
-                                ? widget.room.hostName[0]
-                                : 'H',
+            // Host Profile Pill with Room Title and ID (Tap to inspect Room Profile)
+            GestureDetector(
+              onTap: () => RoomProfileDialog.show(context, room: widget.room),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(20),
+                  border:
+                      Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircleAvatar(
+                      radius: 13,
+                      backgroundColor: AppColors.primaryPurple,
+                      backgroundImage: hostImage,
+                      child: hostImage != null
+                          ? null
+                          : Text(
+                              widget.room.hostName.isNotEmpty
+                                  ? widget.room.hostName[0]
+                                  : 'H',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  fontSize: 11),
+                            ),
+                    ),
+                    const SizedBox(width: 6),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 125),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.room.gameTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                                fontWeight: FontWeight.bold,
                                 color: Colors.white,
+                                fontWeight: FontWeight.bold,
                                 fontSize: 11),
                           ),
-                  ),
-                  const SizedBox(width: 6),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 125),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          widget.room.gameTitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 11),
-                        ),
-                        Text(
-                          'ID: ${widget.room.roomCode}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.7),
-                              fontSize: 9),
-                        ),
-                      ],
+                          Text(
+                            'ID: ${widget.room.roomCode}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.7),
+                                fontSize: 9),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  // Charm Score Badge
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.trophyGold.withValues(alpha: 0.25),
-                      borderRadius: BorderRadius.circular(8),
+                    const SizedBox(width: 4),
+                    // Charm Score Badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.trophyGold.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.emoji_events_rounded,
+                              size: 10, color: AppColors.trophyGold),
+                          const SizedBox(width: 2),
+                          Text(
+                            '$_charmPoints',
+                            style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.trophyGold),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.emoji_events_rounded,
-                            size: 10, color: AppColors.trophyGold),
-                        const SizedBox(width: 2),
-                        Text(
-                          '$_charmPoints',
-                          style: const TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.trophyGold),
-                        ),
-                      ],
+                    const SizedBox(width: 4),
+                    // Room Level Badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryPurple.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Lv.${LevelProgressionService.calculateLevel(_charmPoints)}',
+                        style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.accentCyan),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  // Room Level Badge
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryPurple.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'Lv.${LevelProgressionService.calculateLevel(_charmPoints)}',
-                      style: const TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.accentCyan),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
 
@@ -1933,15 +1959,22 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
             ),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: msg.senderColor,
-                  child: Text(
-                    msg.senderName.isNotEmpty ? msg.senderName[0] : 'U',
-                    style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white),
+                GestureDetector(
+                  onTap: () => UserProfileDialog.show(
+                    context,
+                    name: msg.senderName,
+                    avatarColor: msg.senderColor,
+                  ),
+                  child: CircleAvatar(
+                    radius: 14,
+                    backgroundColor: msg.senderColor,
+                    child: Text(
+                      msg.senderName.isNotEmpty ? msg.senderName[0] : 'U',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -2055,15 +2088,23 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 12,
-                backgroundColor: msg.senderColor,
-                child: Text(
-                  msg.senderName.isNotEmpty ? msg.senderName[0] : 'P',
-                  style: const TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white),
+              GestureDetector(
+                onTap: () => UserProfileDialog.show(
+                  context,
+                  name: msg.senderName,
+                  avatarColor: msg.senderColor,
+                  level: msg.level,
+                ),
+                child: CircleAvatar(
+                  radius: 12,
+                  backgroundColor: msg.senderColor,
+                  child: Text(
+                    msg.senderName.isNotEmpty ? msg.senderName[0] : 'P',
+                    style: const TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -2073,12 +2114,20 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
                   children: [
                     Row(
                       children: [
-                        Text(
-                          msg.senderName,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 11,
-                              color: Colors.white70),
+                        GestureDetector(
+                          onTap: () => UserProfileDialog.show(
+                            context,
+                            name: msg.senderName,
+                            avatarColor: msg.senderColor,
+                            level: msg.level,
+                          ),
+                          child: Text(
+                            msg.senderName,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                                color: Colors.white70),
+                          ),
                         ),
                         const SizedBox(width: 6),
                         Container(

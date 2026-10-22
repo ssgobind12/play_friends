@@ -3,6 +3,7 @@ import '../models/friend_model.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/friend_tile.dart';
+import '../widgets/user_profile_dialog.dart';
 import 'tic_tac_toe_screen.dart';
 
 class FriendsScreen extends StatefulWidget {
@@ -230,117 +231,12 @@ class _FriendsScreenState extends State<FriendsScreen>
   }
 
   void _showFriendProfile(BuildContext context, FriendModel friend) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              radius: 36,
-              backgroundColor: friend.avatarColor,
-              child: Text(
-                friend.initial,
-                style: const TextStyle(
-                    fontSize: 28,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(friend.name,
-                style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white)),
-            Text(friend.tag,
-                style: const TextStyle(color: AppColors.textSecondary)),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.cardBg,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  Column(
-                    children: [
-                      const Text('Level',
-                          style: TextStyle(
-                              color: AppColors.textSecondary, fontSize: 12)),
-                      Text('${friend.level}',
-                          style: const TextStyle(
-                              color: AppColors.trophyGold,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16)),
-                    ],
-                  ),
-                  Column(
-                    children: [
-                      const Text('Status',
-                          style: TextStyle(
-                              color: AppColors.textSecondary, fontSize: 12)),
-                      Text(friend.statusText,
-                          style: const TextStyle(
-                              color: AppColors.onlineGreen,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.dangerRose,
-                      side: const BorderSide(color: AppColors.dangerRose),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    onPressed: () {
-                      AuthService().removeFriend(friend.id);
-                      Navigator.of(ctx).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                            content:
-                                Text('Removed ${friend.name} from squad.')),
-                      );
-                    },
-                    child: const Text('Remove Friend'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryBlue,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    onPressed: () {
-                      Navigator.of(ctx).pop();
-                      Navigator.of(context).push(MaterialPageRoute(
-                          builder: (_) => const TicTacToeScreen()));
-                    },
-                    child: const Text('Challenge Duel',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
+    UserProfileDialog.show(
+      context,
+      name: friend.name,
+      tag: friend.tag,
+      avatarColor: friend.avatarColor,
+      level: friend.level,
     );
   }
 

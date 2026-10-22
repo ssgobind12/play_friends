@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../data/sample_data.dart';
 import '../models/chat_model.dart';
 import '../services/privacy_filter_service.dart';
+import '../services/voice_room_manager.dart';
 import '../theme/app_theme.dart';
+import '../widgets/user_profile_dialog.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -118,15 +120,26 @@ class _ChatScreenState extends State<ChatScreen>
                 padding: const EdgeInsets.all(14),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 24,
-                      backgroundColor: thread.iconColor,
-                      child: Icon(
-                        thread.isGroup
-                            ? Icons.groups_rounded
-                            : Icons.person_rounded,
-                        color: Colors.white,
-                        size: 24,
+                    GestureDetector(
+                      onTap: () {
+                        if (!thread.isGroup) {
+                          UserProfileDialog.show(
+                            context,
+                            name: thread.title,
+                            avatarColor: thread.iconColor,
+                          );
+                        }
+                      },
+                      child: CircleAvatar(
+                        radius: 24,
+                        backgroundColor: thread.iconColor,
+                        child: Icon(
+                          thread.isGroup
+                              ? Icons.groups_rounded
+                              : Icons.person_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -309,29 +322,67 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            CircleAvatar(
-              radius: 16,
-              backgroundColor: widget.thread.iconColor,
-              child: Icon(
-                widget.thread.isGroup
-                    ? Icons.groups_rounded
-                    : Icons.person_rounded,
-                size: 18,
-                color: Colors.white,
+        title: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            if (!widget.thread.isGroup) {
+              UserProfileDialog.show(
+                context,
+                name: widget.thread.title,
+                avatarColor: widget.thread.iconColor,
+              );
+            }
+          },
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: widget.thread.iconColor,
+                child: Icon(
+                  widget.thread.isGroup
+                      ? Icons.groups_rounded
+                      : Icons.person_rounded,
+                  size: 18,
+                  color: Colors.white,
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                widget.thread.title,
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                overflow: TextOverflow.ellipsis,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      widget.thread.title,
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (!widget.thread.isGroup)
+                      ListenableBuilder(
+                        listenable: VoiceRoomManager(),
+                        builder: (context, _) {
+                          final isMutual = VoiceRoomManager()
+                              .isMutualFollow(widget.thread.title);
+                          return Text(
+                            isMutual
+                                ? 'Mutual Followers ⭐'
+                                : 'Tap to inspect profile',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: isMutual
+                                  ? AppColors.onlineGreen
+                                  : AppColors.textSecondary,
+                            ),
+                          );
+                        },
+                      ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       body: SafeArea(
@@ -414,45 +465,156 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                 },
               ),
             ),
-            // Message Input Field
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: const BoxDecoration(
-                color: AppColors.surface,
-                border: Border(
-                    top: BorderSide(color: AppColors.cardBorder, width: 1)),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _msgController,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _sendMessage(),
-                      decoration: InputDecoration(
-                        hintText: 'Type a message...',
-                        hintStyle: const TextStyle(
-                            color: AppColors.textMuted, fontSize: 14),
-                        filled: true,
-                        fillColor: AppColors.cardBg,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide:
-                              const BorderSide(color: AppColors.cardBorder),
-                        ),
+            // Message Input Field (Direct chat is locked unless mutual follow)
+            ListenableBuilder(
+              listenable: VoiceRoomManager(),
+              builder: (context, _) {
+                final vm = VoiceRoomManager();
+                final isMutual = widget.thread.isGroup ||
+                    vm.isMutualFollow(widget.thread.title);
+                final isFollowing = vm.isFollowingUser(widget.thread.title);
+
+                if (!isMutual) {
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF1E1B4B),
+                      border: Border(
+                        top: BorderSide(color: Color(0xFF3B82F6), width: 1),
                       ),
                     ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.lock_rounded,
+                                color: AppColors.coinAmber, size: 16),
+                            SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                'Direct chat is available when both follow each other',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isFollowing
+                                    ? AppColors.surfaceLight
+                                    : AppColors.primaryPurple,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 8),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              icon: Icon(
+                                isFollowing
+                                    ? Icons.check_circle_rounded
+                                    : Icons.person_add_rounded,
+                                size: 15,
+                                color: isFollowing
+                                    ? AppColors.onlineGreen
+                                    : Colors.white,
+                              ),
+                              label: Text(
+                                isFollowing
+                                    ? 'Followed (Waiting for return follow)'
+                                    : '+ Follow ${widget.thread.title}',
+                                style: const TextStyle(
+                                    fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
+                              onPressed: () {
+                                vm.toggleFollowUser(widget.thread.title);
+                              },
+                            ),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.accentCyan,
+                                side: const BorderSide(
+                                    color: AppColors.accentCyan),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              icon: const Icon(Icons.person_rounded, size: 15),
+                              label: const Text('View Profile',
+                                  style: TextStyle(fontSize: 12)),
+                              onPressed: () {
+                                UserProfileDialog.show(
+                                  context,
+                                  name: widget.thread.title,
+                                  avatarColor: widget.thread.iconColor,
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                // Unlocked Message Input Field
+                return Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: const BoxDecoration(
+                    color: AppColors.surface,
+                    border: Border(
+                        top: BorderSide(color: AppColors.cardBorder, width: 1)),
                   ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.send_rounded),
-                    color: AppColors.primaryBlueLight,
-                    onPressed: _sendMessage,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _msgController,
+                          textInputAction: TextInputAction.send,
+                          onSubmitted: (_) => _sendMessage(),
+                          decoration: InputDecoration(
+                            hintText: 'Type a message...',
+                            hintStyle: const TextStyle(
+                                color: AppColors.textMuted, fontSize: 14),
+                            filled: true,
+                            fillColor: AppColors.cardBg,
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 10),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide:
+                                  const BorderSide(color: AppColors.cardBorder),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.send_rounded),
+                        color: AppColors.primaryBlueLight,
+                        onPressed: _sendMessage,
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             ),
           ],
         ),

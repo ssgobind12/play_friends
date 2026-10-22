@@ -288,6 +288,47 @@ class AuthService extends ChangeNotifier {
     return null; // Success
   }
 
+  /// Generates a strictly unique Gamer Tag from the user's email ID (1 Email ID = 1 Gamer Tag, zero duplicates).
+  String generateUniqueTagFromEmail(String email) {
+    final cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail.contains('@')) return '@gamer';
+
+    final prefix = cleanEmail.split('@').first;
+    // Keep letters, digits, and underscores
+    var cleanPrefix = prefix.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
+    cleanPrefix = cleanPrefix.replaceAll(RegExp(r'_+'), '_');
+    if (cleanPrefix.startsWith('_')) cleanPrefix = cleanPrefix.substring(1);
+    if (cleanPrefix.endsWith('_')) {
+      cleanPrefix = cleanPrefix.substring(0, cleanPrefix.length - 1);
+    }
+    if (cleanPrefix.length < 3) cleanPrefix = '${cleanPrefix}_play';
+    if (cleanPrefix.length > 15) cleanPrefix = cleanPrefix.substring(0, 15);
+
+    final candidate = '@${cleanPrefix.toLowerCase()}';
+
+    // If this email is already registered, return their existing tag
+    for (final u in _registeredUsers) {
+      if (u.email.toLowerCase() == cleanEmail) {
+        return u.tag.toLowerCase();
+      }
+    }
+
+    // Ensure zero duplicate gamer tags across all accounts
+    var finalTag = candidate;
+    var suffix = 1;
+    while (_registeredUsers.any((u) =>
+        u.tag.toLowerCase() == finalTag &&
+        u.email.toLowerCase() != cleanEmail)) {
+      finalTag = '$candidate$suffix';
+      suffix++;
+    }
+    return finalTag;
+  }
+
+  void addRegisteredUserForTesting(UserModel user) {
+    _registeredUsers.add(user);
+  }
+
   String? validateRegistrationDetails({
     required String name,
     required String tag,
