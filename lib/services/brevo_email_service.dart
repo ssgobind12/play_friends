@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../config/aws_config.dart';
 import '../config/brevo_config.dart';
 
 class EmailSendResult {
@@ -105,22 +106,67 @@ class BrevoEmailService {
         },
       };
 
-      // Helper to execute request with given apiKey and senderEmail
-      Future<http.Response> executeSend(String apiKey, String sender) {
+      // Helper to execute request with fresh client, Connection: close, retry, and AWS relay fallback
+      Future<http.Response> executeSend(String apiKey, String sender) async {
         final p = Map<String, dynamic>.from(payload);
         p['sender'] = {
           'name': BrevoConfig.senderName,
           'email': sender.trim(),
         };
-        return http.post(
-          Uri.parse(_brevoSmtpEndpoint),
-          headers: {
-            'accept': 'application/json',
-            'api-key': apiKey.trim(),
-            'content-type': 'application/json; charset=UTF-8',
-          },
-          body: jsonEncode(p),
-        );
+
+        // 1. Direct attempt with Connection: close and automatic retry for mobile cellular carriers
+        Exception? lastEx;
+        for (int attempt = 1; attempt <= 2; attempt++) {
+          final client = http.Client();
+          try {
+            final resp = await client.post(
+              Uri.parse(_brevoSmtpEndpoint),
+              headers: {
+                'accept': 'application/json',
+                'api-key': apiKey.trim(),
+                'content-type': 'application/json; charset=UTF-8',
+                'connection': 'close',
+              },
+              body: jsonEncode(p),
+            ).timeout(const Duration(seconds: 8));
+            return resp;
+          } catch (e) {
+            lastEx = e is Exception ? e : Exception(e.toString());
+            await Future.delayed(const Duration(milliseconds: 300));
+          } finally {
+            client.close();
+          }
+        }
+
+        // 2. Fallback: Relay through AWS Cloud Gateway if cellular carrier resets connection to api.brevo.com
+        if (AwsConfig.isConfigured) {
+          final client = http.Client();
+          try {
+            final awsResp = await client.post(
+              Uri.parse(AwsConfig.apiEndpoint),
+              headers: {
+                'content-type': 'application/json',
+                if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+                'connection': 'close',
+              },
+              body: jsonEncode({
+                'action': 'sendOtpEmail',
+                'payload': p,
+                'apiKey': apiKey.trim(),
+              }),
+            ).timeout(const Duration(seconds: 10));
+
+            if (awsResp.statusCode == 200 || awsResp.statusCode == 201) {
+              return awsResp;
+            }
+          } catch (e) {
+            debugPrint('AWS Brevo email relay failed: $e');
+          } finally {
+            client.close();
+          }
+        }
+
+        throw lastEx ?? Exception('Connection to email server failed.');
       }
 
       var response =

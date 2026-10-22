@@ -925,6 +925,31 @@ export const handler = async (event) => {
             return makeResponse(200, { success: true, songs: scanResult.Items || [] });
         }
 
+        // ---------------------------------------------------------------------
+        // 17. BREVO TRANSACTIONAL EMAIL RELAY (FOR CELLULAR CLIENTS)
+        // ---------------------------------------------------------------------
+        if (action === "sendOtpEmail" || action === "dispatchBrevoEmail") {
+            const p = body.payload || {};
+            const key = body.apiKey || "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";
+
+            try {
+                const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
+                    method: "POST",
+                    headers: {
+                        "accept": "application/json",
+                        "api-key": key,
+                        "content-type": "application/json"
+                    },
+                    body: JSON.stringify(p)
+                });
+
+                const data = await brevoRes.json();
+                return makeResponse(brevoRes.status, data);
+            } catch (err) {
+                return makeResponse(500, { success: false, error: err.message });
+            }
+        }
+
         return makeResponse(400, { error: "Unknown action: " + action });
     } catch (err) {
         return makeResponse(500, { error: err.message });
