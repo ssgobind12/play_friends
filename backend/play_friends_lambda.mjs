@@ -881,6 +881,28 @@ export const handler = async (event) => {
             return makeResponse(200, { success: true, message: "User deleted from server." });
         }
 
+        if (action === "deleteAllUsers" || action === "clearAllUsers") {
+            const scanResult = await docClient.send(new ScanCommand({
+                TableName: TABLE_USERS,
+                Limit: 250
+            }));
+            let deletedCount = 0;
+            for (const item of (scanResult.Items || [])) {
+                if (item.id) {
+                    await docClient.send(new DeleteCommand({
+                        TableName: TABLE_USERS,
+                        Key: { id: item.id }
+                    }));
+                    deletedCount++;
+                }
+            }
+            return makeResponse(200, {
+                success: true,
+                message: `Successfully deleted all ${deletedCount} users from AWS DynamoDB.`,
+                deletedCount
+            });
+        }
+
         // ---------------------------------------------------------------------
         // 16. SONGS
         // ---------------------------------------------------------------------
