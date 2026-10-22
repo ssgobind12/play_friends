@@ -1121,6 +1121,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   name: name,
                   tag: tag,
                   profilePhoto: photo,
+                  securityId: secId,
                   level: level,
                 ),
                 child: Stack(
@@ -1170,6 +1171,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     name: name,
                     tag: tag,
                     profilePhoto: photo,
+                    securityId: secId,
                     level: level,
                   ),
                   child: Column(

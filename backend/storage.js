@@ -557,13 +557,35 @@ class Storage {
 
   static isDemoRoom(room) {
     if (!room) return false;
-    const demoCodes = ['PF-8821', 'PF-2041', 'PF-5519', 'PF-3390', 'PF-1204', 'PF-7731', 'PF-9999'];
-    const demoHosts = ['Kabir 👑', 'Aanya ✨', 'Rohan 🚀', 'Priya 💖', 'Vikram ⚡', 'Brinda', 'SimplyChetana', 'Pragati', 'Alex Vance', 'Cutie'];
-    const demoTitles = ['Bollywood & Gaming', 'Late Night Jam', 'Pro Gamer Arena', 'Ludo Masters Club', 'Cyber Neon Arena'];
+    const code = (room.roomCode || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const id = (room.id || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const host = (room.hostName || '').toLowerCase();
+    const title = (room.gameTitle || '').toLowerCase();
 
-    if (demoCodes.includes(room.roomCode)) return true;
-    if (demoHosts.some(h => (room.hostName || '').includes(h))) return true;
-    if (demoTitles.some(t => (room.gameTitle || '').includes(t))) return true;
+    const demoNumbers = ['5050', '4912', '1034', '8821', '2041', '5519', '3390', '1204', '7731', '9999'];
+    for (const num of demoNumbers) {
+      if (code.includes(num) || id.includes(num)) return true;
+    }
+    if (id.includes('seed') || code.includes('seed')) return true;
+
+    const demoHostKeywords = [
+      'kabir', 'aanya', 'annya', 'anya', 'rohan', 'priya', 'vikram',
+      'brinda', 'simplychetana', 'chetana', 'pragati', 'alex vance',
+      'cutie', 'deepak', 'pooja', 'game friends'
+    ];
+    for (const h of demoHostKeywords) {
+      if (host.includes(h)) return true;
+    }
+
+    const demoTitleKeywords = [
+      'game friends', 'bollywood', 'ludo friends & gift', 'chill lounge & songs',
+      'late night jam', 'pro gamer arena', 'ludo masters club',
+      'cyber neon arena', 'mega chalo party'
+    ];
+    for (const t of demoTitleKeywords) {
+      if (title.includes(t)) return true;
+    }
+
     return false;
   }
 
@@ -693,8 +715,8 @@ class Storage {
     for (const u of allUsers) {
       const email = (u.email || '').toLowerCase();
       const name = (u.name || '').toLowerCase();
-      const tag = (u.gamerTag || '').toLowerCase().replace(/^@/, '');
-      const secId = (u.securityId || u.id || '').toLowerCase();
+      const tag = (u.gamerTag || u.tag || '').toLowerCase().replace(/^@/, '');
+      const secId = (u.securityId || u.userId || u.id || '').toLowerCase();
 
       if (
         tag === cleanQ ||
@@ -705,15 +727,16 @@ class Storage {
         email.startsWith(cleanQ) ||
         name.includes(cleanQ)
       ) {
+        const finalId = u.securityId || u.userId || u.id || `01${Math.floor(100000 + Math.random() * 900000)}`;
         matched.push({
-          id: u.id || u.securityId || `u_${email}`,
-          securityId: u.securityId || u.id || `PF-USR-${(email.length * 1337) % 9000 + 1000}`,
+          id: finalId,
+          securityId: finalId,
           name: u.name || 'Player',
-          gamerTag: u.gamerTag || `@${(u.name || 'player').toLowerCase().replace(/\s+/g, '_')}`,
+          gamerTag: u.gamerTag || u.tag || `@${(u.name || 'player').toLowerCase().replace(/\s+/g, '_')}`,
           email: u.email,
           level: u.level || 1,
           coins: u.coins || 500,
-          totalWins: u.totalWins || 0,
+          totalWins: u.totalWins || u.trophies || 0,
           profilePhoto: u.profilePhoto || null,
           followers: u.followers || [],
           following: u.following || [],

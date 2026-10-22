@@ -9,6 +9,7 @@ class UserProfileDialog extends StatelessWidget {
   final String name;
   final String tag;
   final String? profilePhoto;
+  final String? securityId;
   final Color avatarColor;
   final int level;
   final int xp;
@@ -19,6 +20,7 @@ class UserProfileDialog extends StatelessWidget {
     required this.name,
     required this.tag,
     this.profilePhoto,
+    this.securityId,
     required this.avatarColor,
     this.level = 1,
     this.xp = 0,
@@ -30,6 +32,7 @@ class UserProfileDialog extends StatelessWidget {
     required String name,
     String? tag,
     String? profilePhoto,
+    String? securityId,
     Color? avatarColor,
     int? level,
     int? xp,
@@ -45,6 +48,7 @@ class UserProfileDialog extends StatelessWidget {
         name: name,
         tag: cleanTag,
         profilePhoto: profilePhoto,
+        securityId: securityId,
         avatarColor: avatarColor ?? AppColors.primaryPurple,
         level: level ?? 1,
         xp: xp ?? 0,
@@ -260,6 +264,50 @@ class UserProfileDialog extends StatelessWidget {
                     color: AppColors.primaryBlueLight,
                   ),
                 ),
+
+                const SizedBox(height: 6),
+
+                // Security ID Chip
+                Builder(builder: (_) {
+                  final displayId = (securityId != null && securityId!.isNotEmpty)
+                      ? securityId!
+                      : (AuthService()
+                              .registeredUsers
+                              .where((u) => u.name == name || u.tag == tag)
+                              .map((u) => u.id)
+                              .firstOrNull ??
+                          '01----');
+
+                  return Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentCyan.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: AppColors.accentCyan.withValues(alpha: 0.35),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.security_rounded,
+                            size: 11, color: AppColors.accentCyan),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Security ID: $displayId',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.accentCyan,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
 
                 const SizedBox(height: 18),
 

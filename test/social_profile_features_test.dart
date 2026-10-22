@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:play_friends/models/room_model.dart';
 import 'package:play_friends/models/user_model.dart';
 import 'package:play_friends/services/auth_service.dart';
+import 'package:play_friends/services/backend_api_service.dart';
 import 'package:play_friends/services/voice_room_manager.dart';
 import 'package:play_friends/widgets/room_profile_dialog.dart';
 import 'package:play_friends/widgets/user_profile_dialog.dart';
@@ -135,6 +136,54 @@ void main() {
       );
       expect(RoomModel.isDemoRoom(demoRoom1), isTrue);
 
+      const demoRoom5050 = RoomModel(
+        id: 'r_seed_5050',
+        roomCode: '5050',
+        gameTitle: 'Game Friends Party',
+        hostName: 'Game Friends',
+        currentPlayers: 10,
+        maxPlayers: 100,
+        isPrivate: false,
+        status: 'live',
+      );
+      expect(RoomModel.isDemoRoom(demoRoom5050), isTrue);
+
+      const demoRoom4912 = RoomModel(
+        id: 'r_seed_2',
+        roomCode: 'PF-4912',
+        gameTitle: '🎲 Ludo Friends & Gift Party',
+        hostName: 'Aanya 🌸',
+        currentPlayers: 88,
+        maxPlayers: 150,
+        isPrivate: false,
+        status: 'live',
+      );
+      expect(RoomModel.isDemoRoom(demoRoom4912), isTrue);
+
+      const demoRoom1034 = RoomModel(
+        id: 'r_seed_3',
+        roomCode: 'pf1034',
+        gameTitle: '✨ Chill Lounge & Songs',
+        hostName: 'Rohan 🎧',
+        currentPlayers: 195,
+        maxPlayers: 500,
+        isPrivate: false,
+        status: 'live',
+      );
+      expect(RoomModel.isDemoRoom(demoRoom1034), isTrue);
+
+      const demoAnnya = RoomModel(
+        id: 'room_annya_live',
+        roomCode: 'PF-7722',
+        gameTitle: 'Singing with Annya',
+        hostName: 'annya',
+        currentPlayers: 20,
+        maxPlayers: 100,
+        isPrivate: false,
+        status: 'live',
+      );
+      expect(RoomModel.isDemoRoom(demoAnnya), isTrue);
+
       const realUserRoom = RoomModel(
         id: 'r_real_99',
         roomCode: 'PF-4421',
@@ -146,6 +195,53 @@ void main() {
         status: 'live',
       );
       expect(RoomModel.isDemoRoom(realUserRoom), isFalse);
+    });
+
+    test('Search players by security IDs 01883183 and 01215830', () async {
+      final auth = AuthService();
+      const user1 = UserModel(
+        id: '01883183',
+        name: 'Player One',
+        tag: '@player_one',
+        email: 'p1@playfriends.com',
+        phoneNumber: '+919876543210',
+        avatarColor: Colors.blue,
+        avatarInitial: 'P',
+        level: 5,
+        coins: 1200,
+        trophies: 10,
+        winRate: 0.7,
+        totalMatches: 20,
+      );
+      const user2 = UserModel(
+        id: '01215830',
+        name: 'Player Two',
+        tag: '@player_two',
+        email: 'p2@playfriends.com',
+        phoneNumber: '+919876543211',
+        avatarColor: Colors.purple,
+        avatarInitial: 'P',
+        level: 8,
+        coins: 2500,
+        trophies: 25,
+        winRate: 0.8,
+        totalMatches: 35,
+      );
+
+      auth.addRegisteredUserForTesting(user1);
+      auth.addRegisteredUserForTesting(user2);
+
+      final search1 = await BackendApiService().searchUsers('01883183');
+      expect(search1, isNotEmpty);
+      expect(search1.first['id'], equals('01883183'));
+      expect(search1.first['securityId'], equals('01883183'));
+      expect(search1.first['name'], equals('Player One'));
+
+      final search2 = await BackendApiService().searchUsers('01215830');
+      expect(search2, isNotEmpty);
+      expect(search2.first['id'], equals('01215830'));
+      expect(search2.first['securityId'], equals('01215830'));
+      expect(search2.first['name'], equals('Player Two'));
     });
 
     test('Room followers increment and decrement upon toggleFollowRoom', () {

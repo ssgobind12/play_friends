@@ -24,38 +24,70 @@ class RoomModel {
   });
 
   static bool isDemoRoom(RoomModel room) {
-    const demoCodes = [
-      'PF-8821',
-      'PF-2041',
-      'PF-5519',
-      'PF-3390',
-      'PF-1204',
-      'PF-7731',
-      'PF-9999'
-    ];
-    const demoHosts = [
-      'Kabir 👑',
-      'Aanya ✨',
-      'Rohan 🚀',
-      'Priya 💖',
-      'Vikram ⚡',
-      'Brinda',
-      'SimplyChetana',
-      'Pragati',
-      'Alex Vance',
-      'Cutie'
-    ];
-    const demoTitles = [
-      'Bollywood & Gaming',
-      'Late Night Jam',
-      'Pro Gamer Arena',
-      'Ludo Masters Club',
-      'Cyber Neon Arena'
-    ];
+    final code =
+        room.roomCode.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final id = room.id.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final host = room.hostName.toLowerCase();
+    final title = room.gameTitle.toLowerCase();
 
-    if (demoCodes.contains(room.roomCode)) return true;
-    if (demoHosts.any((h) => room.hostName.contains(h))) return true;
-    if (demoTitles.any((t) => room.gameTitle.contains(t))) return true;
+    // Check specific known demo room numbers/codes
+    const demoNumbers = [
+      '5050',
+      '4912',
+      '1034',
+      '8821',
+      '2041',
+      '5519',
+      '3390',
+      '1204',
+      '7731',
+      '9999',
+    ];
+    for (final num in demoNumbers) {
+      if (code.contains(num) || id.contains(num)) return true;
+    }
+
+    if (id.contains('seed') || code.contains('seed')) return true;
+
+    // Check fake/demo host keywords
+    const demoHostKeywords = [
+      'kabir',
+      'aanya',
+      'annya',
+      'anya',
+      'rohan',
+      'priya',
+      'vikram',
+      'brinda',
+      'simplychetana',
+      'chetana',
+      'pragati',
+      'alex vance',
+      'cutie',
+      'deepak',
+      'pooja',
+      'game friends',
+    ];
+    for (final h in demoHostKeywords) {
+      if (host.contains(h)) return true;
+    }
+
+    // Check fake/demo title keywords
+    const demoTitleKeywords = [
+      'game friends',
+      'bollywood',
+      'ludo friends & gift',
+      'chill lounge & songs',
+      'late night jam',
+      'pro gamer arena',
+      'ludo masters club',
+      'cyber neon arena',
+      'mega chalo party',
+    ];
+    for (final t in demoTitleKeywords) {
+      if (title.contains(t)) return true;
+    }
+
     return false;
   }
 

@@ -7,6 +7,7 @@ import '../config/brevo_config.dart';
 import '../models/room_model.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
+import '../services/aws_storage_service.dart';
 import '../services/brevo_email_service.dart';
 import '../services/local_storage_service.dart';
 import '../services/voice_room_manager.dart';
@@ -960,39 +961,7 @@ class BackendApiService {
   // ---------------------------------------------------------------------------
 
   static bool isDemoRoom(RoomModel room) {
-    const demoCodes = [
-      'PF-8821',
-      'PF-2041',
-      'PF-5519',
-      'PF-3390',
-      'PF-1204',
-      'PF-7731',
-      'PF-9999'
-    ];
-    const demoHosts = [
-      'Kabir 👑',
-      'Aanya ✨',
-      'Rohan 🚀',
-      'Priya 💖',
-      'Vikram ⚡',
-      'Brinda',
-      'SimplyChetana',
-      'Pragati',
-      'Alex Vance',
-      'Cutie'
-    ];
-    const demoTitles = [
-      'Bollywood & Gaming',
-      'Late Night Jam',
-      'Pro Gamer Arena',
-      'Ludo Masters Club',
-      'Cyber Neon Arena'
-    ];
-
-    if (demoCodes.contains(room.roomCode)) return true;
-    if (demoHosts.any((h) => room.hostName.contains(h))) return true;
-    if (demoTitles.any((t) => room.gameTitle.contains(t))) return true;
-    return false;
+    return RoomModel.isDemoRoom(room);
   }
 
   Future<List<RoomModel>> getRooms() async {
@@ -1081,32 +1050,57 @@ class BackendApiService {
     final cleanQ = query.trim();
     if (cleanQ.isEmpty) return [];
 
-    if (!isTestMode && BackendConfig.isConfigured) {
-      try {
-        final uri = Uri.parse(
-            '${BackendConfig.apiBaseUrl}/api/v1/users/search?q=${Uri.encodeComponent(cleanQ)}');
-        final response = await http.get(
-          uri,
-          headers: {
-            if (BackendConfig.apiKey.isNotEmpty)
-              'x-api-key': BackendConfig.apiKey,
-          },
-        ).timeout(const Duration(seconds: 4));
+    final results = <Map<String, dynamic>>[];
+    final seenIds = <String>{};
+    final qLower = cleanQ.toLowerCase().replaceAll('@', '');
 
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          if (data is List) {
-            return data.map((e) => Map<String, dynamic>.from(e)).toList();
-          }
+    // 1. Search AWS Cloud Storage (DynamoDB / API Gateway)
+    try {
+      final awsResults = await AwsStorageService.searchUsers(cleanQ);
+      for (final u in awsResults) {
+        final id = (u['id'] ?? u['securityId'] ?? u['userId'] ?? '').toString();
+        if (id.isNotEmpty && !seenIds.contains(id)) {
+          seenIds.add(id);
+          results.add(u);
         }
-      } catch (e) {
-        debugPrint('BackendApiService searchUsers error: $e');
+      }
+    } catch (e) {
+      debugPrint('searchUsers aws query error: $e');
+    }
+
+    // 2. Search currently logged in user
+    final current = AuthService().currentUser;
+    if (current != null) {
+      final cName = current.name.toLowerCase();
+      final cTag = current.tag.toLowerCase().replaceAll('@', '');
+      final cEmail = current.email.toLowerCase();
+      final cId = current.id.toLowerCase();
+
+      if (cId.contains(qLower) ||
+          cTag.contains(qLower) ||
+          cName.contains(qLower) ||
+          cEmail.contains(qLower)) {
+        if (!seenIds.contains(current.id)) {
+          seenIds.add(current.id);
+          results.add({
+            'id': current.id,
+            'securityId': current.id,
+            'name': current.name,
+            'gamerTag': current.tag,
+            'email': current.email,
+            'level': current.level,
+            'coins': current.coins,
+            'totalWins': current.totalWins,
+            'profilePhoto': current.profilePhoto,
+            'followersCount': VoiceRoomManager().getUserFollowers(current.name),
+            'followingCount': VoiceRoomManager().getUserFollowing(current.name),
+            'visitorsCount': VoiceRoomManager().getUserVisitors(current.name),
+          });
+        }
       }
     }
 
-    // Local / Offline search fallback
-    final results = <Map<String, dynamic>>[];
-    final qLower = cleanQ.toLowerCase().replaceAll('@', '');
+    // 3. Search local registered users
     for (final u in AuthService().registeredUsers) {
       final nameLower = u.name.toLowerCase();
       final tagLower = u.tag.toLowerCase().replaceAll('@', '');
@@ -1117,22 +1111,57 @@ class BackendApiService {
           idLower.contains(qLower) ||
           nameLower.contains(qLower) ||
           emailLower.contains(qLower)) {
-        results.add({
-          'id': u.id,
-          'securityId': 'PF-USR-${(u.email.length * 1337) % 9000 + 1000}',
-          'name': u.name,
-          'gamerTag': u.tag,
-          'email': u.email,
-          'level': u.level,
-          'coins': u.coins,
-          'totalWins': u.totalWins,
-          'profilePhoto': u.profilePhoto,
-          'followersCount': VoiceRoomManager().getUserFollowers(u.name),
-          'followingCount': VoiceRoomManager().getUserFollowing(u.name),
-          'visitorsCount': VoiceRoomManager().getUserVisitors(u.name),
-        });
+        if (!seenIds.contains(u.id)) {
+          seenIds.add(u.id);
+          results.add({
+            'id': u.id,
+            'securityId': u.id,
+            'name': u.name,
+            'gamerTag': u.tag,
+            'email': u.email,
+            'level': u.level,
+            'coins': u.coins,
+            'totalWins': u.totalWins,
+            'profilePhoto': u.profilePhoto,
+            'followersCount': VoiceRoomManager().getUserFollowers(u.name),
+            'followingCount': VoiceRoomManager().getUserFollowing(u.name),
+            'visitorsCount': VoiceRoomManager().getUserVisitors(u.name),
+          });
+        }
       }
     }
+
+    // 4. Search in-memory / mock server users
+    for (final u in _mockServerUsers.values) {
+      final nameLower = u.name.toLowerCase();
+      final tagLower = u.tag.toLowerCase().replaceAll('@', '');
+      final emailLower = u.email.toLowerCase();
+      final idLower = u.id.toLowerCase();
+
+      if (tagLower.contains(qLower) ||
+          idLower.contains(qLower) ||
+          nameLower.contains(qLower) ||
+          emailLower.contains(qLower)) {
+        if (!seenIds.contains(u.id)) {
+          seenIds.add(u.id);
+          results.add({
+            'id': u.id,
+            'securityId': u.id,
+            'name': u.name,
+            'gamerTag': u.tag,
+            'email': u.email,
+            'level': u.level,
+            'coins': u.coins,
+            'totalWins': u.trophies,
+            'profilePhoto': null,
+            'followersCount': VoiceRoomManager().getUserFollowers(u.name),
+            'followingCount': VoiceRoomManager().getUserFollowing(u.name),
+            'visitorsCount': VoiceRoomManager().getUserVisitors(u.name),
+          });
+        }
+      }
+    }
+
     return results;
   }
 

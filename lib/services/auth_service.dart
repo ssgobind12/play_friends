@@ -91,6 +91,8 @@ class AuthService extends ChangeNotifier {
                 _registeredUsers.indexWhere((u) => u.id == validation.user!.id);
             if (uIdx != -1) {
               _registeredUsers[uIdx] = validation.user!;
+            } else {
+              _registeredUsers.add(validation.user!);
             }
           }
         } catch (_) {}
@@ -100,18 +102,30 @@ class AuthService extends ChangeNotifier {
 
       final savedRooms = await LocalStorageService.loadActiveRooms();
       _activeRooms.clear();
-      _activeRooms.addAll(savedRooms.where((r) => !BackendApiService.isDemoRoom(r)));
+      _activeRooms.addAll(savedRooms.where((r) => !RoomModel.isDemoRoom(r)));
       LocalStorageService.saveActiveRooms(_activeRooms);
 
       await VoiceRoomManager().init();
 
       if (_currentUser != null) {
+        _syncCurrentUserToRegisteredUsers();
         await InAppMusicService().loadUserSongs(_currentUser!.id);
       }
     } catch (e) {
       debugPrint('AuthService init error: $e');
     }
     notifyListeners();
+  }
+
+  void _syncCurrentUserToRegisteredUsers() {
+    if (_currentUser == null) return;
+    final idx = _registeredUsers.indexWhere((u) => u.id == _currentUser!.id);
+    if (idx != -1) {
+      _registeredUsers[idx] = _currentUser!;
+    } else {
+      _registeredUsers.add(_currentUser!);
+    }
+    LocalStorageService.saveRegisteredUsers(_registeredUsers);
   }
 
   void _persistState() {
@@ -550,6 +564,7 @@ class AuthService extends ChangeNotifier {
     );
 
     _currentUser = guestUser;
+    _syncCurrentUserToRegisteredUsers();
     _persistState();
     notifyListeners();
   }

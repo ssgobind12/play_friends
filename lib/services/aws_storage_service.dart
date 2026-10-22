@@ -26,11 +26,112 @@ class AwsStorageService {
   // In-memory cache of registered users (persists during app runtime)
   static final List<Map<String, dynamic>> _cloudUserCache = [];
 
+  static List<Map<String, dynamic>> get cloudUserCache =>
+      List.unmodifiable(_cloudUserCache);
+
   /// Flag for unit tests and offline testing mode
   static bool mockMode = false;
 
   /// HTTP client for network operations (can be overridden for testing)
   static http.Client httpClient = http.Client();
+
+  /// Search users across AWS Cloud Storage (DynamoDB) and local cloud cache
+  static Future<List<Map<String, dynamic>>> searchUsers(String query) async {
+    final cleanQ = query.trim().toLowerCase();
+    if (cleanQ.isEmpty) return [];
+
+    final results = <Map<String, dynamic>>[];
+    final seenIds = <String>{};
+
+    // 1. Check local cloud user cache
+    for (final u in _cloudUserCache) {
+      final id = (u['id'] ?? u['userId'] ?? '').toString();
+      final tag = (u['tag'] ?? u['gamerTag'] ?? '')
+          .toString()
+          .toLowerCase()
+          .replaceAll('@', '');
+      final name = (u['name'] ?? '').toString().toLowerCase();
+      final email = (u['email'] ?? '').toString().toLowerCase();
+
+      final cleanRaw = cleanQ.replaceAll('@', '');
+      if (id.toLowerCase().contains(cleanRaw) ||
+          tag.contains(cleanRaw) ||
+          name.contains(cleanRaw) ||
+          email.contains(cleanRaw)) {
+        if (!seenIds.contains(id)) {
+          seenIds.add(id);
+          results.add({
+            'id': id,
+            'securityId': id,
+            'name': u['name'] ?? 'Player',
+            'gamerTag': u['tag'] ?? u['gamerTag'] ?? '@gamer',
+            'email': u['email'],
+            'level': u['level'] ?? 1,
+            'coins': u['coins'] ?? 500,
+            'totalWins': u['trophies'] ?? 0,
+            'profilePhoto': u['profilePhoto'],
+            'followersCount': 0,
+            'followingCount': 0,
+            'visitorsCount': 10,
+          });
+        }
+      }
+    }
+
+    // 2. Query AWS API Gateway if configured
+    if (AwsConfig.isConfigured && !mockMode) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final response = await httpClient
+            .post(
+              uri,
+              headers: {
+                'Content-Type': 'application/json',
+                if (AwsConfig.apiKey.isNotEmpty)
+                  'x-api-key': AwsConfig.apiKey.trim(),
+              },
+              body: jsonEncode({
+                'action': 'searchUsers',
+                'query': query.trim(),
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data is List) {
+            for (final item in data) {
+              if (item is Map) {
+                final id = (item['id'] ?? item['userId'] ?? '').toString();
+                if (!seenIds.contains(id)) {
+                  seenIds.add(id);
+                  results.add({
+                    'id': id,
+                    'securityId': id,
+                    'name': item['name'] ?? 'Player',
+                    'gamerTag': item['tag'] ?? item['gamerTag'] ?? '@player',
+                    'email': item['email'],
+                    'level': item['level'] ?? 1,
+                    'coins': item['coins'] ?? 500,
+                    'totalWins': item['totalWins'] ?? item['trophies'] ?? 0,
+                    'profilePhoto': item['profilePhoto'],
+                    'followersCount': item['followersCount'] ?? 0,
+                    'followingCount': item['followingCount'] ?? 0,
+                    'visitorsCount': item['visitorsCount'] ?? 10,
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('AwsStorageService searchUsers network error: $e');
+      }
+    }
+
+    return results;
+  }
 
   /// Check if an email or mobile number is already registered in AWS or local registry
   static Future<AwsCheckResult> checkUserExists({
@@ -600,6 +701,94 @@ exports.handler = async (event) => {
                 statusCode: 200,
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ success: true, songs: scanResult.Items || [] })
+            };
+        }
+        
+        if (action === "searchUsers") {
+            const raw = (body.query || body.q || "").toLowerCase().trim();
+            const cleanQ = raw.replace(/^@/, "");
+            if (!cleanQ) {
+                return {
+                    statusCode: 200,
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify([])
+                };
+            }
+            
+            const scanResult = await docClient.send(new ScanCommand({
+                TableName: TABLE_NAME,
+                Limit: 100
+            }));
+            
+            const matched = [];
+            for (const u of (scanResult.Items || [])) {
+                const uId = (u.userId || u.id || "").toLowerCase();
+                const uTag = (u.tag || u.gamerTag || "").toLowerCase().replace(/^@/, "");
+                const uName = (u.name || "").toLowerCase();
+                const uEmail = (u.email || "").toLowerCase();
+                
+                if (uId.includes(cleanQ) || uTag.includes(cleanQ) || uName.includes(cleanQ) || uEmail.includes(cleanQ)) {
+                    matched.push({
+                        id: u.userId || u.id || "01000000",
+                        userId: u.userId || u.id || "01000000",
+                        securityId: u.userId || u.id || "01000000",
+                        name: u.name || "Player",
+                        tag: u.tag || ("@" + (u.name || "player").toLowerCase().replace(/\\s+/g, "_")),
+                        gamerTag: u.tag || ("@" + (u.name || "player").toLowerCase().replace(/\\s+/g, "_")),
+                        email: u.email,
+                        level: u.level || 1,
+                        coins: u.coins || 500,
+                        trophies: u.trophies || 0,
+                        profilePhoto: u.profilePhoto || null,
+                        followersCount: Array.isArray(u.followers) ? u.followers.length : (u.followersCount || 0),
+                        followingCount: Array.isArray(u.following) ? u.following.length : (u.followingCount || 0),
+                        visitorsCount: u.visitorsCount || 10
+                    });
+                }
+            }
+            
+            return {
+                statusCode: 200,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(matched)
+            };
+        }
+        
+        if (action === "getRooms") {
+            const scanResult = await docClient.send(new ScanCommand({
+                TableName: TABLE_NAME + "_Rooms",
+                Limit: 50
+            }));
+            return {
+                statusCode: 200,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(scanResult.Items || [])
+            };
+        }
+        
+        if (action === "createRoom") {
+            const room = body.room || body;
+            await docClient.send(new PutCommand({
+                TableName: TABLE_NAME + "_Rooms",
+                Item: { ...room, updatedAt: new Date().toISOString() }
+            }));
+            return {
+                statusCode: 201,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ success: true, room })
+            };
+        }
+        
+        if (action === "deleteRoom") {
+            const roomId = body.roomId || body.id;
+            await docClient.send(new DeleteCommand({
+                TableName: TABLE_NAME + "_Rooms",
+                Key: { id: roomId }
+            }));
+            return {
+                statusCode: 200,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ success: true })
             };
         }
         
