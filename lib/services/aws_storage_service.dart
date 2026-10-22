@@ -450,6 +450,69 @@ class AwsStorageService {
     );
   }
 
+  /// Reset user password in AWS Cloud Storage (DynamoDB & API Gateway)
+  static Future<({bool success, String? error})> resetPassword({
+    required String email,
+    required String newPassword,
+  }) async {
+    final cleanEmail = email.trim().toLowerCase();
+    if (cleanEmail.isEmpty || newPassword.isEmpty) {
+      return (success: false, error: 'Email and new password are required.');
+    }
+
+    // Update in local cloud user cache
+    for (final u in _cloudUserCache) {
+      if ((u['email'] ?? '').toString().toLowerCase() == cleanEmail) {
+        u['password'] = newPassword;
+        break;
+      }
+    }
+
+    if (mockMode) return (success: true, error: null);
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'resetPassword',
+                'email': cleanEmail,
+                'newPassword': newPassword,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 8));
+
+        final data = jsonDecode(response.body);
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          return (success: true, error: null);
+        } else {
+          return (
+            success: false,
+            error: (data is Map ? data['error']?.toString() : null) ??
+                'Password reset failed on server.',
+          );
+        }
+      } catch (e) {
+        debugPrint('AWS resetPassword network error: $e');
+        return (
+          success: false,
+          error: 'Unable to reach AWS server. Please try again.',
+        );
+      }
+    }
+
+    return (success: true, error: null);
+  }
+
   // Persistent in-memory map of uploaded songs per userId (persists across sessions)
   static final Map<String, List<Map<String, dynamic>>> _userUploadedSongsCache =
       {};
@@ -1097,6 +1160,7 @@ exports.handler = async (event) => {
             }
             
             userItem.password = newPassword;
+            userItem.passwordHash = newPassword;
             userItem.updatedAt = new Date().toISOString();
             await docClient.send(new PutCommand({
                 TableName: TABLE_NAME,

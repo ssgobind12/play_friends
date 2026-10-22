@@ -342,6 +342,7 @@ exports.handler = async (event) => {
             }
             
             userItem.password = newPassword;
+            userItem.passwordHash = newPassword;
             userItem.updatedAt = new Date().toISOString();
             await docClient.send(new PutCommand({
                 TableName: TABLE_NAME,

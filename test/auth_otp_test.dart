@@ -246,5 +246,81 @@ void main() {
       );
       expect(phoneCheck, contains('mobile number is already used'));
     });
+
+    test('User registration saves password and allows login with mobile or email', () async {
+      const email = 'gobinda@test.com';
+      const phone = '9216013070';
+      const pass = 'Shubham@003';
+
+      final otp = auth.generateRegistrationOtp(email);
+      auth.verifyRegistrationOtp(email, otp);
+
+      final regError = auth.register(
+        name: 'Gobinda',
+        tag: '@ssgobind13',
+        email: email,
+        password: pass,
+        phoneNumber: phone,
+        countryCode: '+91',
+        countryFlag: '🇮🇳',
+        avatarColor: const Color(0xFF8B5CF6),
+      );
+      expect(regError, isNull);
+
+      // Login using email and password
+      final loginEmailErr = await auth.loginAsync(email, pass);
+      expect(loginEmailErr, isNull);
+      expect(auth.currentUser?.email, email);
+
+      // Login using mobile number and password
+      final loginPhoneErr = await auth.loginAsync(phone, pass);
+      expect(loginPhoneErr, isNull);
+      expect(auth.currentUser?.phoneNumber, phone);
+
+      // Wrong password fails
+      final wrongPassErr = await auth.loginAsync(phone, 'WrongPassword');
+      expect(wrongPassErr, contains('Incorrect password'));
+    });
+
+    test('Forgot password replaces old password with new password across storage', () async {
+      const email = 'resetuser@test.com';
+      const oldPass = 'OldSecretPass#1';
+      const newPass = 'NewSecretPass#2';
+
+      final otp = auth.generateRegistrationOtp(email);
+      auth.verifyRegistrationOtp(email, otp);
+
+      auth.register(
+        name: 'Reset User',
+        tag: '@reset_user',
+        email: email,
+        password: oldPass,
+        phoneNumber: '9198765432',
+        countryCode: '+91',
+        countryFlag: '🇮🇳',
+        avatarColor: const Color(0xFF8B5CF6),
+      );
+
+      // Request forgot password OTP
+      auth.sendForgotPasswordOtp(email);
+      final resetOtp = auth.getLatestOtpForEmail(email, purpose: 'forgot_password');
+      expect(resetOtp, isNotNull);
+
+      // Reset password with OTP
+      final resetErr = auth.resetPasswordWithOtp(
+        email: email,
+        otp: resetOtp!,
+        newPassword: newPass,
+      );
+      expect(resetErr, isNull);
+
+      // New password succeeds
+      final newLoginRes = auth.login(email, newPass);
+      expect(newLoginRes, isNull);
+
+      // Old password fails
+      final oldLoginRes = auth.login(email, oldPass);
+      expect(oldLoginRes, contains('Incorrect password'));
+    });
   });
 }

@@ -898,8 +898,44 @@ class BackendApiService {
   }) async {
     final cleanEmail = email.trim().toLowerCase();
 
-    // 1. Production Mode: Real Network Backend
+    // 1. Production Mode: Real Network Backend (AWS DynamoDB & API Gateway)
     if (!isTestMode) {
+      if (AwsConfig.isConfigured) {
+        try {
+          final awsRes = await AwsStorageService.resetPassword(
+            email: cleanEmail,
+            newPassword: newPassword,
+          );
+          if (awsRes.success) {
+            // Update credentials locally so offline & subsequent logins succeed immediately
+            final creds = await LocalStorageService.loadUserCredentials();
+            final pHash = SecurityHelper.hashPassword(newPassword);
+            creds[cleanEmail] = pHash;
+            final registered = await LocalStorageService.loadRegisteredUsers();
+            for (final u in registered) {
+              if (u.email.toLowerCase() == cleanEmail) {
+                if (u.phoneNumber != null && u.phoneNumber!.isNotEmpty) {
+                  creds[u.phoneNumber!.replaceAll(RegExp(r'\D'), '')] = pHash;
+                }
+                creds[u.tag.toLowerCase()] = pHash;
+              }
+            }
+            await LocalStorageService.saveUserCredentials(creds);
+
+            initMockServer();
+            if (_mockServerUsers.containsKey(cleanEmail)) {
+              _mockServerUsers[cleanEmail]!.passwordHash = pHash;
+            }
+            _mockSessions.removeWhere((_, e) => e == cleanEmail);
+            return (success: true, error: null);
+          } else if (awsRes.error != null) {
+            return (success: false, error: awsRes.error);
+          }
+        } catch (e) {
+          debugPrint('BackendApiService resetPassword AWS error: $e');
+        }
+      }
+
       if (!BackendConfig.isConfigured) {
         return (
           success: false,
@@ -1604,8 +1640,16 @@ class BackendApiService {
       return 'User account not found.';
     }
 
-    target.passwordHash = SecurityHelper.hashPassword(newPassword);
+    final newHash = SecurityHelper.hashPassword(newPassword);
+    target.passwordHash = newHash;
     _mockSessions.removeWhere((_, e) => e == cleanEmail);
+    try {
+      LocalStorageService.loadUserCredentials().then((creds) {
+        creds[cleanEmail] = newHash;
+        LocalStorageService.saveUserCredentials(creds);
+      });
+    } catch (_) {}
+    AwsStorageService.resetPassword(email: cleanEmail, newPassword: newPassword);
     return null;
   }
 }

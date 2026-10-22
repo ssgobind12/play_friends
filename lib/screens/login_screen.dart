@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/local_storage_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/forgot_password_dialog.dart';
 import 'register_screen.dart';
@@ -20,14 +22,101 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _errorMessage;
   bool _isLoading = false;
 
+  int _failedPasswordAttempts = 0;
+  int _lockoutSecondsRemaining = 0;
+  Timer? _lockoutTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkExistingLockout();
+  }
+
+  Future<void> _checkExistingLockout() async {
+    try {
+      final raw = await LocalStorageService.getString('pf_login_lockout_until');
+      if (raw != null) {
+        final lockoutMillis = int.tryParse(raw) ?? 0;
+        final now = DateTime.now().millisecondsSinceEpoch;
+        if (lockoutMillis > now) {
+          final remaining = ((lockoutMillis - now) / 1000).ceil();
+          if (remaining > 0) {
+            _startLockoutTimer(remaining);
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _triggerLockout() async {
+    _failedPasswordAttempts = 5;
+    const cooldownSeconds = 60;
+    _startLockoutTimer(cooldownSeconds);
+    try {
+      final lockoutUntil =
+          DateTime.now().millisecondsSinceEpoch + (cooldownSeconds * 1000);
+      await LocalStorageService.setString(
+          'pf_login_lockout_until', lockoutUntil.toString());
+    } catch (_) {}
+  }
+
+  void _startLockoutTimer(int seconds) {
+    _lockoutTimer?.cancel();
+    setState(() {
+      _lockoutSecondsRemaining = seconds;
+      _errorMessage =
+          'Too many failed attempts (5/5). Account locked for security. Please try again after $_lockoutSecondsRemaining seconds.';
+    });
+
+    _lockoutTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_lockoutSecondsRemaining > 1) {
+        setState(() {
+          _lockoutSecondsRemaining--;
+          _errorMessage =
+              'Too many failed attempts (5/5). Account locked for security. Please try again after $_lockoutSecondsRemaining seconds.';
+        });
+      } else {
+        timer.cancel();
+        _clearLockout();
+      }
+    });
+  }
+
+  Future<void> _clearLockout() async {
+    _lockoutTimer?.cancel();
+    if (mounted) {
+      setState(() {
+        _failedPasswordAttempts = 0;
+        _lockoutSecondsRemaining = 0;
+        _errorMessage = null;
+      });
+    }
+    try {
+      await LocalStorageService.remove('pf_login_lockout_until');
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
+    _lockoutTimer?.cancel();
     _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _handleLogin() async {
+    if (_lockoutSecondsRemaining > 0) {
+      setState(() {
+        _errorMessage =
+            'Account locked for security. Please try again after $_lockoutSecondsRemaining seconds.';
+      });
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -41,18 +130,28 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     if (!mounted) return;
-    setState(() {
-      _isLoading = false;
-      _errorMessage = error;
-    });
+    setState(() => _isLoading = false);
 
     if (error == null) {
+      await _clearLockout();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Welcome back, ${AuthService().currentUser?.name}!'),
           backgroundColor: AppColors.surfaceLight,
         ),
       );
+    } else {
+      _failedPasswordAttempts++;
+      if (_failedPasswordAttempts >= 5) {
+        await _triggerLockout();
+      } else {
+        final remaining = 5 - _failedPasswordAttempts;
+        setState(() {
+          _errorMessage =
+              '$error ($remaining attempts remaining before 1-minute lockout)';
+        });
+      }
     }
   }
 
@@ -64,6 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
           : '',
       onPasswordResetSuccess: (email, newPassword) {
         if (!mounted) return;
+        _clearLockout();
         setState(() {
           _identifierController.text = email;
           _passwordController.text = newPassword;
@@ -163,8 +263,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.error_outline_rounded,
-                              size: 18, color: AppColors.dangerRose),
+                          Icon(
+                            _lockoutSecondsRemaining > 0
+                                ? Icons.timer_outlined
+                                : Icons.error_outline_rounded,
+                            size: 20,
+                            color: AppColors.dangerRose,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -172,7 +277,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               style: const TextStyle(
                                 fontSize: 13,
                                 color: AppColors.dangerRose,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
@@ -321,9 +426,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     width: double.infinity,
                     height: 52,
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _handleLogin,
+                      onPressed: (_isLoading || _lockoutSecondsRemaining > 0)
+                          ? null
+                          : _handleLogin,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryPurple,
+                        backgroundColor: _lockoutSecondsRemaining > 0
+                            ? AppColors.cardBorder
+                            : AppColors.primaryPurple,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
@@ -338,14 +447,31 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text(
-                              'Login to Play',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
+                          : _lockoutSecondsRemaining > 0
+                              ? Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.timer_outlined,
+                                        size: 18, color: AppColors.dangerRose),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'Try again in ${_lockoutSecondsRemaining}s',
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.dangerRose,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : const Text(
+                                  'Login to Play',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
                     ),
                   ),
 

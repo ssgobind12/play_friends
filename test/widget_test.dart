@@ -107,4 +107,44 @@ void main() {
     // Should be in Home screen as Guest
     expect(find.text('Hey Guest!'), findsOneWidget);
   });
+
+  testWidgets('Login screen locks for 1 minute after 5 wrong password attempts',
+      (WidgetTester tester) async {
+    AuthService().logout();
+    await tester.pumpWidget(const PlayFriendsApp());
+    await tester.pumpAndSettle();
+
+    final idField =
+        find.widgetWithText(TextFormField, 'Email, Gamer Tag, or Mobile');
+    final passField = find.widgetWithText(TextFormField, 'Password');
+    final loginBtn = find.text('Login to Play');
+
+    await tester.enterText(idField, 'alex@playfriends.io');
+
+    // Enter wrong password 4 times
+    for (int i = 1; i <= 4; i++) {
+      await tester.enterText(passField, 'wrong_pass_$i');
+      await tester.tap(loginBtn);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('attempts remaining before 1-minute lockout'),
+          findsOneWidget);
+    }
+
+    // 5th failed attempt triggers 1-minute lockout
+    await tester.enterText(passField, 'wrong_pass_5');
+    await tester.tap(loginBtn);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // Verify security cooldown / lockout message & timer button
+    expect(find.textContaining('Account locked for security'), findsOneWidget);
+    expect(find.textContaining('Try again in'), findsOneWidget);
+
+    // Fast-forward 61 seconds
+    await tester.pump(const Duration(seconds: 61));
+    await tester.pumpAndSettle();
+
+    // Lockout timer completed, button re-enabled
+    expect(find.text('Login to Play'), findsOneWidget);
+  });
 }
