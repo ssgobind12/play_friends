@@ -88,53 +88,43 @@ exports.handler = async (event) => {
             const phone = (body.phoneNumber || body.mobile || "").replace(/\D/g, "");
             const tag = (body.tag || body.gamerTag || "").toLowerCase().trim().replace(/^@/, "");
 
-            // 1. Check primary key email
-            if (email) {
-                const emailResult = await docClient.send(new GetCommand({
-                    TableName: TABLE_USERS,
-                    Key: { email }
-                }));
+            const scanResult = await docClient.send(new ScanCommand({
+                TableName: TABLE_USERS,
+                Limit: 250
+            }));
 
-                if (emailResult.Item) {
+            for (const item of (scanResult.Items || [])) {
+                const itemEmail = (item.email || "").toLowerCase().trim();
+                const itemPhone = (item.phoneNumber || "").replace(/\D/g, "");
+                const itemTag = (item.tag || item.gamerTag || "").toLowerCase().replace(/^@/, "");
+
+                if (email && itemEmail && itemEmail === email) {
                     return makeResponse(200, {
                         exists: true,
                         field: "email",
                         message: "This email is already registered. Please sign in or use another email."
                     });
                 }
-            }
 
-            // 2. Scan for phone or tag uniqueness
-            if ((phone && phone.length >= 7) || tag) {
-                const scanResult = await docClient.send(new ScanCommand({
-                    TableName: TABLE_USERS,
-                    Limit: 250
-                }));
-
-                for (const item of (scanResult.Items || [])) {
-                    const itemPhone = (item.phoneNumber || "").replace(/\D/g, "");
-                    const itemTag = (item.tag || item.gamerTag || "").toLowerCase().replace(/^@/, "");
-
-                    if (phone && phone.length >= 7 && itemPhone) {
-                        if (itemPhone === phone || itemPhone.endsWith(phone) || phone.endsWith(itemPhone)) {
-                            // Only block if account has credentials configured
-                            if (item.password || item.passwordHash) {
-                                return makeResponse(200, {
-                                    exists: true,
-                                    field: "mobile",
-                                    message: "This mobile number is already registered in AWS. Please sign in or use another number."
-                                });
-                            }
+                if (phone && phone.length >= 7 && itemPhone) {
+                    if (itemPhone === phone || itemPhone.endsWith(phone) || phone.endsWith(itemPhone)) {
+                        // Only block if account has credentials configured
+                        if (item.password || item.passwordHash) {
+                            return makeResponse(200, {
+                                exists: true,
+                                field: "mobile",
+                                message: "This mobile number is already registered in AWS. Please sign in or use another number."
+                            });
                         }
                     }
+                }
 
-                    if (tag && itemTag === tag && item.email !== email) {
-                        return makeResponse(200, {
-                            exists: true,
-                            field: "tag",
-                            message: "This gamer tag is already taken. Please choose another."
-                        });
-                    }
+                if (tag && itemTag === tag && itemEmail !== email) {
+                    return makeResponse(200, {
+                        exists: true,
+                        field: "tag",
+                        message: "This gamer tag is already taken. Please choose another."
+                    });
                 }
             }
 
@@ -223,39 +213,25 @@ exports.handler = async (event) => {
 
             let userItem = null;
 
-            // 1. Direct Get by Email Primary Key
-            if (rawId.includes("@") && rawId.includes(".")) {
-                const getResult = await docClient.send(new GetCommand({
-                    TableName: TABLE_USERS,
-                    Key: { email: cleanEmail }
-                }));
-                if (getResult.Item) {
-                    userItem = getResult.Item;
-                }
-            }
+            const scanResult = await docClient.send(new ScanCommand({
+                TableName: TABLE_USERS,
+                Limit: 250
+            }));
 
-            // 2. Scan by Mobile Number, Gamer Tag, or Security ID
-            if (!userItem) {
-                const scanResult = await docClient.send(new ScanCommand({
-                    TableName: TABLE_USERS,
-                    Limit: 250
-                }));
+            for (const item of (scanResult.Items || [])) {
+                const itemEmail = (item.email || "").toLowerCase().trim();
+                const itemPhone = (item.phoneNumber || "").replace(/\D/g, "");
+                const itemTag = (item.tag || item.gamerTag || "").toLowerCase().replace(/^@/, "");
+                const itemId = (item.userId || item.id || item.securityId || "").toLowerCase().trim();
 
-                for (const item of (scanResult.Items || [])) {
-                    const itemEmail = (item.email || "").toLowerCase();
-                    const itemPhone = (item.phoneNumber || "").replace(/\D/g, "");
-                    const itemTag = (item.tag || item.gamerTag || "").toLowerCase().replace(/^@/, "");
-                    const itemId = (item.userId || item.id || item.securityId || "").toLowerCase();
-
-                    if (
-                        (cleanEmail && itemEmail === cleanEmail) ||
-                        (cleanDigits && cleanDigits.length >= 7 && (itemPhone === cleanDigits || itemPhone.endsWith(cleanDigits) || cleanDigits.endsWith(itemPhone))) ||
-                        (cleanTag && itemTag === cleanTag) ||
-                        (itemId && itemId === rawId.toLowerCase())
-                    ) {
-                        userItem = item;
-                        break;
-                    }
+                if (
+                    (cleanEmail && itemEmail === cleanEmail) ||
+                    (cleanDigits && cleanDigits.length >= 7 && (itemPhone === cleanDigits || itemPhone.endsWith(cleanDigits) || cleanDigits.endsWith(itemPhone))) ||
+                    (cleanTag && itemTag === cleanTag) ||
+                    (itemId && itemId === rawId.toLowerCase())
+                ) {
+                    userItem = item;
+                    break;
                 }
             }
 
@@ -343,25 +319,15 @@ exports.handler = async (event) => {
                 return makeResponse(400, { success: false, error: "New password is required." });
             }
 
-            let userItem = null;
-            if (email) {
-                const res = await docClient.send(new GetCommand({
-                    TableName: TABLE_USERS,
-                    Key: { email }
-                }));
-                userItem = res.Item;
-            }
-
-            if (!userItem && phone) {
-                const scanRes = await docClient.send(new ScanCommand({
-                    TableName: TABLE_USERS,
-                    Limit: 250
-                }));
-                userItem = (scanRes.Items || []).find(u => {
-                    const p = (u.phoneNumber || "").replace(/\D/g, "");
-                    return p === phone;
-                });
-            }
+            const scanRes = await docClient.send(new ScanCommand({
+                TableName: TABLE_USERS,
+                Limit: 250
+            }));
+            const userItem = (scanRes.Items || []).find(u => {
+                const itemEmail = (u.email || "").toLowerCase().trim();
+                const p = (u.phoneNumber || "").replace(/\D/g, "");
+                return (email && itemEmail === email) || (phone && p === phone);
+            });
 
             if (!userItem) {
                 return makeResponse(404, { success: false, error: "Account not found." });
@@ -866,22 +832,26 @@ exports.handler = async (event) => {
         // 15. PROFILE PHOTO & DELETE USER
         // ---------------------------------------------------------------------
         if (action === "updateProfilePhoto" || action === "deleteProfilePhoto") {
-            const email = (body.email || "").toLowerCase().trim();
+            const rawId = (body.email || body.userId || "").toLowerCase().trim();
             const photo = action === "deleteProfilePhoto" ? null : body.profilePhoto;
 
-            if (email) {
-                const getResult = await docClient.send(new GetCommand({
+            if (rawId) {
+                const scanResult = await docClient.send(new ScanCommand({
                     TableName: TABLE_USERS,
-                    Key: { email }
+                    Limit: 250
                 }));
+                const userItem = (scanResult.Items || []).find(u => {
+                    const itemEmail = (u.email || "").toLowerCase().trim();
+                    const itemId = (u.userId || u.id || "").toLowerCase().trim();
+                    return itemEmail === rawId || itemId === rawId;
+                });
 
-                if (getResult.Item) {
-                    const item = getResult.Item;
-                    item.profilePhoto = photo;
-                    item.updatedAt = new Date().toISOString();
+                if (userItem) {
+                    userItem.profilePhoto = photo;
+                    userItem.updatedAt = new Date().toISOString();
                     await docClient.send(new PutCommand({
                         TableName: TABLE_USERS,
-                        Item: item
+                        Item: userItem
                     }));
                 }
             }
@@ -890,12 +860,23 @@ exports.handler = async (event) => {
         }
 
         if (action === "deleteUser") {
-            const email = (body.email || "").toLowerCase().trim();
-            if (email) {
-                await docClient.send(new DeleteCommand({
+            const rawId = (body.email || body.userId || "").toLowerCase().trim();
+            if (rawId) {
+                const scanResult = await docClient.send(new ScanCommand({
                     TableName: TABLE_USERS,
-                    Key: { email }
+                    Limit: 250
                 }));
+                const userItem = (scanResult.Items || []).find(u => {
+                    const itemEmail = (u.email || "").toLowerCase().trim();
+                    const itemId = (u.userId || u.id || "").toLowerCase().trim();
+                    return itemEmail === rawId || itemId === rawId;
+                });
+                if (userItem && userItem.id) {
+                    await docClient.send(new DeleteCommand({
+                        TableName: TABLE_USERS,
+                        Key: { id: userItem.id }
+                    }));
+                }
             }
             return makeResponse(200, { success: true, message: "User deleted from server." });
         }
