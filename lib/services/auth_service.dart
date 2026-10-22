@@ -99,10 +99,11 @@ class AuthService extends ChangeNotifier {
       }
 
       final savedRooms = await LocalStorageService.loadActiveRooms();
-      if (savedRooms.isNotEmpty) {
-        _activeRooms.clear();
-        _activeRooms.addAll(savedRooms);
-      }
+      _activeRooms.clear();
+      _activeRooms.addAll(savedRooms.where((r) => !BackendApiService.isDemoRoom(r)));
+      LocalStorageService.saveActiveRooms(_activeRooms);
+
+      await VoiceRoomManager().init();
 
       if (_currentUser != null) {
         await InAppMusicService().loadUserSongs(_currentUser!.id);
@@ -892,7 +893,12 @@ class AuthService extends ChangeNotifier {
   List<FriendModel> get friends => _currentUser?.friends ?? _localFriends;
   final List<FriendModel> _localFriends = [];
 
-  void addFriend({required String name, required String tag}) {
+  void addFriend({
+    required String name,
+    required String tag,
+    Color? avatarColor,
+    int? level,
+  }) {
     final cleanName = name.trim().isNotEmpty ? name.trim() : 'Player';
     final cleanTag = tag.trim().startsWith('@')
         ? tag.trim().toLowerCase()
@@ -905,7 +911,15 @@ class AuthService extends ChangeNotifier {
       AppColors.accentCyan,
       AppColors.coinAmber,
     ];
-    final color = colors[Random().nextInt(colors.length)];
+    final color = avatarColor ?? colors[Random().nextInt(colors.length)];
+
+    // Check if already in friends list
+    final existing = friends;
+    if (existing.any((f) =>
+        f.name.toLowerCase() == cleanName.toLowerCase() ||
+        f.tag.toLowerCase() == cleanTag.toLowerCase())) {
+      return;
+    }
 
     final newFriend = FriendModel(
       id: 'f_${DateTime.now().millisecondsSinceEpoch}',
@@ -913,10 +927,10 @@ class AuthService extends ChangeNotifier {
       tag: cleanTag,
       initial: initial,
       avatarColor: color,
-      level: 1,
+      level: level ?? 1,
       isOnline: true,
-      statusText: 'Online (Ready to Play)',
-      favoriteGame: 'Tic-Tac-Toe',
+      statusText: 'Following',
+      favoriteGame: 'Party Voice & Games',
     );
 
     if (_currentUser != null) {
@@ -930,13 +944,22 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
-  void removeFriend(String friendId) {
+  void removeFriend(String nameOrId) {
+    final target = nameOrId.toLowerCase().trim();
     if (_currentUser != null) {
       final updated = List<FriendModel>.from(_currentUser!.friends)
-        ..removeWhere((f) => f.id == friendId);
+        ..removeWhere((f) =>
+            f.id == nameOrId ||
+            f.name.toLowerCase() == target ||
+            f.tag.toLowerCase() == target ||
+            f.tag.toLowerCase() == '@$target');
       _currentUser = _currentUser!.copyWith(friends: updated);
     } else {
-      _localFriends.removeWhere((f) => f.id == friendId);
+      _localFriends.removeWhere((f) =>
+          f.id == nameOrId ||
+          f.name.toLowerCase() == target ||
+          f.tag.toLowerCase() == target ||
+          f.tag.toLowerCase() == '@$target');
     }
     _persistState();
     notifyListeners();
@@ -955,10 +978,12 @@ class AuthService extends ChangeNotifier {
   Future<void> fetchRooms() async {
     try {
       final remoteRooms = await BackendApiService().getRooms();
+      _activeRooms.removeWhere((r) => BackendApiService.isDemoRoom(r));
       if (remoteRooms.isNotEmpty) {
         // Merge without losing freshly created local rooms
         for (final r in remoteRooms) {
-          if (!_activeRooms.any((local) => local.id == r.id || local.roomCode == r.roomCode)) {
+          if (!BackendApiService.isDemoRoom(r) &&
+              !_activeRooms.any((local) => local.id == r.id || local.roomCode == r.roomCode)) {
             _activeRooms.add(r);
           }
         }

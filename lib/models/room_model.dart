@@ -23,6 +23,42 @@ class RoomModel {
     this.giftPoints = 0,
   });
 
+  static bool isDemoRoom(RoomModel room) {
+    const demoCodes = [
+      'PF-8821',
+      'PF-2041',
+      'PF-5519',
+      'PF-3390',
+      'PF-1204',
+      'PF-7731',
+      'PF-9999'
+    ];
+    const demoHosts = [
+      'Kabir 👑',
+      'Aanya ✨',
+      'Rohan 🚀',
+      'Priya 💖',
+      'Vikram ⚡',
+      'Brinda',
+      'SimplyChetana',
+      'Pragati',
+      'Alex Vance',
+      'Cutie'
+    ];
+    const demoTitles = [
+      'Bollywood & Gaming',
+      'Late Night Jam',
+      'Pro Gamer Arena',
+      'Ludo Masters Club',
+      'Cyber Neon Arena'
+    ];
+
+    if (demoCodes.contains(room.roomCode)) return true;
+    if (demoHosts.any((h) => room.hostName.contains(h))) return true;
+    if (demoTitles.any((t) => room.gameTitle.contains(t))) return true;
+    return false;
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,

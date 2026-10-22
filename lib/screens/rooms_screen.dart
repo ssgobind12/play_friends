@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/room_model.dart';
 import '../services/auth_service.dart';
+import '../services/backend_api_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/room_card.dart';
 import '../widgets/music_player_sheet.dart';
@@ -407,7 +408,10 @@ class _RoomsScreenState extends State<RoomsScreen> {
     return ListenableBuilder(
       listenable: AuthService(),
       builder: (context, _) {
-        final displayRooms = AuthService().activeRooms;
+        final displayRooms = AuthService()
+            .activeRooms
+            .where((r) => !BackendApiService.isDemoRoom(r))
+            .toList();
 
         return Scaffold(
           appBar: AppBar(

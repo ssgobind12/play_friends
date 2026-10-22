@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/backend_api_service.dart';
 import '../services/voice_room_manager.dart';
 import '../theme/app_theme.dart';
-import 'voice_party_room_screen.dart';
 import '../widgets/music_player_sheet.dart';
+import '../widgets/user_profile_dialog.dart';
+import 'voice_party_room_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   final Function(int) onNavigateTab;
   final VoidCallback onOpenRooms;
   final VoidCallback onOpenChat;
@@ -17,6 +19,47 @@ class HomeScreen extends StatelessWidget {
     required this.onOpenRooms,
     required this.onOpenChat,
   });
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  List<Map<String, dynamic>> _searchResults = [];
+  bool _isSearching = false;
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _performSearch(String query) async {
+    final cleanQ = query.trim();
+    if (cleanQ.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _searchResults = [];
+          _isSearching = false;
+        });
+      }
+      return;
+    }
+
+    setState(() => _isSearching = true);
+    try {
+      final results = await BackendApiService().searchUsers(cleanQ);
+      if (mounted) {
+        setState(() {
+          _searchResults = results;
+          _isSearching = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isSearching = false);
+    }
+  }
 
   void _showAddFriendModal(BuildContext context) {
     final nameCtrl = TextEditingController();
@@ -78,12 +121,14 @@ class HomeScreen extends StatelessWidget {
                 backgroundColor: AppColors.primaryPurple),
             onPressed: () {
               if (nameCtrl.text.trim().isNotEmpty) {
+                final tag = tagCtrl.text.trim().isNotEmpty
+                    ? tagCtrl.text.trim()
+                    : '@${nameCtrl.text.trim().toLowerCase()}';
                 AuthService().addFriend(
                   name: nameCtrl.text.trim(),
-                  tag: tagCtrl.text.trim().isNotEmpty
-                      ? tagCtrl.text.trim()
-                      : '@${nameCtrl.text.trim().toLowerCase()}',
+                  tag: tag,
                 );
+                VoiceRoomManager().toggleFollowUser(nameCtrl.text.trim(), tag: tag);
                 Navigator.of(ctx).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -159,7 +204,7 @@ class HomeScreen extends StatelessWidget {
                       children: [
                         // Avatar & Level
                         GestureDetector(
-                          onTap: () => onNavigateTab(3),
+                          onTap: () => widget.onNavigateTab(3),
                           child: Stack(
                             children: [
                               CircleAvatar(
@@ -267,11 +312,97 @@ class HomeScreen extends StatelessWidget {
                               size: 22),
                           color: AppColors.primaryPurpleLight,
                           tooltip: 'Social Chat',
-                          onPressed: onOpenChat,
+                          onPressed: widget.onOpenChat,
                         ),
                       ],
                     ),
                   ),
+
+                  const SizedBox(height: 14),
+
+                  // Search Option for Gamer Tag (@tag) or Security ID (PF-USR)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceLight,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: _searchCtrl.text.isNotEmpty
+                              ? AppColors.primaryBlueLight
+                              : AppColors.cardBorder,
+                          width: 1.2,
+                        ),
+                      ),
+                      child: TextField(
+                        controller: _searchCtrl,
+                        style: const TextStyle(
+                            color: Colors.white, fontSize: 13.5),
+                        onChanged: (val) => _performSearch(val),
+                        decoration: InputDecoration(
+                          hintText:
+                              'Search by Gamer Tag (@tag) or Security ID...',
+                          hintStyle: const TextStyle(
+                              color: AppColors.textMuted, fontSize: 12.5),
+                          prefixIcon: const Icon(Icons.search_rounded,
+                              color: AppColors.primaryBlueLight),
+                          suffixIcon: _searchCtrl.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear_rounded,
+                                      color: Colors.white70, size: 18),
+                                  onPressed: () {
+                                    _searchCtrl.clear();
+                                    _performSearch('');
+                                  },
+                                )
+                              : null,
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // Instant Search Results Dropdown / Card
+                  if (_searchResults.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      child: Column(
+                        children: _searchResults
+                            .map((u) => _buildUserSearchResultCard(u))
+                            .toList(),
+                      ),
+                    )
+                  else if (_searchCtrl.text.trim().isNotEmpty && !_isSearching)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.cardBg,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.cardBorder),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.person_off_rounded,
+                                color: AppColors.textMuted, size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'No player found for "${_searchCtrl.text.trim()}". Check Gamer Tag or Security ID.',
+                                style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
 
                   const SizedBox(height: 14),
 
@@ -360,7 +491,7 @@ class HomeScreen extends StatelessWidget {
                             title: 'Create Room',
                             subtitle: 'Host custom match',
                             color: AppColors.primaryPurpleLight,
-                            onTap: onOpenRooms,
+                            onTap: widget.onOpenRooms,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -370,7 +501,7 @@ class HomeScreen extends StatelessWidget {
                             title: 'Join Room',
                             subtitle: 'Enter 6-digit code',
                             color: AppColors.primaryBlueLight,
-                            onTap: onOpenRooms,
+                            onTap: widget.onOpenRooms,
                           ),
                         ),
                       ],
@@ -436,7 +567,7 @@ class HomeScreen extends StatelessWidget {
                                         fontWeight: FontWeight.bold,
                                         fontSize: 13)),
                                 Text(
-                                    'Add friends to challenge them to matches!',
+                                    'Follow or add friends to see them here!',
                                     style: TextStyle(
                                         color: AppColors.textSecondary,
                                         fontSize: 11)),
@@ -466,42 +597,53 @@ class HomeScreen extends StatelessWidget {
                         itemCount: friends.length,
                         itemBuilder: (context, index) {
                           final friend = friends[index];
-                          return Container(
-                            width: 78,
-                            margin: const EdgeInsets.symmetric(horizontal: 4),
-                            child: Column(
-                              children: [
-                                CircleAvatar(
-                                  radius: 26,
-                                  backgroundColor: friend.avatarColor,
-                                  child: Text(
-                                    friend.initial,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18,
+                          return GestureDetector(
+                            onTap: () {
+                              UserProfileDialog.show(
+                                context,
+                                name: friend.name,
+                                tag: friend.tag,
+                                avatarColor: friend.avatarColor,
+                                level: friend.level,
+                              );
+                            },
+                            child: Container(
+                              width: 78,
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              child: Column(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 26,
+                                    backgroundColor: friend.avatarColor,
+                                    child: Text(
+                                      friend.initial,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  friend.name,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textPrimary,
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    friend.name,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                Text(
-                                  'LVL ${friend.level}',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: AppColors.trophyGold,
-                                    fontWeight: FontWeight.bold,
+                                  Text(
+                                    'LVL ${friend.level}',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: AppColors.trophyGold,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           );
                         },
@@ -551,12 +693,68 @@ class HomeScreen extends StatelessWidget {
                               style: TextStyle(
                                   color: AppColors.accentCyan,
                                   fontWeight: FontWeight.bold)),
-                          onPressed: onOpenRooms,
+                          onPressed: widget.onOpenRooms,
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 10),
+
+                  if (liveRooms.isEmpty)
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.cardBg,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.cardBorder),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColors.accentCyan.withValues(alpha: 0.2),
+                            ),
+                            child: const Icon(
+                                Icons.radio_button_checked_rounded,
+                                color: AppColors.accentCyan),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('No Live Rooms Active',
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13)),
+                                Text(
+                                    'Create a live party room to chat and play games with friends!',
+                                    style: TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 11)),
+                              ],
+                            ),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryPurple,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                            ),
+                            onPressed: widget.onOpenRooms,
+                            child: const Text('Host Room',
+                                style: TextStyle(
+                                    color: Colors.white, fontSize: 12)),
+                          ),
+                        ],
+                      ),
+                    )
+                  else ...[
 
                   // Horizontal Live Voice Hosts Avatars
                   SizedBox(
@@ -867,8 +1065,225 @@ class HomeScreen extends StatelessWidget {
                     ),
                   ),
                 ],
-              ),
+              ],
             ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+  Widget _buildUserSearchResultCard(Map<String, dynamic> u) {
+    final name = u['name']?.toString() ?? 'Player';
+    final tag = u['gamerTag']?.toString() ?? '@${name.toLowerCase()}';
+    final secId =
+        u['securityId']?.toString() ?? u['id']?.toString() ?? 'PF-USR';
+    final level = (u['level'] as num?)?.toInt() ?? 1;
+    final photo = u['profilePhoto']?.toString();
+    final hasPhoto = photo != null && photo.isNotEmpty;
+    final followingCount = (u['followingCount'] as num?)?.toInt() ?? 5;
+    final visitorsCount = (u['visitorsCount'] as num?)?.toInt() ?? 20;
+
+    return ListenableBuilder(
+      listenable: VoiceRoomManager(),
+      builder: (context, _) {
+        final vm = VoiceRoomManager();
+        final isFollowing = vm.isFollowingUser(name);
+        final initial = name.isNotEmpty ? name[0].toUpperCase() : 'P';
+        final followersCount = vm.getUserFollowers(name);
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.cardBg,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isFollowing
+                  ? AppColors.onlineGreen.withValues(alpha: 0.6)
+                  : AppColors.primaryPurple.withValues(alpha: 0.4),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => UserProfileDialog.show(
+                  context,
+                  name: name,
+                  tag: tag,
+                  profilePhoto: photo,
+                  level: level,
+                ),
+                child: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundColor: AppColors.primaryPurple,
+                      backgroundImage:
+                          hasPhoto ? _resolvePhoto(photo) : null,
+                      child: hasPhoto
+                          ? null
+                          : Text(
+                              initial,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  fontSize: 16),
+                            ),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 4, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppColors.trophyGold,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          'Lv.$level',
+                          style: const TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.black),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => UserProfileDialog.show(
+                    context,
+                    name: name,
+                    tag: tag,
+                    profilePhoto: photo,
+                    level: level,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              name,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: Colors.white),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryBlueLight
+                                  .withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                  color: AppColors.primaryBlueLight
+                                      .withValues(alpha: 0.5),
+                                  width: 0.8),
+                            ),
+                            child: Text(
+                              secId,
+                              style: const TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primaryBlueLight),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        tag,
+                        style: const TextStyle(
+                            fontSize: 11.5,
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.accentCyan),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Followers: $followersCount • Following: $followingCount • Visitors: $visitorsCount',
+                        style: const TextStyle(
+                            fontSize: 10, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isFollowing
+                      ? AppColors.surfaceLight
+                      : AppColors.primaryPurple,
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    side: isFollowing
+                        ? const BorderSide(
+                            color: AppColors.onlineGreen, width: 1)
+                        : BorderSide.none,
+                  ),
+                ),
+                onPressed: () {
+                  vm.toggleFollowUser(
+                    name,
+                    tag: tag,
+                    profilePhoto: photo,
+                    level: level,
+                  );
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(isFollowing
+                          ? 'Unfollowed $name'
+                          : 'Following $name! Added to your Online Friends! ⭐'),
+                      duration: const Duration(seconds: 1),
+                    ),
+                  );
+                },
+                icon: Icon(
+                  isFollowing
+                      ? Icons.check_rounded
+                      : Icons.person_add_rounded,
+                  size: 13,
+                  color:
+                      isFollowing ? AppColors.onlineGreen : Colors.white,
+                ),
+                label: Text(
+                  isFollowing ? 'Following' : 'Follow',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: isFollowing
+                        ? AppColors.onlineGreen
+                        : Colors.white,
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },

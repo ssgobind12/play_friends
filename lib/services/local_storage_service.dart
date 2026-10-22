@@ -15,6 +15,8 @@ class LocalStorageService {
   static const String keyRegisteredUsers = 'pf_registered_users_v1';
   static const String keyUserCredentials = 'pf_user_credentials_v1';
   static const String keyActiveRooms = 'pf_active_rooms_v1';
+  static const String keyFollowedUsers = 'pf_followed_users_v1';
+  static const String keyUserFollowers = 'pf_user_followers_v1';
   static const String prefixUserSongs = 'pf_user_songs_v1_';
 
   /// Save raw string value
@@ -132,19 +134,60 @@ class LocalStorageService {
     await setString(keyActiveRooms, jsonStr);
   }
 
-  /// Loads user-created rooms persisted on local disk
+  /// Loads user-created rooms persisted on local disk (Purging any legacy demo rooms)
   static Future<List<RoomModel>> loadActiveRooms() async {
     final raw = await getString(keyActiveRooms);
     if (raw == null || raw.isEmpty) return [];
     try {
       final list = jsonDecode(raw);
       if (list is List) {
-        return list
+        final parsed = list
             .map((item) => RoomModel.fromMap(Map<String, dynamic>.from(item)))
+            .where((r) => !RoomModel.isDemoRoom(r))
             .toList();
+        if (parsed.length != list.length) {
+          saveActiveRooms(parsed);
+        }
+        return parsed;
       }
     } catch (_) {}
     return [];
+  }
+
+  // --------------------------------------------------------------------------
+  // FOLLOWED USERS & SOCIAL PERSISTENCE
+  // --------------------------------------------------------------------------
+
+  /// Persists the list of users followed by the current player
+  static Future<void> saveFollowedUsers(Set<String> users) async {
+    await setString(keyFollowedUsers, jsonEncode(users.toList()));
+  }
+
+  /// Loads the set of followed users from persistent storage
+  static Future<Set<String>> loadFollowedUsers() async {
+    final raw = await getString(keyFollowedUsers);
+    if (raw == null || raw.isEmpty) return {};
+    try {
+      final list = jsonDecode(raw);
+      if (list is List) return Set<String>.from(list);
+    } catch (_) {}
+    return {};
+  }
+
+  /// Persists users who follow the current player
+  static Future<void> saveUserFollowers(Set<String> users) async {
+    await setString(keyUserFollowers, jsonEncode(users.toList()));
+  }
+
+  /// Loads users who follow the current player
+  static Future<Set<String>> loadUserFollowers() async {
+    final raw = await getString(keyUserFollowers);
+    if (raw == null || raw.isEmpty) return {};
+    try {
+      final list = jsonDecode(raw);
+      if (list is List) return Set<String>.from(list);
+    } catch (_) {}
+    return {};
   }
 
   // --------------------------------------------------------------------------

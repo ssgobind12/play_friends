@@ -168,7 +168,7 @@ exports.handler = async (event) => {
     }
 
     // -------------------------------------------------------------------------
-    // 5. ROOMS
+    // 5. ROOMS (Real, Verified Live Rooms — No Demos)
     // -------------------------------------------------------------------------
     if (rawPath === '/api/v1/rooms' || action === 'getRooms') {
       if (httpMethod === 'POST' || action === 'createRoom') {
@@ -184,6 +184,30 @@ exports.handler = async (event) => {
       const roomId = body.roomId || rawPath.split('/').pop();
       await Storage.deleteRoom(roomId);
       return response(200, { success: true });
+    }
+
+    if (rawPath === '/api/v1/rooms/purge-demos' || action === 'purgeDemoRooms') {
+      await Storage.purgeDemoRooms();
+      return response(200, { success: true, message: 'All demo rooms purged.' });
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. USER SEARCH & SOCIAL GRAPH
+    // -------------------------------------------------------------------------
+    if (rawPath === '/api/v1/users/search' || action === 'searchUsers') {
+      const q = event.queryStringParameters?.q || body.query || body.q || '';
+      const results = await Storage.searchUsers(q);
+      return response(200, results);
+    }
+
+    if (rawPath === '/api/v1/users/follow' || action === 'followUser') {
+      const result = await Storage.followUser({
+        followerEmail: body.followerEmail,
+        followerName: body.followerName,
+        targetGamerTagOrId: body.targetGamerTagOrId,
+        follow: body.follow !== false
+      });
+      return response(200, result);
     }
 
     return response(404, { error: `Not found: action=${action || 'none'}, path=${rawPath || 'none'}` });

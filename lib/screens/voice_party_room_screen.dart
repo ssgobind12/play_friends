@@ -276,7 +276,20 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
       ),
     ];
 
-    _activeSpectators = max(1, widget.room.currentPlayers);
+    if (!isHostMe && user != null) {
+      _messages.add(
+        RoomChatMessage(
+          id: 'join_${DateTime.now().millisecondsSinceEpoch}',
+          senderName: 'Room Alert 🔔',
+          senderColor: AppColors.trophyGold,
+          message: '${user.name} entered the room! 👋',
+        ),
+      );
+    }
+
+    _activeSpectators = isHostMe
+        ? max(1, widget.room.currentPlayers)
+        : max(2, widget.room.currentPlayers + 1);
   }
 
   @override
@@ -311,6 +324,14 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
       if (mySeatIndex == seatIndex) {
         // Leave seat
         _seats[seatIndex] = MicSeatData(seatIndex: seatIndex + 1);
+        _messages.add(
+          RoomChatMessage(
+            id: 'seat_${DateTime.now().millisecondsSinceEpoch}',
+            senderName: 'Room Notice',
+            senderColor: Colors.white70,
+            message: '${user.name} stepped down from Mic Seat ${seatIndex + 1}',
+          ),
+        );
         GameSoundService.buttonTap();
       } else if (_seats[seatIndex].userName == null) {
         // If already on another seat, vacate it first
@@ -327,6 +348,14 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
           isMuted: _isMicMuted,
           isSpeaking: !_isMicMuted,
           isHost: seatIndex == 0,
+        );
+        _messages.add(
+          RoomChatMessage(
+            id: 'seat_${DateTime.now().millisecondsSinceEpoch}',
+            senderName: 'Mic Stage 🎙️',
+            senderColor: AppColors.primaryBlueLight,
+            message: '${user.name} took Mic Seat ${seatIndex + 1}',
+          ),
         );
         GameSoundService.buttonTap();
       } else {

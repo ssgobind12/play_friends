@@ -319,12 +319,18 @@ class UserProfileDialog extends StatelessWidget {
                           elevation: isFollowing ? 0 : 4,
                         ),
                         onPressed: () {
-                          vm.toggleFollowUser(name);
+                          vm.toggleFollowUser(
+                            name,
+                            tag: tag,
+                            profilePhoto: profilePhoto,
+                            avatarColor: avatarColor,
+                            level: level,
+                          );
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(isFollowing
                                   ? 'Unfollowed $name'
-                                  : 'Following $name! ⭐ Mutual Follow established!'),
+                                  : 'Following $name! ⭐ Added to your Online Friends!'),
                               duration: const Duration(seconds: 1),
                             ),
                           );

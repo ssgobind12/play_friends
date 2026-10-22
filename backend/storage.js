@@ -552,27 +552,74 @@ class Storage {
   }
 
   // ---------------------------------------------------------------------------
-  // LIVE ROOMS
+  // LIVE ROOMS (Real, Verified User Rooms Only — No Demos)
   // ---------------------------------------------------------------------------
 
-  static async getRooms() {
+  static isDemoRoom(room) {
+    if (!room) return false;
+    const demoCodes = ['PF-8821', 'PF-2041', 'PF-5519', 'PF-3390', 'PF-1204', 'PF-7731', 'PF-9999'];
+    const demoHosts = ['Kabir 👑', 'Aanya ✨', 'Rohan 🚀', 'Priya 💖', 'Vikram ⚡', 'Brinda', 'SimplyChetana', 'Pragati', 'Alex Vance', 'Cutie'];
+    const demoTitles = ['Bollywood & Gaming', 'Late Night Jam', 'Pro Gamer Arena', 'Ludo Masters Club', 'Cyber Neon Arena'];
+
+    if (demoCodes.includes(room.roomCode)) return true;
+    if (demoHosts.some(h => (room.hostName || '').includes(h))) return true;
+    if (demoTitles.some(t => (room.gameTitle || '').includes(t))) return true;
+    return false;
+  }
+
+  static async purgeDemoRooms() {
     if (this.isMemoryMode()) {
-      return Array.from(memRooms.values());
+      for (const [id, r] of memRooms.entries()) {
+        if (this.isDemoRoom(r)) {
+          memRooms.delete(id);
+        }
+      }
+      return true;
     }
 
     try {
       const res = await docClient.send(new ScanCommand({
         TableName: TABLE_ROOMS
       }));
-      return res.Items || [];
+      const items = res.Items || [];
+      for (const item of items) {
+        if (this.isDemoRoom(item)) {
+          await docClient.send(new DeleteCommand({
+            TableName: TABLE_ROOMS,
+            Key: { id: item.id }
+          }));
+        }
+      }
+      return true;
+    } catch (err) {
+      console.warn('Storage purgeDemoRooms warning:', err.message);
+      return false;
+    }
+  }
+
+  static async getRooms() {
+    await this.purgeDemoRooms();
+
+    if (this.isMemoryMode()) {
+      return Array.from(memRooms.values()).filter(r => !this.isDemoRoom(r));
+    }
+
+    try {
+      const res = await docClient.send(new ScanCommand({
+        TableName: TABLE_ROOMS
+      }));
+      const list = res.Items || [];
+      return list.filter(r => !this.isDemoRoom(r));
     } catch (err) {
       console.error('Storage getRooms error:', err.message);
-      return Array.from(memRooms.values());
+      return Array.from(memRooms.values()).filter(r => !this.isDemoRoom(r));
     }
   }
 
   static async saveRoom(room) {
     if (!room || !room.id) return false;
+    if (this.isDemoRoom(room)) return false; // reject demo rooms
+
     if (this.isMemoryMode()) {
       memRooms.set(room.id, { ...room, updatedAt: new Date().toISOString() });
       return true;
@@ -615,6 +662,166 @@ class Storage {
       memRooms.delete(roomId);
       return true;
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // SOCIAL SEARCH & FOLLOW MANAGEMENT
+  // ---------------------------------------------------------------------------
+
+  static async searchUsers(query) {
+    const raw = (query || '').trim().toLowerCase();
+    if (!raw) return [];
+    const cleanQ = raw.replace(/^@/, '');
+
+    let allUsers = [];
+    if (this.isMemoryMode()) {
+      allUsers = Array.from(memUsers.values());
+    } else {
+      try {
+        const res = await docClient.send(new ScanCommand({
+          TableName: TABLE_USERS,
+          Limit: 100
+        }));
+        allUsers = res.Items || [];
+      } catch (err) {
+        console.error('Storage searchUsers scan error:', err.message);
+        allUsers = Array.from(memUsers.values());
+      }
+    }
+
+    const matched = [];
+    for (const u of allUsers) {
+      const email = (u.email || '').toLowerCase();
+      const name = (u.name || '').toLowerCase();
+      const tag = (u.gamerTag || '').toLowerCase().replace(/^@/, '');
+      const secId = (u.securityId || u.id || '').toLowerCase();
+
+      if (
+        tag === cleanQ ||
+        tag.includes(cleanQ) ||
+        secId === cleanQ ||
+        secId.includes(cleanQ) ||
+        email === cleanQ ||
+        email.startsWith(cleanQ) ||
+        name.includes(cleanQ)
+      ) {
+        matched.push({
+          id: u.id || u.securityId || `u_${email}`,
+          securityId: u.securityId || u.id || `PF-USR-${(email.length * 1337) % 9000 + 1000}`,
+          name: u.name || 'Player',
+          gamerTag: u.gamerTag || `@${(u.name || 'player').toLowerCase().replace(/\s+/g, '_')}`,
+          email: u.email,
+          level: u.level || 1,
+          coins: u.coins || 500,
+          totalWins: u.totalWins || 0,
+          profilePhoto: u.profilePhoto || null,
+          followers: u.followers || [],
+          following: u.following || [],
+          followersCount: Array.isArray(u.followers) ? u.followers.length : (u.followersCount ?? 0),
+          followingCount: Array.isArray(u.following) ? u.following.length : (u.followingCount ?? 0),
+          visitorsCount: u.visitorsCount ?? 15
+        });
+      }
+    }
+    return matched;
+  }
+
+  static async followUser({ followerEmail, followerName, targetGamerTagOrId, follow = true }) {
+    if (!followerEmail || !targetGamerTagOrId) {
+      return { success: false, error: 'followerEmail and targetGamerTagOrId required' };
+    }
+
+    const cleanFollower = followerEmail.toLowerCase().trim();
+    const cleanTarget = targetGamerTagOrId.toLowerCase().trim().replace(/^@/, '');
+
+    // 1. Get follower user
+    let followerUser = await this.getUserByEmail(cleanFollower);
+    // 2. Find target user
+    let targetUser = null;
+    let allUsers = [];
+
+    if (this.isMemoryMode()) {
+      allUsers = Array.from(memUsers.values());
+    } else {
+      try {
+        const res = await docClient.send(new ScanCommand({ TableName: TABLE_USERS, Limit: 100 }));
+        allUsers = res.Items || [];
+      } catch (err) {
+        allUsers = Array.from(memUsers.values());
+      }
+    }
+
+    for (const u of allUsers) {
+      const tag = (u.gamerTag || '').toLowerCase().replace(/^@/, '');
+      const secId = (u.securityId || u.id || '').toLowerCase();
+      const email = (u.email || '').toLowerCase();
+      if (tag === cleanTarget || secId === cleanTarget || email === cleanTarget) {
+        targetUser = u;
+        break;
+      }
+    }
+
+    if (!targetUser) {
+      // Create synthetic response for demo or offline target
+      return {
+        success: true,
+        isFollowing: follow,
+        targetName: targetGamerTagOrId,
+        followersCount: follow ? 1 : 0
+      };
+    }
+
+    // Update target's followers list
+    let targetFollowers = Array.isArray(targetUser.followers) ? [...targetUser.followers] : [];
+    if (follow) {
+      if (!targetFollowers.includes(cleanFollower)) targetFollowers.push(cleanFollower);
+    } else {
+      targetFollowers = targetFollowers.filter(e => e !== cleanFollower);
+    }
+    targetUser.followers = targetFollowers;
+    targetUser.followersCount = targetFollowers.length;
+
+    // Update follower's following list if follower exists
+    if (followerUser) {
+      let followerFollowing = Array.isArray(followerUser.following) ? [...followerUser.following] : [];
+      const targetIdent = targetUser.gamerTag || targetUser.email;
+      if (follow) {
+        if (!followerFollowing.includes(targetIdent)) followerFollowing.push(targetIdent);
+      } else {
+        followerFollowing = followerFollowing.filter(e => e !== targetIdent);
+      }
+      followerUser.following = followerFollowing;
+      followerUser.followingCount = followerFollowing.length;
+    }
+
+    if (this.isMemoryMode()) {
+      memUsers.set(targetUser.email.toLowerCase(), targetUser);
+      if (followerUser) memUsers.set(followerUser.email.toLowerCase(), followerUser);
+    } else {
+      try {
+        await docClient.send(new PutCommand({
+          TableName: TABLE_USERS,
+          Item: targetUser
+        }));
+        if (followerUser) {
+          await docClient.send(new PutCommand({
+            TableName: TABLE_USERS,
+            Item: followerUser
+          }));
+        }
+      } catch (err) {
+        console.warn('Storage followUser DDB write warning:', err.message);
+      }
+    }
+
+    return {
+      success: true,
+      isFollowing: follow,
+      targetName: targetUser.name,
+      targetTag: targetUser.gamerTag,
+      followersCount: targetFollowers.length,
+      followingCount: followerUser ? (followerUser.following || []).length : 0
+    };
   }
 }
 

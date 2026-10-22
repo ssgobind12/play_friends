@@ -103,6 +103,51 @@ void main() {
       expect(vm.getUserFollowers(userB), equals(initialFollowers));
     });
 
+    test(
+        'toggleFollowUser instantly adds user to AuthService friends list when following',
+        () {
+      final vm = VoiceRoomManager();
+      final auth = AuthService();
+      const friendName = 'Samira Gamer';
+      const friendTag = '@samira_pro';
+
+      expect(auth.friends.any((f) => f.name == friendName), isFalse);
+
+      vm.toggleFollowUser(friendName, tag: friendTag);
+      expect(vm.isFollowingUser(friendName), isTrue);
+      expect(auth.friends.any((f) => f.name == friendName), isTrue);
+
+      vm.toggleFollowUser(friendName, tag: friendTag);
+      expect(vm.isFollowingUser(friendName), isFalse);
+      expect(auth.friends.any((f) => f.name == friendName), isFalse);
+    });
+
+    test('RoomModel.isDemoRoom correctly flags and rejects demo rooms', () {
+      const demoRoom1 = RoomModel(
+        id: 'r_demo_1',
+        roomCode: 'PF-8821',
+        gameTitle: 'Bollywood & Gaming',
+        hostName: 'Kabir 👑',
+        currentPlayers: 1,
+        maxPlayers: 100,
+        isPrivate: false,
+        status: 'live',
+      );
+      expect(RoomModel.isDemoRoom(demoRoom1), isTrue);
+
+      const realUserRoom = RoomModel(
+        id: 'r_real_99',
+        roomCode: 'PF-4421',
+        gameTitle: "Shubham's Room",
+        hostName: 'Shubham',
+        currentPlayers: 1,
+        maxPlayers: 100,
+        isPrivate: false,
+        status: 'live',
+      );
+      expect(RoomModel.isDemoRoom(realUserRoom), isFalse);
+    });
+
     test('Room followers increment and decrement upon toggleFollowRoom', () {
       final vm = VoiceRoomManager();
       const testRoomCode = 'TEST_ROOM_999';

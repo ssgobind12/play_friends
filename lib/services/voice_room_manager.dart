@@ -2,7 +2,9 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/room_model.dart';
 import 'auth_service.dart';
+import 'backend_api_service.dart';
 import 'in_app_music_service.dart';
+import 'local_storage_service.dart';
 
 /// Level Progression Calculation according to user request:
 /// 1000 coins -> Level 2 (1st Level Up)
@@ -42,6 +44,25 @@ class VoiceRoomManager extends ChangeNotifier {
   RoomModel? _activeRoom;
   RoomModel? get activeRoom => _activeRoom;
   bool get hasActiveRoom => _activeRoom != null;
+
+  /// Loads persisted followed users from local disk
+  Future<void> init() async {
+    try {
+      final savedFollowed = await LocalStorageService.loadFollowedUsers();
+      if (savedFollowed.isNotEmpty) {
+        _followedUsers.clear();
+        _followedUsers.addAll(savedFollowed);
+      }
+      final savedFollowers = await LocalStorageService.loadUserFollowers();
+      if (savedFollowers.isNotEmpty) {
+        _userFollowers.clear();
+        _userFollowers.addAll(savedFollowers);
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('VoiceRoomManager init error: $e');
+    }
+  }
 
   // Set of assigned room admins (by host)
   final Set<String> _roomAdmins = {};
@@ -103,15 +124,57 @@ class VoiceRoomManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  void toggleFollowUser(String userName) {
+  void toggleFollowUser(
+    String userName, {
+    String? tag,
+    String? profilePhoto,
+    Color? avatarColor,
+    int? level,
+  }) {
     final current = _userFollowerCounts[userName] ?? 100;
-    if (_followedUsers.contains(userName)) {
+    final isNowFollowing = !_followedUsers.contains(userName);
+
+    if (!isNowFollowing) {
       _followedUsers.remove(userName);
       _userFollowerCounts[userName] = max(0, current - 1);
+      AuthService().removeFriend(userName);
+
+      final currentUser = AuthService().currentUser;
+      if (currentUser != null) {
+        BackendApiService().followUser(
+          followerEmail: currentUser.email,
+          followerName: currentUser.name,
+          targetGamerTagOrId: tag ?? userName,
+          follow: false,
+        );
+      }
     } else {
       _followedUsers.add(userName);
       _userFollowerCounts[userName] = current + 1;
+
+      final cleanTag = (tag != null && tag.isNotEmpty)
+          ? (tag.startsWith('@') ? tag : '@$tag')
+          : '@${userName.toLowerCase().replaceAll(' ', '_')}';
+
+      AuthService().addFriend(
+        name: userName,
+        tag: cleanTag,
+        avatarColor: avatarColor,
+        level: level ?? 1,
+      );
+
+      final currentUser = AuthService().currentUser;
+      if (currentUser != null) {
+        BackendApiService().followUser(
+          followerEmail: currentUser.email,
+          followerName: currentUser.name,
+          targetGamerTagOrId: cleanTag,
+          follow: true,
+        );
+      }
     }
+
+    LocalStorageService.saveFollowedUsers(_followedUsers);
     notifyListeners();
   }
 
@@ -121,6 +184,7 @@ class VoiceRoomManager extends ChangeNotifier {
     } else {
       _userFollowers.remove(userName);
     }
+    LocalStorageService.saveUserFollowers(_userFollowers);
     notifyListeners();
   }
 

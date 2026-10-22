@@ -258,14 +258,66 @@ app.delete('/api/v1/rooms/:roomId', async (req, res) => {
   }
 });
 
+app.post('/api/v1/rooms/purge-demos', async (req, res) => {
+  try {
+    await Storage.purgeDemoRooms();
+    res.json({ success: true, message: 'All demo and fake live rooms purged.' });
+  } catch (err) {
+    console.error('Route error /api/v1/rooms/purge-demos:', err.message);
+    res.status(500).json({ error: 'Failed to purge demo rooms.' });
+  }
+});
+
 // -----------------------------------------------------------------------------
-// 6. LEGACY ACTION DISPATCH (COMPATIBILITY ROUTE)
+// 6. USER SEARCH & SOCIAL GRAPH (FOLLOWERS & FOLLOWING)
+// -----------------------------------------------------------------------------
+app.get('/api/v1/users/search', async (req, res) => {
+  try {
+    const query = req.query.q || '';
+    const results = await Storage.searchUsers(query);
+    res.json(results);
+  } catch (err) {
+    console.error('Route error GET /api/v1/users/search:', err.message);
+    res.status(500).json({ error: 'Failed to search users.' });
+  }
+});
+
+app.post('/api/v1/users/follow', async (req, res) => {
+  try {
+    const { followerEmail, followerName, targetGamerTagOrId, follow } = req.body;
+    const result = await Storage.followUser({
+      followerEmail,
+      followerName,
+      targetGamerTagOrId,
+      follow: follow !== false
+    });
+    res.json(result);
+  } catch (err) {
+    console.error('Route error POST /api/v1/users/follow:', err.message);
+    res.status(500).json({ error: 'Failed to update follow status.' });
+  }
+});
+
+// -----------------------------------------------------------------------------
+// 7. LEGACY ACTION DISPATCH (COMPATIBILITY ROUTE)
 // -----------------------------------------------------------------------------
 app.post('/', async (req, res) => {
   const action = req.body?.action;
   const sessionToken = extractBearerToken(req);
 
   try {
+    if (action === 'searchUsers') {
+      const results = await Storage.searchUsers(req.body.query || req.body.q);
+      return res.json(results);
+    }
+    if (action === 'followUser') {
+      const result = await Storage.followUser(req.body);
+      return res.json(result);
+    }
+    if (action === 'purgeDemoRooms') {
+      await Storage.purgeDemoRooms();
+      return res.json({ success: true });
+    }
     if (action === 'getRooms') {
       const rooms = await Storage.getRooms();
       return res.json(rooms);
