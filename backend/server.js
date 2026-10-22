@@ -268,6 +268,41 @@ app.post('/api/v1/rooms/purge-demos', async (req, res) => {
   }
 });
 
+app.post('/api/v1/rooms/:roomId/join', async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const user = req.body.user || req.body;
+    const result = await Storage.joinRoom({ roomId, user });
+    res.status(result.success ? 200 : 400).json(result);
+  } catch (err) {
+    console.error('Route error POST /api/v1/rooms/:roomId/join:', err.message);
+    res.status(500).json({ error: 'Failed to join room.' });
+  }
+});
+
+app.post('/api/v1/rooms/:roomId/leave', async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const userId = req.body.userId || req.body.user?.id;
+    const result = await Storage.leaveRoom({ roomId, userId });
+    res.status(result.success ? 200 : 400).json(result);
+  } catch (err) {
+    console.error('Route error POST /api/v1/rooms/:roomId/leave:', err.message);
+    res.status(500).json({ error: 'Failed to leave room.' });
+  }
+});
+
+app.get('/api/v1/rooms/:roomId/members', async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const members = await Storage.getRoomMembers(roomId);
+    res.json({ success: true, members, currentPlayers: members.length });
+  } catch (err) {
+    console.error('Route error GET /api/v1/rooms/:roomId/members:', err.message);
+    res.status(500).json({ error: 'Failed to get room members.' });
+  }
+});
+
 // -----------------------------------------------------------------------------
 // 6. USER SEARCH & SOCIAL GRAPH (FOLLOWERS & FOLLOWING)
 // -----------------------------------------------------------------------------
@@ -298,6 +333,40 @@ app.post('/api/v1/users/follow', async (req, res) => {
   }
 });
 
+app.get('/api/v1/users/:userId/followers', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const list = await Storage.getFollowers(userId);
+    res.json({ success: true, list, count: list.length });
+  } catch (err) {
+    console.error('Route error GET /api/v1/users/:userId/followers:', err.message);
+    res.status(500).json({ error: 'Failed to get followers.' });
+  }
+});
+
+app.get('/api/v1/users/:userId/following', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const list = await Storage.getFollowing(userId);
+    res.json({ success: true, list, count: list.length });
+  } catch (err) {
+    console.error('Route error GET /api/v1/users/:userId/following:', err.message);
+    res.status(500).json({ error: 'Failed to get following.' });
+  }
+});
+
+app.get('/api/v1/users/:userId/follow-status', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const targetUserId = req.query.targetUserId || req.query.targetId;
+    const status = await Storage.getFollowStatus(userId, targetUserId);
+    res.json(status);
+  } catch (err) {
+    console.error('Route error GET /api/v1/users/:userId/follow-status:', err.message);
+    res.status(500).json({ error: 'Failed to get follow status.' });
+  }
+});
+
 // -----------------------------------------------------------------------------
 // 7. LEGACY ACTION DISPATCH (COMPATIBILITY ROUTE)
 // -----------------------------------------------------------------------------
@@ -313,6 +382,30 @@ app.post('/', async (req, res) => {
     if (action === 'followUser') {
       const result = await Storage.followUser(req.body);
       return res.json(result);
+    }
+    if (action === 'getFollowers') {
+      const list = await Storage.getFollowers(req.body.userId || req.body.id || req.body.email);
+      return res.json({ success: true, list, count: list.length });
+    }
+    if (action === 'getFollowing') {
+      const list = await Storage.getFollowing(req.body.userId || req.body.id || req.body.email);
+      return res.json({ success: true, list, count: list.length });
+    }
+    if (action === 'getFollowStatus') {
+      const status = await Storage.getFollowStatus(req.body.currentUserId || req.body.userId, req.body.targetUserId || req.body.targetId);
+      return res.json(status);
+    }
+    if (action === 'joinRoom') {
+      const result = await Storage.joinRoom({ roomId: req.body.roomId || req.body.id, user: req.body.user });
+      return res.status(result.success ? 200 : 400).json(result);
+    }
+    if (action === 'leaveRoom') {
+      const result = await Storage.leaveRoom({ roomId: req.body.roomId || req.body.id, userId: req.body.userId });
+      return res.status(result.success ? 200 : 400).json(result);
+    }
+    if (action === 'getRoomMembers') {
+      const members = await Storage.getRoomMembers(req.body.roomId || req.body.id);
+      return res.json({ success: true, members, currentPlayers: members.length });
     }
     if (action === 'purgeDemoRooms') {
       await Storage.purgeDemoRooms();

@@ -170,6 +170,21 @@ exports.handler = async (event) => {
     // -------------------------------------------------------------------------
     // 5. ROOMS (Real, Verified Live Rooms — No Demos)
     // -------------------------------------------------------------------------
+    if (action === 'joinRoom') {
+      const res = await Storage.joinRoom({ roomId: body.roomId || body.id, user: body.user });
+      return response(res.success ? 200 : 400, res);
+    }
+
+    if (action === 'leaveRoom') {
+      const res = await Storage.leaveRoom({ roomId: body.roomId || body.id, userId: body.userId });
+      return response(res.success ? 200 : 400, res);
+    }
+
+    if (action === 'getRoomMembers') {
+      const members = await Storage.getRoomMembers(body.roomId || body.id);
+      return response(200, { success: true, members, currentPlayers: members.length });
+    }
+
     if (rawPath === '/api/v1/rooms' || action === 'getRooms') {
       if (httpMethod === 'POST' || action === 'createRoom') {
         const room = body.room || body;
@@ -208,6 +223,21 @@ exports.handler = async (event) => {
         follow: body.follow !== false
       });
       return response(200, result);
+    }
+
+    if (action === 'getFollowers') {
+      const list = await Storage.getFollowers(body.userId || body.id || body.email);
+      return response(200, { success: true, list, count: list.length });
+    }
+
+    if (action === 'getFollowing') {
+      const list = await Storage.getFollowing(body.userId || body.id || body.email);
+      return response(200, { success: true, list, count: list.length });
+    }
+
+    if (action === 'getFollowStatus') {
+      const res = await Storage.getFollowStatus(body.currentUserId || body.userId, body.targetUserId || body.targetId);
+      return response(200, res);
     }
 
     return response(404, { error: `Not found: action=${action || 'none'}, path=${rawPath || 'none'}` });

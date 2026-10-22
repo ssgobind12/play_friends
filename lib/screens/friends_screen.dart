@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/friend_model.dart';
 import '../services/auth_service.dart';
+import '../services/voice_room_manager.dart';
 import '../theme/app_theme.dart';
 import '../widgets/friend_tile.dart';
 import '../widgets/user_profile_dialog.dart';
@@ -28,6 +29,7 @@ class _FriendsScreenState extends State<FriendsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    VoiceRoomManager().syncFollowsFromServer();
   }
 
   @override
@@ -157,13 +159,15 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   Widget _buildFriendsList(List<FriendModel> list, String emptyMessage) {
     if (list.isEmpty) {
-      return Center(
-        child: Padding(
+      return RefreshIndicator(
+        onRefresh: () => VoiceRoomManager().syncFollowsFromServer(),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
+          children: [
+            const SizedBox(height: 60),
+            Center(
+              child: Container(
                 width: 72,
                 height: 72,
                 decoration: BoxDecoration(
@@ -176,23 +180,29 @@ class _FriendsScreenState extends State<FriendsScreen>
                   color: AppColors.primaryPurpleLight,
                 ),
               ),
-              const SizedBox(height: 16),
-              const Text(
+            ),
+            const SizedBox(height: 16),
+            const Center(
+              child: Text(
                 'Squad is Empty',
                 style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Colors.white),
               ),
-              const SizedBox(height: 8),
-              Text(
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: Text(
                 emptyMessage,
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                     color: AppColors.textSecondary, fontSize: 13),
               ),
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
+            ),
+            const SizedBox(height: 20),
+            Center(
+              child: ElevatedButton.icon(
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Add First Friend'),
                 style: ElevatedButton.styleFrom(
@@ -205,28 +215,32 @@ class _FriendsScreenState extends State<FriendsScreen>
                 ),
                 onPressed: () => _showAddFriendDialog(context),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: list.length,
-      itemBuilder: (context, index) {
-        final friend = list[index];
-        return FriendTile(
-          friend: friend,
-          onTap: () => _showFriendProfile(context, friend),
-          onInvite: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const TicTacToeScreen()),
-            );
-          },
-          onChat: widget.onOpenChat,
-        );
-      },
+    return RefreshIndicator(
+      onRefresh: () => VoiceRoomManager().syncFollowsFromServer(),
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        itemCount: list.length,
+        itemBuilder: (context, index) {
+          final friend = list[index];
+          return FriendTile(
+            friend: friend,
+            onTap: () => _showFriendProfile(context, friend),
+            onInvite: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const TicTacToeScreen()),
+              );
+            },
+            onChat: widget.onOpenChat,
+          );
+        },
+      ),
     );
   }
 

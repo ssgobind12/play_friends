@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../config/aws_config.dart';
 import '../models/user_model.dart';
 import '../models/friend_model.dart';
 import '../models/room_model.dart';
@@ -405,7 +406,7 @@ class AuthService extends ChangeNotifier {
     return null; // Valid
   }
 
-  /// Async validation that also checks AWS Cloud Storage (DynamoDB / API Gateway)
+  /// Async validation that checks with the authoritative AWS database
   Future<String?> validateRegistrationDetailsAsync({
     required String name,
     required String tag,
@@ -413,23 +414,61 @@ class AuthService extends ChangeNotifier {
     required String password,
     required String phoneNumber,
   }) async {
-    final localError = validateRegistrationDetails(
-      name: name,
-      tag: tag,
-      email: email,
-      password: password,
-      phoneNumber: phoneNumber,
-    );
-    if (localError != null) return localError;
+    final cleanName = name.trim();
+    final cleanEmail = email.trim().toLowerCase();
+    final formattedTag = tag.trim().startsWith('@')
+        ? tag.trim().toLowerCase()
+        : '@${tag.trim().toLowerCase()}';
+    final cleanPhone = phoneNumber.replaceAll(RegExp(r'\D'), '');
 
-    // Check AWS cloud storage
+    if (cleanName.length < 2) {
+      return 'Please enter a valid display name.';
+    }
+
+    if (formattedTag.length < 3) {
+      return 'Gamer tag must be at least 3 characters.';
+    }
+
+    if (!cleanEmail.contains('@') || !cleanEmail.contains('.')) {
+      return 'Please enter a valid email address.';
+    }
+
+    if (cleanPhone.length < 7 || cleanPhone.length > 15) {
+      return 'Please enter a valid phone number (7-15 digits).';
+    }
+
+    if (password.length < 6) {
+      return 'Password must be at least 6 characters.';
+    }
+
+    // Server-authoritative uniqueness check (never blocked by stale local cache)
     final awsCheck = await AwsStorageService.checkUserExists(
-      email: email,
-      phoneNumber: phoneNumber,
+      email: cleanEmail,
+      phoneNumber: cleanPhone,
     );
     if (awsCheck.exists) {
       return awsCheck.message ??
           'This email or mobile number is already registered in AWS.';
+    }
+    if (awsCheck.hasNetworkError) {
+      return awsCheck.message ??
+          'Unable to verify email/phone uniqueness with the server. Please check your internet connection.';
+    }
+
+    // In offline/mock mode fallback to local validation
+    if (AwsStorageService.mockMode || !AwsConfig.isConfigured) {
+      for (final user in _registeredUsers) {
+        if (user.email.toLowerCase() == cleanEmail) {
+          return 'This email is already used / registered. Please sign in or use another email.';
+        }
+        if (user.phoneNumber != null &&
+            user.phoneNumber!.replaceAll(RegExp(r'\D'), '') == cleanPhone) {
+          return 'This mobile number is already used / registered. Please sign in or use another mobile number.';
+        }
+        if (user.tag.toLowerCase() == formattedTag) {
+          return 'This gamer tag is already taken. Please choose another.';
+        }
+      }
     }
 
     return null;
@@ -531,10 +570,16 @@ class AuthService extends ChangeNotifier {
     }
 
     final newUser = result.user!;
+
+    // Persist to AWS DynamoDB (stores password & credentials)
+    final storeOk = await AwsStorageService.storeUser(newUser, password: password);
+    if (!storeOk && AwsConfig.isConfigured && !AwsStorageService.mockMode) {
+      return 'Registration could not be saved to server. Please check your internet connection.';
+    }
+
+    _registeredUsers.removeWhere((u) => u.email.toLowerCase() == email.trim().toLowerCase());
     _registeredUsers.add(newUser);
     _currentUser = newUser;
-
-    await AwsStorageService.storeUser(newUser, password: password);
 
     _persistState();
     notifyListeners();

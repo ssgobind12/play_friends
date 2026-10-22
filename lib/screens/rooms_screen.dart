@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../models/room_model.dart';
 import '../services/auth_service.dart';
 import '../services/backend_api_service.dart';
+import '../services/voice_room_manager.dart';
 import '../theme/app_theme.dart';
 import '../widgets/room_card.dart';
 import '../widgets/music_player_sheet.dart';
@@ -396,6 +397,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
   }
 
   void _openRoomLobby(RoomModel room) {
+    VoiceRoomManager().joinRoom(room);
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => VoicePartyRoomScreen(room: room),

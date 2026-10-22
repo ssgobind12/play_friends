@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../config/aws_config.dart';
+import '../models/room_model.dart';
 import '../models/user_model.dart';
 import '../utils/security_helper.dart';
 import 'local_storage_service.dart';
@@ -29,6 +30,21 @@ class AwsStorageService {
 
   static List<Map<String, dynamic>> get cloudUserCache =>
       List.unmodifiable(_cloudUserCache);
+
+  static final Map<String, Set<String>> _followersMap = {};
+  static final Map<String, Set<String>> _followingMap = {};
+  static final Map<String, List<Map<String, dynamic>>> _roomMembersMap = {};
+  static final List<RoomModel> _cloudRooms = [];
+  static final List<Map<String, dynamic>> _directMessages = [];
+
+  static void resetForTesting() {
+    _cloudUserCache.clear();
+    _followersMap.clear();
+    _followingMap.clear();
+    _roomMembersMap.clear();
+    _cloudRooms.clear();
+    _directMessages.clear();
+  }
 
   /// Flag for unit tests and offline testing mode
   static bool mockMode = false;
@@ -148,7 +164,7 @@ class AwsStorageService {
       final uPhone =
           (u['phoneNumber'] ?? '').toString().replaceAll(RegExp(r'\D'), '');
 
-      if (uEmail.isNotEmpty && uEmail == cleanEmail) {
+      if (cleanEmail.isNotEmpty && uEmail.isNotEmpty && uEmail == cleanEmail) {
         return const AwsCheckResult(
           exists: true,
           existingField: 'email',
@@ -157,13 +173,17 @@ class AwsStorageService {
         );
       }
 
-      if (cleanPhone.isNotEmpty && uPhone.isNotEmpty && uPhone == cleanPhone) {
-        return const AwsCheckResult(
-          exists: true,
-          existingField: 'mobile',
-          message:
-              'This mobile number is already used / registered. Please sign in or use another mobile number.',
-        );
+      if (cleanPhone.isNotEmpty && uPhone.isNotEmpty) {
+        if (uPhone == cleanPhone ||
+            (uPhone.length >= 7 && cleanPhone.length >= 7 &&
+             (uPhone.endsWith(cleanPhone) || cleanPhone.endsWith(uPhone)))) {
+          return const AwsCheckResult(
+            exists: true,
+            existingField: 'mobile',
+            message:
+                'This mobile number is already used / registered. Please sign in or use another mobile number.',
+          );
+        }
       }
     }
 
@@ -727,6 +747,671 @@ class AwsStorageService {
     }
 
     return List<Map<String, dynamic>>.from(localSongs);
+  }
+
+  /// Follow or unfollow a user on AWS server and local graph
+  static Future<Map<String, dynamic>> followUser({
+    required String followerId,
+    required String followerName,
+    required String targetIdOrTag,
+    bool follow = true,
+  }) async {
+    final cleanFollower = followerId.trim().toLowerCase();
+    final cleanTarget = targetIdOrTag.trim().toLowerCase().replaceAll('@', '');
+
+    if (mockMode) {
+      final fSet = _followersMap.putIfAbsent(cleanTarget, () => {});
+      final gSet = _followingMap.putIfAbsent(cleanFollower, () => {});
+      if (follow) {
+        fSet.add(cleanFollower);
+        gSet.add(cleanTarget);
+      } else {
+        fSet.remove(cleanFollower);
+        gSet.remove(cleanTarget);
+      }
+      return {
+        'success': true,
+        'isFollowing': follow,
+        'targetName': targetIdOrTag,
+        'followersCount': fSet.length,
+        'followingCount': gSet.length,
+      };
+    }
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'followUser',
+                'followerId': cleanFollower,
+                'followerName': followerName,
+                'targetId': cleanTarget,
+                'targetGamerTagOrId': cleanTarget,
+                'follow': follow,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 5));
+
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          final data = jsonDecode(response.body);
+          if (data is Map) {
+            return Map<String, dynamic>.from(data);
+          }
+        }
+      } catch (e) {
+        debugPrint('AwsStorageService followUser error: $e');
+      }
+    }
+
+    // Local fallback update
+    final fSet = _followersMap.putIfAbsent(cleanTarget, () => {});
+    final gSet = _followingMap.putIfAbsent(cleanFollower, () => {});
+    if (follow) {
+      fSet.add(cleanFollower);
+      gSet.add(cleanTarget);
+    } else {
+      fSet.remove(cleanFollower);
+      gSet.remove(cleanTarget);
+    }
+    return {
+      'success': true,
+      'isFollowing': follow,
+      'targetName': targetIdOrTag,
+      'followersCount': fSet.length,
+      'followingCount': gSet.length,
+    };
+  }
+
+  /// Get followers list for a user
+  static Future<List<Map<String, dynamic>>> getFollowers(String userIdOrEmail) async {
+    final cleanId = userIdOrEmail.trim().toLowerCase().replaceAll('@', '');
+
+    if (mockMode) {
+      final keys = _followersMap[cleanId] ?? {};
+      final list = <Map<String, dynamic>>[];
+      for (final k in keys) {
+        final u = _cloudUserCache.firstWhere(
+          (user) =>
+              (user['id'] ?? user['userId'] ?? '').toString().toLowerCase() == k ||
+              (user['email'] ?? '').toString().toLowerCase() == k ||
+              (user['tag'] ?? user['gamerTag'] ?? '').toString().toLowerCase().replaceAll('@', '') == k,
+          orElse: () => {
+            'id': k,
+            'name': 'Player',
+            'tag': '@player',
+          },
+        );
+        list.add({
+          'id': u['id'] ?? u['userId'] ?? k,
+          'name': u['name'] ?? 'Player',
+          'tag': u['tag'] ?? u['gamerTag'] ?? '@player',
+          'profilePhoto': u['profilePhoto'],
+          'level': u['level'] ?? 1,
+        });
+      }
+      return list;
+    }
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'getFollowers',
+                'userId': cleanId,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data is Map && data['list'] is List) {
+            return (data['list'] as List).cast<Map<String, dynamic>>();
+          }
+        }
+      } catch (e) {
+        debugPrint('AwsStorageService getFollowers error: $e');
+      }
+    }
+
+    return [];
+  }
+
+  /// Get following list for a user
+  static Future<List<Map<String, dynamic>>> getFollowing(String userIdOrEmail) async {
+    final cleanId = userIdOrEmail.trim().toLowerCase().replaceAll('@', '');
+
+    if (mockMode) {
+      final keys = _followingMap[cleanId] ?? {};
+      final list = <Map<String, dynamic>>[];
+      for (final k in keys) {
+        final u = _cloudUserCache.firstWhere(
+          (user) =>
+              (user['id'] ?? user['userId'] ?? '').toString().toLowerCase() == k ||
+              (user['email'] ?? '').toString().toLowerCase() == k ||
+              (user['tag'] ?? user['gamerTag'] ?? '').toString().toLowerCase().replaceAll('@', '') == k,
+          orElse: () => {
+            'id': k,
+            'name': 'Player',
+            'tag': '@player',
+          },
+        );
+        list.add({
+          'id': u['id'] ?? u['userId'] ?? k,
+          'name': u['name'] ?? 'Player',
+          'tag': u['tag'] ?? u['gamerTag'] ?? '@player',
+          'profilePhoto': u['profilePhoto'],
+          'level': u['level'] ?? 1,
+        });
+      }
+      return list;
+    }
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'getFollowing',
+                'userId': cleanId,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data is Map && data['list'] is List) {
+            return (data['list'] as List).cast<Map<String, dynamic>>();
+          }
+        }
+      } catch (e) {
+        debugPrint('AwsStorageService getFollowing error: $e');
+      }
+    }
+
+    return [];
+  }
+
+  /// Get follow and mutual relationship status between two users
+  static Future<Map<String, dynamic>> getFollowStatus({
+    required String currentUserId,
+    required String targetUserId,
+  }) async {
+    final cId = currentUserId.trim().toLowerCase();
+    final tId = targetUserId.trim().toLowerCase().replaceAll('@', '');
+
+    if (mockMode) {
+      final isFollowing = _followingMap[cId]?.contains(tId) == true;
+      final isFollowedBy = _followersMap[cId]?.contains(tId) == true;
+      return {
+        'success': true,
+        'isFollowing': isFollowing,
+        'isFollowedBy': isFollowedBy,
+        'isMutual': isFollowing && isFollowedBy,
+      };
+    }
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'getFollowStatus',
+                'currentUserId': cId,
+                'targetUserId': tId,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data is Map) {
+            return Map<String, dynamic>.from(data);
+          }
+        }
+      } catch (e) {
+        debugPrint('AwsStorageService getFollowStatus error: $e');
+      }
+    }
+
+    final isFollowing = _followingMap[cId]?.contains(tId) == true;
+    final isFollowedBy = _followersMap[cId]?.contains(tId) == true;
+    return {
+      'success': true,
+      'isFollowing': isFollowing,
+      'isFollowedBy': isFollowedBy,
+      'isMutual': isFollowing && isFollowedBy,
+    };
+  }
+
+  /// Fetch active live rooms from AWS server
+  static Future<List<RoomModel>> getRooms() async {
+    if (mockMode) {
+      return _cloudRooms.where((r) => !RoomModel.isDemoRoom(r)).toList();
+    }
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'getRooms',
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data is List) {
+            final rooms = <RoomModel>[];
+            for (final item in data) {
+              if (item is Map) {
+                final r = RoomModel.fromMap(Map<String, dynamic>.from(item));
+                if (!RoomModel.isDemoRoom(r)) {
+                  rooms.add(r);
+                }
+              }
+            }
+            return rooms;
+          }
+        }
+      } catch (e) {
+        debugPrint('AwsStorageService getRooms error: $e');
+      }
+    }
+
+    final local = await LocalStorageService.loadActiveRooms();
+    return local.where((r) => !RoomModel.isDemoRoom(r)).toList();
+  }
+
+  /// Create and persist a room on AWS server
+  static Future<bool> createRoom(RoomModel room) async {
+    if (RoomModel.isDemoRoom(room)) return false;
+
+    _cloudRooms.removeWhere((r) => r.id == room.id || r.roomCode == room.roomCode);
+    _cloudRooms.insert(0, room);
+    _roomMembersMap[room.id] = [
+      {
+        'userId': room.id,
+        'name': room.hostName,
+        'role': 'host',
+        'joinedAt': DateTime.now().toIso8601String(),
+      }
+    ];
+
+    if (mockMode) return true;
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'createRoom',
+                'room': room.toMap(),
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        return response.statusCode == 200 || response.statusCode == 201;
+      } catch (e) {
+        debugPrint('AwsStorageService createRoom error: $e');
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /// Delete a room from AWS server
+  static Future<bool> deleteRoom(String roomId) async {
+    _cloudRooms.removeWhere((r) => r.id == roomId || r.roomCode == roomId);
+    _roomMembersMap.remove(roomId);
+
+    if (mockMode) return true;
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'deleteRoom',
+                'roomId': roomId,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        return response.statusCode == 200 || response.statusCode == 204;
+      } catch (e) {
+        debugPrint('AwsStorageService deleteRoom error: $e');
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /// Join a room and register membership on AWS server
+  static Future<({bool success, List<Map<String, dynamic>> members, int currentPlayers})> joinRoom({
+    required String roomId,
+    required UserModel user,
+  }) async {
+    final memberObj = {
+      'userId': user.id,
+      'name': user.name,
+      'gamerTag': user.tag,
+      'profilePhoto': user.profilePhoto,
+      'role': 'listener',
+      'joinedAt': DateTime.now().toIso8601String(),
+    };
+
+    final localList = _roomMembersMap.putIfAbsent(roomId, () => []);
+    localList.removeWhere((m) => m['userId'] == user.id);
+    localList.add(memberObj);
+
+    if (mockMode) {
+      return (success: true, members: localList, currentPlayers: localList.length);
+    }
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'joinRoom',
+                'roomId': roomId,
+                'user': {
+                  'id': user.id,
+                  'name': user.name,
+                  'tag': user.tag,
+                  'profilePhoto': user.profilePhoto,
+                },
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 5));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data is Map && data['members'] is List) {
+            final mList = (data['members'] as List).cast<Map<String, dynamic>>();
+            _roomMembersMap[roomId] = mList;
+            final count = data['currentPlayers'] is int ? data['currentPlayers'] as int : mList.length;
+            return (success: true, members: mList, currentPlayers: count);
+          }
+        }
+      } catch (e) {
+        debugPrint('AwsStorageService joinRoom error: $e');
+      }
+    }
+
+    return (success: true, members: localList, currentPlayers: localList.length);
+  }
+
+  /// Leave a room and unregister membership on AWS server
+  static Future<({bool success, List<Map<String, dynamic>> members, int currentPlayers})> leaveRoom({
+    required String roomId,
+    required String userId,
+  }) async {
+    if (_roomMembersMap.containsKey(roomId)) {
+      _roomMembersMap[roomId]!.removeWhere((m) => m['userId'] == userId);
+    }
+    final remaining = _roomMembersMap[roomId] ?? [];
+
+    if (mockMode) {
+      return (success: true, members: remaining, currentPlayers: remaining.length);
+    }
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'leaveRoom',
+                'roomId': roomId,
+                'userId': userId,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data is Map && data['members'] is List) {
+            final mList = (data['members'] as List).cast<Map<String, dynamic>>();
+            _roomMembersMap[roomId] = mList;
+            final count = data['currentPlayers'] is int ? data['currentPlayers'] as int : mList.length;
+            return (success: true, members: mList, currentPlayers: count);
+          }
+        }
+      } catch (e) {
+        debugPrint('AwsStorageService leaveRoom error: $e');
+      }
+    }
+
+    return (success: true, members: remaining, currentPlayers: remaining.length);
+  }
+
+  /// Get active members of a room
+  static Future<List<Map<String, dynamic>>> getRoomMembers(String roomId) async {
+    if (mockMode) {
+      return List<Map<String, dynamic>>.from(_roomMembersMap[roomId] ?? []);
+    }
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'getRoomMembers',
+                'roomId': roomId,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data is Map && data['members'] is List) {
+            final mList = (data['members'] as List).cast<Map<String, dynamic>>();
+            _roomMembersMap[roomId] = mList;
+            return mList;
+          }
+        }
+      } catch (e) {
+        debugPrint('AwsStorageService getRoomMembers error: $e');
+      }
+    }
+
+    return List<Map<String, dynamic>>.from(_roomMembersMap[roomId] ?? []);
+  }
+
+  /// Send a 1-on-1 direct message between mutual friends
+  static Future<bool> sendDirectMessage({
+    required String senderId,
+    required String receiverId,
+    required String text,
+  }) async {
+    final msg = {
+      'id': 'msg_${DateTime.now().millisecondsSinceEpoch}',
+      'senderId': senderId,
+      'receiverId': receiverId,
+      'text': text,
+      'createdAt': DateTime.now().toIso8601String(),
+    };
+    _directMessages.add(msg);
+
+    if (mockMode) return true;
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'sendDirectMessage',
+                'senderId': senderId,
+                'receiverId': receiverId,
+                'text': text,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        return response.statusCode == 200 || response.statusCode == 201;
+      } catch (e) {
+        debugPrint('AwsStorageService sendDirectMessage error: $e');
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /// Get direct messages between two users
+  static Future<List<Map<String, dynamic>>> getDirectMessages({
+    required String userA,
+    required String userB,
+  }) async {
+    if (mockMode) {
+      return _directMessages
+          .where((m) =>
+              (m['senderId'] == userA && m['receiverId'] == userB) ||
+              (m['senderId'] == userB && m['receiverId'] == userA))
+          .toList();
+    }
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'getDirectMessages',
+                'userA': userA,
+                'userB': userB,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data is Map && data['messages'] is List) {
+            return (data['messages'] as List).cast<Map<String, dynamic>>();
+          }
+        }
+      } catch (e) {
+        debugPrint('AwsStorageService getDirectMessages error: $e');
+      }
+    }
+
+    return _directMessages
+        .where((m) =>
+            (m['senderId'] == userA && m['receiverId'] == userB) ||
+            (m['senderId'] == userB && m['receiverId'] == userA))
+        .toList();
   }
 
   /// Test connection to AWS endpoint

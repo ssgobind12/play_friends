@@ -290,10 +290,41 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
     _activeSpectators = isHostMe
         ? max(1, widget.room.currentPlayers)
         : max(2, widget.room.currentPlayers + 1);
+
+    VoiceRoomManager().addListener(_onRoomMembersChanged);
+  }
+
+  void _onRoomMembersChanged() {
+    if (!mounted) return;
+    final liveMembers = VoiceRoomManager().activeRoomMembers;
+    if (liveMembers.isEmpty) return;
+
+    setState(() {
+      _activeSpectators = max(liveMembers.length, 1);
+      final host = widget.room.hostName;
+
+      for (int i = 0; i < liveMembers.length && i < _seats.length; i++) {
+        final m = liveMembers[i];
+        final mName = m['name']?.toString() ?? 'Player';
+        final isHost = m['role'] == 'host' || mName == host;
+        final seatIdx = isHost ? 0 : (i == 0 ? 1 : i);
+        if (seatIdx < _seats.length && (_seats[seatIdx].userName == null || _seats[seatIdx].userName != mName)) {
+          _seats[seatIdx] = MicSeatData(
+            seatIndex: seatIdx + 1,
+            userName: mName,
+            userPhoto: m['profilePhoto']?.toString(),
+            userColor: isHost ? AppColors.primaryPurple : AppColors.primaryBlueLight,
+            level: 1,
+            isHost: isHost,
+          );
+        }
+      }
+    });
   }
 
   @override
   void dispose() {
+    VoiceRoomManager().removeListener(_onRoomMembersChanged);
     _simulatedTrafficTimer?.cancel();
     _vinylAnimCtrl.dispose();
     _giftAnimCtrl.dispose();

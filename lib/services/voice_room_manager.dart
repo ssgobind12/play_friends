@@ -1,8 +1,9 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/room_model.dart';
 import 'auth_service.dart';
-import 'backend_api_service.dart';
+import 'aws_storage_service.dart';
 import 'in_app_music_service.dart';
 import 'local_storage_service.dart';
 
@@ -83,6 +84,11 @@ class VoiceRoomManager extends ChangeNotifier {
   final Map<String, int> _userFollowingCounts = {};
   final Map<String, int> _userVisitorCounts = {};
 
+  // Active room member list synced across devices
+  Timer? _roomSyncTimer;
+  List<Map<String, dynamic>> _activeRoomMembers = [];
+  List<Map<String, dynamic>> get activeRoomMembers => List.unmodifiable(_activeRoomMembers);
+
   Set<String> get followedRoomCodes => Set.unmodifiable(_followedRoomCodes);
   Set<String> get followedUsers => Set.unmodifiable(_followedUsers);
   Set<String> get userFollowers => Set.unmodifiable(_userFollowers);
@@ -124,13 +130,13 @@ class VoiceRoomManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  void toggleFollowUser(
+  Future<void> toggleFollowUser(
     String userName, {
     String? tag,
     String? profilePhoto,
     Color? avatarColor,
     int? level,
-  }) {
+  }) async {
     final current = _userFollowerCounts[userName] ?? 100;
     final isNowFollowing = !_followedUsers.contains(userName);
 
@@ -141,12 +147,18 @@ class VoiceRoomManager extends ChangeNotifier {
 
       final currentUser = AuthService().currentUser;
       if (currentUser != null) {
-        BackendApiService().followUser(
-          followerEmail: currentUser.email,
+        final res = await AwsStorageService.followUser(
+          followerId: currentUser.email,
           followerName: currentUser.name,
-          targetGamerTagOrId: tag ?? userName,
+          targetIdOrTag: tag ?? userName,
           follow: false,
         );
+        if (res['followersCount'] is int) {
+          _userFollowerCounts[userName] = res['followersCount'] as int;
+        }
+        if (res['followingCount'] is int) {
+          _userFollowingCounts[currentUser.name] = res['followingCount'] as int;
+        }
       }
     } else {
       _followedUsers.add(userName);
@@ -165,17 +177,57 @@ class VoiceRoomManager extends ChangeNotifier {
 
       final currentUser = AuthService().currentUser;
       if (currentUser != null) {
-        BackendApiService().followUser(
-          followerEmail: currentUser.email,
+        final res = await AwsStorageService.followUser(
+          followerId: currentUser.email,
           followerName: currentUser.name,
-          targetGamerTagOrId: cleanTag,
+          targetIdOrTag: cleanTag,
           follow: true,
         );
+        if (res['followersCount'] is int) {
+          _userFollowerCounts[userName] = res['followersCount'] as int;
+        }
+        if (res['followingCount'] is int) {
+          _userFollowingCounts[currentUser.name] = res['followingCount'] as int;
+        }
       }
     }
 
     LocalStorageService.saveFollowedUsers(_followedUsers);
     notifyListeners();
+  }
+
+  /// Syncs followers and following lists directly from AWS DynamoDB
+  Future<void> syncFollowsFromServer() async {
+    final currentUser = AuthService().currentUser;
+    if (currentUser == null) return;
+
+    try {
+      final followers = await AwsStorageService.getFollowers(currentUser.id);
+      _userFollowers.clear();
+      for (final f in followers) {
+        final fName = f['name']?.toString() ?? '';
+        final fId = f['id']?.toString() ?? '';
+        if (fName.isNotEmpty) _userFollowers.add(fName);
+        if (fId.isNotEmpty) _userFollowers.add(fId);
+      }
+      _userFollowerCounts[currentUser.name] = followers.length;
+
+      final following = await AwsStorageService.getFollowing(currentUser.id);
+      _followedUsers.clear();
+      for (final g in following) {
+        final gName = g['name']?.toString() ?? '';
+        final gId = g['id']?.toString() ?? '';
+        if (gName.isNotEmpty) _followedUsers.add(gName);
+        if (gId.isNotEmpty) _followedUsers.add(gId);
+      }
+      _userFollowingCounts[currentUser.name] = following.length;
+
+      LocalStorageService.saveFollowedUsers(_followedUsers);
+      LocalStorageService.saveUserFollowers(_userFollowers);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('VoiceRoomManager syncFollowsFromServer error: $e');
+    }
   }
 
   void setUserFollowsMe(String userName, bool follows) {
@@ -188,21 +240,72 @@ class VoiceRoomManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Sets the currently active room and starts room music
+  /// Sets the currently active room, registers with server, and begins live member sync
   void joinRoom(RoomModel room) {
     _activeRoom = room;
     _roomAdmins.clear();
     // Default: Host is always admin
     _roomAdmins.add(room.hostName);
 
+    // Initial member list with host
+    _activeRoomMembers = [
+      {
+        'userId': room.id,
+        'name': room.hostName,
+        'role': 'host',
+        'joinedAt': DateTime.now().toIso8601String(),
+      }
+    ];
+
     // Silent by default when creating or joining a room; starts only when player presses play!
     InAppMusicService().pauseMusic();
     notifyListeners();
+
+    final currentUser = AuthService().currentUser;
+    if (currentUser != null) {
+      AwsStorageService.joinRoom(roomId: room.id, user: currentUser).then((res) {
+        if (res.members.isNotEmpty) {
+          _activeRoomMembers = res.members;
+          if (_activeRoom != null) {
+            _activeRoom = _activeRoom!.copyWith(currentPlayers: res.currentPlayers);
+          }
+          notifyListeners();
+        }
+      });
+    }
+
+    if (!AwsStorageService.mockMode) {
+      _roomSyncTimer?.cancel();
+      _roomSyncTimer = Timer.periodic(const Duration(milliseconds: 2500), (_) async {
+        if (_activeRoom == null) {
+          _roomSyncTimer?.cancel();
+          return;
+        }
+        try {
+          final members = await AwsStorageService.getRoomMembers(_activeRoom!.id);
+          if (members.isNotEmpty) {
+            _activeRoomMembers = members;
+            _activeRoom = _activeRoom!.copyWith(currentPlayers: members.length);
+            notifyListeners();
+          }
+        } catch (_) {}
+      });
+    }
   }
 
-  /// Leaves the current room and stops room music
+  /// Leaves the current room, unregisters from server, and cancels live member sync
   void leaveRoom() {
+    _roomSyncTimer?.cancel();
+    _roomSyncTimer = null;
+
+    final leavingRoom = _activeRoom;
+    final currentUser = AuthService().currentUser;
+    if (leavingRoom != null && currentUser != null) {
+      AwsStorageService.leaveRoom(roomId: leavingRoom.id, userId: currentUser.id);
+    }
+
     _activeRoom = null;
+    _activeRoomMembers.clear();
     _roomAdmins.clear();
     InAppMusicService().pauseMusic();
     notifyListeners();

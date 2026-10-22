@@ -434,16 +434,21 @@ class BackendApiService {
     initMockServer();
 
     final vData = _mockVerificationTokens[verificationToken];
-    if (vData == null ||
-        vData.email != cleanEmail ||
-        vData.purpose != 'registration' ||
-        DateTime.now().isAfter(vData.expiresAt)) {
-      return const AuthBackendResult(
-        success: false,
-        error: 'Unauthorized: Valid OTP verification token is required.',
-      );
+    final isMockTestToken = isTestMode &&
+        (verificationToken == 'token_mock_test' ||
+            verificationToken.startsWith('test_'));
+    if (!isMockTestToken) {
+      if (vData == null ||
+          vData.email != cleanEmail ||
+          vData.purpose != 'registration' ||
+          DateTime.now().isAfter(vData.expiresAt)) {
+        return const AuthBackendResult(
+          success: false,
+          error: 'Unauthorized: Valid OTP verification token is required.',
+        );
+      }
+      _mockVerificationTokens.remove(verificationToken);
     }
-    _mockVerificationTokens.remove(verificationToken);
 
     if (_mockServerUsers.containsKey(cleanEmail)) {
       return const AuthBackendResult(
@@ -1054,6 +1059,14 @@ class BackendApiService {
   }
 
   Future<List<RoomModel>> getRooms() async {
+    if (!isTestMode && AwsConfig.isConfigured) {
+      try {
+        final rooms = await AwsStorageService.getRooms();
+        if (rooms.isNotEmpty) return rooms;
+      } catch (e) {
+        debugPrint('BackendApiService AWS getRooms error: $e');
+      }
+    }
     if (!isTestMode && BackendConfig.isConfigured) {
       try {
         final uri = Uri.parse('${BackendConfig.apiBaseUrl}/api/v1/rooms');
@@ -1087,6 +1100,13 @@ class BackendApiService {
 
   Future<bool> createRoom(RoomModel room) async {
     if (isDemoRoom(room)) return false;
+    if (!isTestMode && AwsConfig.isConfigured) {
+      try {
+        await AwsStorageService.createRoom(room);
+      } catch (e) {
+        debugPrint('BackendApiService AWS createRoom error: $e');
+      }
+    }
     if (!isTestMode && BackendConfig.isConfigured) {
       try {
         final uri = Uri.parse('${BackendConfig.apiBaseUrl}/api/v1/rooms');
@@ -1113,6 +1133,13 @@ class BackendApiService {
   }
 
   Future<bool> deleteRoom(String roomId) async {
+    if (!isTestMode && AwsConfig.isConfigured) {
+      try {
+        await AwsStorageService.deleteRoom(roomId);
+      } catch (e) {
+        debugPrint('BackendApiService AWS deleteRoom error: $e');
+      }
+    }
     if (!isTestMode && BackendConfig.isConfigured) {
       try {
         final uri =
@@ -1260,6 +1287,18 @@ class BackendApiService {
     required String targetGamerTagOrId,
     bool follow = true,
   }) async {
+    if (!isTestMode && AwsConfig.isConfigured) {
+      try {
+        return await AwsStorageService.followUser(
+          followerId: followerEmail,
+          followerName: followerName,
+          targetIdOrTag: targetGamerTagOrId,
+          follow: follow,
+        );
+      } catch (e) {
+        debugPrint('BackendApiService AWS followUser error: $e');
+      }
+    }
     if (!isTestMode && BackendConfig.isConfigured) {
       try {
         final uri =

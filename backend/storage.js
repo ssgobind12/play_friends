@@ -846,6 +846,236 @@ class Storage {
       followingCount: followerUser ? (followerUser.following || []).length : 0
     };
   }
+
+  // ---------------------------------------------------------------------------
+  // SOCIAL GRAPH: GET FOLLOWERS & FOLLOWING
+  // ---------------------------------------------------------------------------
+
+  static async getFollowers(rawId) {
+    const cleanId = (rawId || '').toLowerCase().trim().replace(/^@/, '');
+    let allUsers = [];
+    if (this.isMemoryMode()) {
+      allUsers = Array.from(memUsers.values());
+    } else {
+      try {
+        const res = await docClient.send(new ScanCommand({ TableName: TABLE_USERS, Limit: 250 }));
+        allUsers = res.Items || [];
+      } catch (err) {
+        allUsers = Array.from(memUsers.values());
+      }
+    }
+
+    const target = allUsers.find(u => {
+      const email = (u.email || '').toLowerCase();
+      const id = (u.userId || u.id || '').toLowerCase();
+      const tag = (u.gamerTag || u.tag || '').toLowerCase().replace(/^@/, '');
+      return email === cleanId || id === cleanId || tag === cleanId;
+    });
+
+    if (!target) return [];
+
+    const followerKeys = target.followers || [];
+    const list = [];
+    for (const key of followerKeys) {
+      const m = allUsers.find(u => {
+        const email = (u.email || '').toLowerCase();
+        const id = (u.userId || u.id || '').toLowerCase();
+        return email === key.toLowerCase() || id === key.toLowerCase();
+      });
+      if (m) {
+        list.push({
+          id: m.userId || m.id,
+          name: m.name || 'Player',
+          tag: m.gamerTag || m.tag || '@player',
+          profilePhoto: m.profilePhoto || null,
+          level: m.level || 1
+        });
+      } else {
+        list.push({ id: key, name: 'Player', tag: '@player' });
+      }
+    }
+    return list;
+  }
+
+  static async getFollowing(rawId) {
+    const cleanId = (rawId || '').toLowerCase().trim().replace(/^@/, '');
+    let allUsers = [];
+    if (this.isMemoryMode()) {
+      allUsers = Array.from(memUsers.values());
+    } else {
+      try {
+        const res = await docClient.send(new ScanCommand({ TableName: TABLE_USERS, Limit: 250 }));
+        allUsers = res.Items || [];
+      } catch (err) {
+        allUsers = Array.from(memUsers.values());
+      }
+    }
+
+    const target = allUsers.find(u => {
+      const email = (u.email || '').toLowerCase();
+      const id = (u.userId || u.id || '').toLowerCase();
+      const tag = (u.gamerTag || u.tag || '').toLowerCase().replace(/^@/, '');
+      return email === cleanId || id === cleanId || tag === cleanId;
+    });
+
+    if (!target) return [];
+
+    const followingKeys = target.following || [];
+    const list = [];
+    for (const key of followingKeys) {
+      const m = allUsers.find(u => {
+        const email = (u.email || '').toLowerCase();
+        const id = (u.userId || u.id || '').toLowerCase();
+        return email === key.toLowerCase() || id === key.toLowerCase();
+      });
+      if (m) {
+        list.push({
+          id: m.userId || m.id,
+          name: m.name || 'Player',
+          tag: m.gamerTag || m.tag || '@player',
+          profilePhoto: m.profilePhoto || null,
+          level: m.level || 1
+        });
+      } else {
+        list.push({ id: key, name: 'Player', tag: '@player' });
+      }
+    }
+    return list;
+  }
+
+  static async getFollowStatus(currentUserId, targetUserId) {
+    const cId = (currentUserId || '').toLowerCase().trim();
+    const tId = (targetUserId || '').toLowerCase().trim().replace(/^@/, '');
+
+    let allUsers = [];
+    if (this.isMemoryMode()) {
+      allUsers = Array.from(memUsers.values());
+    } else {
+      try {
+        const res = await docClient.send(new ScanCommand({ TableName: TABLE_USERS, Limit: 250 }));
+        allUsers = res.Items || [];
+      } catch (err) {
+        allUsers = Array.from(memUsers.values());
+      }
+    }
+
+    const cu = allUsers.find(u => (u.userId || u.id || u.email || '').toLowerCase() === cId);
+    const tu = allUsers.find(u => {
+      const email = (u.email || '').toLowerCase();
+      const id = (u.userId || u.id || '').toLowerCase();
+      const tag = (u.gamerTag || u.tag || '').toLowerCase().replace(/^@/, '');
+      return email === tId || id === tId || tag === tId;
+    });
+
+    let isFollowing = false;
+    let isFollowedBy = false;
+
+    if (cu && tu) {
+      const cuKey = cu.userId || cu.email;
+      const tuKey = tu.userId || tu.email;
+      isFollowing = Array.isArray(cu.following) && cu.following.includes(tuKey);
+      isFollowedBy = Array.isArray(tu.following) && tu.following.includes(cuKey);
+    }
+
+    return {
+      success: true,
+      isFollowing,
+      isFollowedBy,
+      isMutual: isFollowing && isFollowedBy
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // LIVE ROOM MEMBERSHIP (CROSS-DEVICE SYNC)
+  // ---------------------------------------------------------------------------
+
+  static async joinRoom({ roomId, user }) {
+    if (!roomId || !user) return { success: false, error: 'roomId and user required' };
+    const userId = (user.id || user.userId || '').toString();
+
+    let room = null;
+    if (this.isMemoryMode()) {
+      room = memRooms.get(roomId);
+    } else {
+      try {
+        const res = await docClient.send(new GetCommand({ TableName: TABLE_ROOMS, Key: { id: roomId } }));
+        room = res.Item;
+      } catch (err) {
+        room = memRooms.get(roomId);
+      }
+    }
+
+    if (!room) return { success: false, error: 'Room not found' };
+
+    const members = Array.isArray(room.members) ? [...room.members] : [];
+    const idx = members.findIndex(m => m.userId === userId);
+    const memberObj = {
+      userId: userId,
+      name: user.name || 'Player',
+      gamerTag: user.tag || user.gamerTag || '@player',
+      profilePhoto: user.profilePhoto || null,
+      role: (userId === room.hostId || user.name === room.hostName) ? 'host' : 'listener',
+      joinedAt: new Date().toISOString()
+    };
+
+    if (idx !== -1) {
+      members[idx] = memberObj;
+    } else {
+      members.push(memberObj);
+    }
+
+    room.members = members;
+    room.currentPlayers = members.length;
+    room.updatedAt = new Date().toISOString();
+
+    await this.saveRoom(room);
+    return { success: true, room, members, currentPlayers: members.length };
+  }
+
+  static async leaveRoom({ roomId, userId }) {
+    if (!roomId || !userId) return { success: false, error: 'roomId and userId required' };
+
+    let room = null;
+    if (this.isMemoryMode()) {
+      room = memRooms.get(roomId);
+    } else {
+      try {
+        const res = await docClient.send(new GetCommand({ TableName: TABLE_ROOMS, Key: { id: roomId } }));
+        room = res.Item;
+      } catch (err) {
+        room = memRooms.get(roomId);
+      }
+    }
+
+    if (!room) return { success: true, members: [], currentPlayers: 0 };
+
+    let members = Array.isArray(room.members) ? [...room.members] : [];
+    members = members.filter(m => m.userId !== userId.toString());
+
+    room.members = members;
+    room.currentPlayers = members.length;
+    room.updatedAt = new Date().toISOString();
+
+    await this.saveRoom(room);
+    return { success: true, members, currentPlayers: members.length };
+  }
+
+  static async getRoomMembers(roomId) {
+    if (!roomId) return [];
+    let room = null;
+    if (this.isMemoryMode()) {
+      room = memRooms.get(roomId);
+    } else {
+      try {
+        const res = await docClient.send(new GetCommand({ TableName: TABLE_ROOMS, Key: { id: roomId } }));
+        room = res.Item;
+      } catch (err) {
+        room = memRooms.get(roomId);
+      }
+    }
+
+    return room && Array.isArray(room.members) ? room.members : [];
+  }
 }
 
 module.exports = Storage;
