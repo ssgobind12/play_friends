@@ -286,8 +286,13 @@ class AwsStorageService {
         final payload = {
           'action': 'register',
           'userId': user.id,
+          'id': user.id,
+          'Id': user.id,
+          'ID': user.id,
           'email': cleanEmail,
+          'Email': cleanEmail,
           'phoneNumber': cleanPhone,
+          'Phone': cleanPhone,
           'countryCode': user.countryCode,
           'countryFlag': user.countryFlag,
           'name': user.name,
@@ -305,7 +310,7 @@ class AwsStorageService {
 
         final response = await httpClient
             .post(uri, headers: headers, body: jsonEncode(payload))
-            .timeout(const Duration(seconds: 5));
+            .timeout(const Duration(seconds: 8));
 
         return response.statusCode == 200 || response.statusCode == 201;
       } catch (e) {

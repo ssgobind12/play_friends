@@ -5,7 +5,7 @@
 // Zero external npm dependencies: uses built-in AWS SDK v3 in Lambda runtime
 // =============================================================================
 
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBClient, DescribeTableCommand } from "@aws-sdk/client-dynamodb";
 import {
     DynamoDBDocumentClient,
     PutCommand,
@@ -24,6 +24,27 @@ const TABLE_USERS = process.env.TABLE_NAME || "PlayFriends_Users";
 const TABLE_ROOMS = `${TABLE_USERS}_Rooms`;
 const TABLE_SONGS = `${TABLE_USERS}_Songs`;
 const TABLE_MESSAGES = `${TABLE_USERS}_Messages`;
+
+let cachedKeySchema = null;
+async function getTableKeySchema() {
+    if (cachedKeySchema && cachedKeySchema.length > 0) return cachedKeySchema;
+    try {
+        const info = await client.send(new DescribeTableCommand({ TableName: TABLE_USERS }));
+        cachedKeySchema = info.Table?.KeySchema || [];
+        return cachedKeySchema;
+    } catch (e) {
+        return [{ AttributeName: "Email", KeyType: "HASH" }];
+    }
+}
+
+function buildKey(item, keySchema) {
+    const key = {};
+    for (const k of (keySchema || [])) {
+        const name = k.AttributeName;
+        key[name] = item[name] ?? item[name.toLowerCase()] ?? item[name.toUpperCase()];
+    }
+    return Object.keys(key).length > 0 ? key : { Email: item.Email || item.email };
+}
 
 function makeResponse(statusCode, body) {
     return {
@@ -156,11 +177,16 @@ export const handler = async (event) => {
             const userId = body.userId || body.id || ("01" + Math.floor(100000 + Math.random() * 900000));
 
             const item = {
+                Email: email,
                 email: email,
                 phoneNumber: phone,
+                Phone: phone,
                 userId: userId,
+                UserId: userId,
                 securityId: userId,
                 id: userId,
+                Id: userId,
+                ID: userId,
                 name: body.name || "Player",
                 tag: tag,
                 gamerTag: tag,
@@ -247,6 +273,7 @@ export const handler = async (event) => {
             if (!isMatch) {
                 // If legacy record without password, adopt this password on first login
                 if (!userItem.password && !userItem.passwordHash) {
+                    userItem.Email = userItem.Email || userItem.email;
                     userItem.password = password;
                     userItem.passwordHash = password;
                     userItem.updatedAt = new Date().toISOString();
@@ -333,6 +360,7 @@ export const handler = async (event) => {
                 return makeResponse(404, { success: false, error: "Account not found." });
             }
 
+            userItem.Email = userItem.Email || userItem.email;
             userItem.password = newPassword;
             userItem.passwordHash = newPassword;
             userItem.updatedAt = new Date().toISOString();
@@ -473,6 +501,7 @@ export const handler = async (event) => {
 
             targetUser.followers = targetFollowers;
             targetUser.followersCount = targetFollowers.length;
+            targetUser.Email = targetUser.Email || targetUser.email;
             targetUser.updatedAt = new Date().toISOString();
 
             await docClient.send(new PutCommand({
@@ -497,6 +526,7 @@ export const handler = async (event) => {
 
                 followerUser.following = followerFollowing;
                 followerUser.followingCount = followerFollowing.length;
+                followerUser.Email = followerUser.Email || followerUser.email;
                 followerUser.updatedAt = new Date().toISOString();
                 followingCount = followerFollowing.length;
 
@@ -847,6 +877,7 @@ export const handler = async (event) => {
                 });
 
                 if (userItem) {
+                    userItem.Email = userItem.Email || userItem.email;
                     userItem.profilePhoto = photo;
                     userItem.updatedAt = new Date().toISOString();
                     await docClient.send(new PutCommand({
@@ -862,19 +893,21 @@ export const handler = async (event) => {
         if (action === "deleteUser") {
             const rawId = (body.email || body.userId || "").toLowerCase().trim();
             if (rawId) {
+                const keySchema = await getTableKeySchema();
                 const scanResult = await docClient.send(new ScanCommand({
                     TableName: TABLE_USERS,
                     Limit: 250
                 }));
                 const userItem = (scanResult.Items || []).find(u => {
-                    const itemEmail = (u.email || "").toLowerCase().trim();
+                    const itemEmail = (u.Email || u.email || "").toLowerCase().trim();
                     const itemId = (u.userId || u.id || "").toLowerCase().trim();
                     return itemEmail === rawId || itemId === rawId;
                 });
-                if (userItem && userItem.id) {
+                if (userItem) {
+                    const key = buildKey(userItem, keySchema);
                     await docClient.send(new DeleteCommand({
                         TableName: TABLE_USERS,
-                        Key: { id: userItem.id }
+                        Key: key
                     }));
                 }
             }
@@ -882,19 +915,19 @@ export const handler = async (event) => {
         }
 
         if (action === "deleteAllUsers" || action === "clearAllUsers") {
+            const keySchema = await getTableKeySchema();
             const scanResult = await docClient.send(new ScanCommand({
                 TableName: TABLE_USERS,
                 Limit: 250
             }));
             let deletedCount = 0;
             for (const item of (scanResult.Items || [])) {
-                if (item.id) {
-                    await docClient.send(new DeleteCommand({
-                        TableName: TABLE_USERS,
-                        Key: { id: item.id }
-                    }));
-                    deletedCount++;
-                }
+                const key = buildKey(item, keySchema);
+                await docClient.send(new DeleteCommand({
+                    TableName: TABLE_USERS,
+                    Key: key
+                }));
+                deletedCount++;
             }
             return makeResponse(200, {
                 success: true,
