@@ -361,20 +361,56 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             border: Border.all(
                                 color: AppColors.dangerRose, width: 1),
                           ),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.error_outline_rounded,
-                                  size: 18, color: AppColors.dangerRose),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _errorMessage!,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: AppColors.dangerRose,
+                              Row(
+                                children: [
+                                  const Icon(Icons.error_outline_rounded,
+                                      size: 18, color: AppColors.dangerRose),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _errorMessage!,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: AppColors.dangerRose,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (_errorMessage!.toLowerCase().contains('mobile') &&
+                                  _errorMessage!.toLowerCase().contains('already'))
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 10),
+                                  child: SizedBox(
+                                    width: double.infinity,
+                                    height: 38,
+                                    child: ElevatedButton.icon(
+                                      icon: const Icon(Icons.login_rounded,
+                                          size: 16, color: Colors.white),
+                                      label: Text(
+                                        'Sign in with ${_phoneController.text.trim()}',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.primaryPurple,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                      },
+                                    ),
                                   ),
                                 ),
-                              ),
                             ],
                           ),
                         ),

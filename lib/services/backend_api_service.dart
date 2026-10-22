@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../config/aws_config.dart';
 import '../config/backend_config.dart';
 import '../config/brevo_config.dart';
 import '../models/room_model.dart';
@@ -520,8 +521,60 @@ class BackendApiService {
     final cleanId = identifier.trim().toLowerCase();
     final cleanPhone = cleanId.replaceAll(RegExp(r'\D'), '');
 
-    // 1. Production Mode: Real Network Backend
+    // 1. Production Mode: Real Network Backend (AWS DynamoDB & API Gateway)
     if (!isTestMode) {
+      if (AwsConfig.isConfigured) {
+        try {
+          final awsRes = await AwsStorageService.loginUser(
+            identifier: cleanId,
+            password: password,
+          );
+          if (awsRes.success && awsRes.user != null) {
+            final sessionToken = awsRes.sessionToken ??
+                SecurityHelper.generateSecureSessionToken();
+            final user = awsRes.user!.copyWith(sessionToken: sessionToken);
+
+            // Persist user and credentials locally for seamless restarts & offline support
+            await LocalStorageService.saveCurrentUser(user);
+            final regList = await LocalStorageService.loadRegisteredUsers();
+            final existingIdx = regList.indexWhere((u) =>
+                u.id == user.id ||
+                u.email.toLowerCase() == user.email.toLowerCase());
+            if (existingIdx != -1) {
+              regList[existingIdx] = user;
+            } else {
+              regList.add(user);
+            }
+            await LocalStorageService.saveRegisteredUsers(regList);
+
+            final creds = await LocalStorageService.loadUserCredentials();
+            final pHash = SecurityHelper.hashPassword(password);
+            creds[user.email.toLowerCase()] = pHash;
+            if (user.phoneNumber != null && user.phoneNumber!.isNotEmpty) {
+              creds[user.phoneNumber!.replaceAll(RegExp(r'\D'), '')] = pHash;
+            }
+            creds[user.tag.toLowerCase()] = pHash;
+            await LocalStorageService.saveUserCredentials(creds);
+
+            return AuthBackendResult(
+              success: true,
+              user: user,
+              sessionToken: sessionToken,
+            );
+          } else if (awsRes.error != null &&
+              (awsRes.error!.toLowerCase().contains('incorrect password') ||
+                  awsRes.error!.toLowerCase().contains('invalid password') ||
+                  awsRes.error!.toLowerCase().contains('wrong password'))) {
+            return AuthBackendResult(
+              success: false,
+              error: awsRes.error,
+            );
+          }
+        } catch (e) {
+          debugPrint('BackendApiService AWS login error: $e');
+        }
+      }
+
       if (BackendConfig.isConfigured) {
         try {
           final uri =

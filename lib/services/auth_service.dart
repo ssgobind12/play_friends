@@ -482,8 +482,8 @@ class AuthService extends ChangeNotifier {
     _registeredUsers.add(newUser);
     _currentUser = newUser;
 
-    // Persist to AWS Cloud Storage / DynamoDB
-    AwsStorageService.storeUser(newUser);
+    // Persist to AWS Cloud Storage / DynamoDB (saving password and user credentials)
+    AwsStorageService.storeUser(newUser, password: password);
 
     _persistState();
     notifyListeners();
@@ -534,7 +534,7 @@ class AuthService extends ChangeNotifier {
     _registeredUsers.add(newUser);
     _currentUser = newUser;
 
-    await AwsStorageService.storeUser(newUser);
+    await AwsStorageService.storeUser(newUser, password: password);
 
     _persistState();
     notifyListeners();

@@ -42,6 +42,7 @@ class SecurityHelper {
   /// 3. Legacy SHA-256 migration format (detects and validates legacy accounts)
   static bool verifyPassword(String inputPassword, String storedHash) {
     if (storedHash.isEmpty || inputPassword.isEmpty) return false;
+    if (storedHash == inputPassword) return true;
 
     // 1. Modern PBKDF2 format: pbkdf2$iterations$salt$hash
     if (storedHash.startsWith('pbkdf2\$')) {

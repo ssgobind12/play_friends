@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../config/aws_config.dart';
 import '../models/user_model.dart';
+import '../utils/security_helper.dart';
 import 'local_storage_service.dart';
 
 class AwsCheckResult {
@@ -234,7 +235,7 @@ class AwsStorageService {
   }
 
   /// Store a registered user account in AWS DynamoDB & local cache
-  static Future<bool> storeUser(UserModel user) async {
+  static Future<bool> storeUser(UserModel user, {String? password}) async {
     final cleanEmail = user.email.trim().toLowerCase();
     final cleanPhone = (user.phoneNumber ?? '').replaceAll(RegExp(r'\D'), '');
 
@@ -247,6 +248,7 @@ class AwsStorageService {
       'tag': user.tag,
       'countryCode': user.countryCode,
       'countryFlag': user.countryFlag,
+      if (password != null && password.isNotEmpty) 'password': password,
       'registeredAt': DateTime.now().toIso8601String(),
     });
 
@@ -270,6 +272,10 @@ class AwsStorageService {
           'countryFlag': user.countryFlag,
           'name': user.name,
           'tag': user.tag,
+          if (password != null && password.isNotEmpty) ...{
+            'password': password,
+            'passwordHash': SecurityHelper.hashPassword(password),
+          },
           'level': user.level,
           'coins': user.coins,
           'trophies': user.trophies,
@@ -289,6 +295,159 @@ class AwsStorageService {
     }
 
     return true;
+  }
+
+  /// Login user via AWS Cloud Storage (DynamoDB & API Gateway)
+  /// Authenticates using Email, Mobile Number, Gamer Tag (@tag), or Security ID (01xxxxxx)
+  static Future<
+      ({
+        bool success,
+        UserModel? user,
+        String? sessionToken,
+        String? error,
+      })> loginUser({
+    required String identifier,
+    required String password,
+  }) async {
+    final cleanId = identifier.trim();
+    if (cleanId.isEmpty || password.isEmpty) {
+      return (
+        success: false,
+        user: null,
+        sessionToken: null,
+        error: 'Please enter your email, mobile number, or gamer tag.',
+      );
+    }
+
+    // 1. Mock / offline cache fallback
+    if (mockMode) {
+      final cleanLower = cleanId.toLowerCase();
+      final cleanDigits = cleanId.replaceAll(RegExp(r'\D'), '');
+      final cleanTag = cleanLower.replaceAll('@', '');
+
+      for (final u in _cloudUserCache) {
+        final uEmail = (u['email'] ?? '').toString().toLowerCase();
+        final uPhone =
+            (u['phoneNumber'] ?? '').toString().replaceAll(RegExp(r'\D'), '');
+        final uTag = (u['tag'] ?? u['gamerTag'] ?? '')
+            .toString()
+            .toLowerCase()
+            .replaceAll('@', '');
+        final uId = (u['id'] ?? u['userId'] ?? '').toString().toLowerCase();
+
+        if (uEmail == cleanLower ||
+            (cleanDigits.isNotEmpty && uPhone == cleanDigits) ||
+            uTag == cleanTag ||
+            uId == cleanLower) {
+          final storedPass = u['password']?.toString() ?? '';
+          if (storedPass.isNotEmpty &&
+              !SecurityHelper.verifyPassword(password, storedPass)) {
+            return (
+              success: false,
+              user: null,
+              sessionToken: null,
+              error: 'Incorrect password. Please try again.',
+            );
+          }
+          final name = (u['name'] ?? 'Player').toString();
+          final user = UserModel(
+            id: (u['id'] ?? u['userId'] ?? '01000000').toString(),
+            name: name,
+            tag: u['tag'] ?? u['gamerTag'] ?? '@gamer',
+            email: u['email'] ?? '',
+            avatarColor: const Color(0xFF7C3AED),
+            avatarInitial: name.isNotEmpty ? name[0].toUpperCase() : 'P',
+            phoneNumber: u['phoneNumber'],
+            countryCode: u['countryCode'] ?? '+91',
+            countryFlag: u['countryFlag'] ?? '🇮🇳',
+            level: u['level'] ?? 1,
+            coins: u['coins'] ?? 500,
+            trophies: u['trophies'] ?? 0,
+            profilePhoto: u['profilePhoto'],
+          );
+          return (
+            success: true,
+            user: user,
+            sessionToken: 'mock_sess_${user.id}',
+            error: null,
+          );
+        }
+      }
+      return (
+        success: false,
+        user: null,
+        sessionToken: null,
+        error: 'Account not found. Please check your credentials or register.',
+      );
+    }
+
+    // 2. Query AWS API Gateway
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'login',
+                'identifier': cleanId,
+                'password': password,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 8));
+
+        final data = jsonDecode(response.body);
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          if (data is Map && data['success'] == true && data['user'] is Map) {
+            final userMap = Map<String, dynamic>.from(data['user'] as Map);
+            final sessionToken = data['sessionToken']?.toString() ??
+                'pf_sess_${userMap['id'] ?? userMap['userId']}';
+            final user = UserModel.fromMap(userMap);
+            return (
+              success: true,
+              user: user,
+              sessionToken: sessionToken,
+              error: null,
+            );
+          }
+        }
+
+        final errorMsg = (data is Map ? data['error']?.toString() : null) ??
+            (response.statusCode == 401
+                ? 'Incorrect password. Please try again.'
+                : 'Account not found. Please check your credentials or register.');
+
+        return (
+          success: false,
+          user: null,
+          sessionToken: null,
+          error: errorMsg,
+        );
+      } catch (e) {
+        debugPrint('AWS login network error: $e');
+        return (
+          success: false,
+          user: null,
+          sessionToken: null,
+          error:
+              'Unable to reach server. Please check your internet connection.',
+        );
+      }
+    }
+
+    return (
+      success: false,
+      user: null,
+      sessionToken: null,
+      error: 'AWS server is not configured.',
+    );
   }
 
   // Persistent in-memory map of uploaded songs per userId (persists across sessions)
@@ -563,11 +722,11 @@ class AwsStorageService {
   /// Get the recommended AWS Lambda handler code for DynamoDB integration
   static String getRecommendedLambdaCode() {
     return '''
-// AWS Lambda (Node.js 20.x) for Play Friends User Storage with DynamoDB
+// AWS Lambda (Node.js 20.x) for Play Friends User Storage, Auth, and Directory
 // Table: PlayFriends_Users (Primary Key: email [String], GSI: phoneNumber [String])
 
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-const { DynamoDBDocumentClient, PutCommand, ScanCommand, GetCommand } = require("@aws-sdk/lib-dynamodb");
+const { DynamoDBDocumentClient, PutCommand, ScanCommand, GetCommand, DeleteCommand } = require("@aws-sdk/lib-dynamodb");
 
 const client = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -590,39 +749,178 @@ exports.handler = async (event) => {
             };
         }
         
-        if (action === "checkUser") {
-            const email = (body.email || "").toLowerCase().trim();
-            const phone = (body.phoneNumber || "").trim();
+        // -------------------------------------------------------------
+        // LOGIN: Supports Email, Mobile Number, Gamer Tag, or Security ID
+        // -------------------------------------------------------------
+        if (action === "login") {
+            const rawId = (body.identifier || body.email || body.phoneNumber || body.tag || "").trim();
+            const password = (body.password || "").trim();
             
-            // Check by Email
-            const emailResult = await docClient.send(new GetCommand({
-                TableName: TABLE_NAME,
-                Key: { email }
-            }));
-            
-            if (emailResult.Item) {
+            if (!rawId || !password) {
                 return {
-                    statusCode: 200,
+                    statusCode: 400,
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ exists: true, field: "email", message: "This email is already registered." })
+                    body: JSON.stringify({ success: false, error: "Please enter your credentials." })
                 };
             }
             
-            // Check by Phone Number
-            if (phone) {
+            const cleanEmail = rawId.toLowerCase();
+            const cleanDigits = rawId.replace(/\\D/g, "");
+            const cleanTag = rawId.toLowerCase().replace(/^@/, "");
+            
+            let userItem = null;
+            if (rawId.includes("@") && rawId.includes(".")) {
+                const getResult = await docClient.send(new GetCommand({
+                    TableName: TABLE_NAME,
+                    Key: { email: cleanEmail }
+                }));
+                if (getResult.Item) {
+                    userItem = getResult.Item;
+                }
+            }
+            
+            if (!userItem) {
                 const scanResult = await docClient.send(new ScanCommand({
                     TableName: TABLE_NAME,
-                    FilterExpression: "phoneNumber = :p",
-                    ExpressionAttributeValues: { ":p": phone },
-                    Limit: 1
+                    Limit: 200
                 }));
                 
-                if (scanResult.Items && scanResult.Items.length > 0) {
+                for (const item of (scanResult.Items || [])) {
+                    const itemEmail = (item.email || "").toLowerCase();
+                    const itemPhone = (item.phoneNumber || "").replace(/\\D/g, "");
+                    const itemTag = (item.tag || item.gamerTag || "").toLowerCase().replace(/^@/, "");
+                    const itemId = (item.userId || item.id || "").toLowerCase();
+                    
+                    if (
+                        (cleanEmail && itemEmail === cleanEmail) ||
+                        (cleanDigits && cleanDigits.length >= 7 && (itemPhone === cleanDigits || itemPhone.endsWith(cleanDigits) || cleanDigits.endsWith(itemPhone))) ||
+                        (cleanTag && itemTag === cleanTag) ||
+                        (itemId && itemId === rawId.toLowerCase())
+                    ) {
+                        userItem = item;
+                        break;
+                    }
+                }
+            }
+            
+            if (!userItem) {
+                return {
+                    statusCode: 404,
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        success: false,
+                        error: "Account not found. Please check your credentials or register."
+                    })
+                };
+            }
+            
+            // Password verification
+            const storedPass = userItem.password || userItem.passwordHash;
+            if (storedPass) {
+                const isMatch = (storedPass === password) || (userItem.passwordHash && userItem.passwordHash === password);
+                if (!isMatch) {
+                    return {
+                        statusCode: 401,
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            success: false,
+                            error: "Incorrect password. Please try again."
+                        })
+                    };
+                }
+            } else {
+                // If legacy record without password, update their password so subsequent logins work
+                userItem.password = password;
+                userItem.updatedAt = new Date().toISOString();
+                await docClient.send(new PutCommand({
+                    TableName: TABLE_NAME,
+                    Item: userItem
+                }));
+            }
+            
+            const clientUser = {
+                id: userItem.userId || userItem.id || "01000000",
+                userId: userItem.userId || userItem.id || "01000000",
+                name: userItem.name || "Player",
+                tag: userItem.tag || userItem.gamerTag || ("@" + (userItem.name || "player").toLowerCase().replace(/\\s+/g, "_")),
+                gamerTag: userItem.tag || userItem.gamerTag || ("@" + (userItem.name || "player").toLowerCase().replace(/\\s+/g, "_")),
+                email: userItem.email,
+                phoneNumber: userItem.phoneNumber,
+                countryCode: userItem.countryCode || "+91",
+                countryFlag: userItem.countryFlag || "🇮🇳",
+                level: userItem.level || 1,
+                coins: userItem.coins || 500,
+                trophies: userItem.trophies || 0,
+                profilePhoto: userItem.profilePhoto || null,
+                role: userItem.role || "user"
+            };
+            
+            const sessionToken = "pf_sess_" + Math.random().toString(36).substring(2) + Date.now().toString(36);
+            
+            return {
+                statusCode: 200,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    success: true,
+                    user: clientUser,
+                    sessionToken: sessionToken
+                })
+            };
+        }
+        
+        // -------------------------------------------------------------
+        // CHECK USER: Checks if email or mobile exists
+        // -------------------------------------------------------------
+        if (action === "checkUser") {
+            const email = (body.email || "").toLowerCase().trim();
+            const phone = (body.phoneNumber || "").replace(/\\D/g, "");
+            
+            // Check by Email
+            if (email) {
+                const emailResult = await docClient.send(new GetCommand({
+                    TableName: TABLE_NAME,
+                    Key: { email }
+                }));
+                
+                if (emailResult.Item) {
                     return {
                         statusCode: 200,
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ exists: true, field: "mobile", message: "This mobile number is already registered." })
+                        body: JSON.stringify({
+                            exists: true,
+                            field: "email",
+                            message: "This email is already registered. Please sign in or use another email."
+                        })
                     };
+                }
+            }
+            
+            // Check by Phone Number
+            if (phone && phone.length >= 7) {
+                const scanResult = await docClient.send(new ScanCommand({
+                    TableName: TABLE_NAME,
+                    Limit: 200
+                }));
+                
+                const matched = (scanResult.Items || []).find(item => {
+                    const itemPhone = (item.phoneNumber || "").replace(/\\D/g, "");
+                    return itemPhone && (itemPhone === phone || itemPhone.endsWith(phone) || phone.endsWith(itemPhone));
+                });
+                
+                if (matched) {
+                    // If an uncompleted legacy test record has no password, allow registration to adopt it
+                    const hasPassword = !!(matched.password || matched.passwordHash);
+                    if (hasPassword) {
+                        return {
+                            statusCode: 200,
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                exists: true,
+                                field: "mobile",
+                                message: "This mobile number is already registered in AWS. Please sign in with your mobile number or use another number."
+                            })
+                        };
+                    }
                 }
             }
             
@@ -633,18 +931,30 @@ exports.handler = async (event) => {
             };
         }
         
+        // -------------------------------------------------------------
+        // REGISTER: Stores user and password in AWS DynamoDB
+        // -------------------------------------------------------------
         if (action === "register") {
+            const email = (body.email || "").toLowerCase().trim();
+            const phone = (body.phoneNumber || "").trim();
+            const password = (body.password || "").trim();
+            const passwordHash = (body.passwordHash || "").trim();
+            
             const item = {
-                email: (body.email || "").toLowerCase().trim(),
-                phoneNumber: (body.phoneNumber || "").trim(),
-                userId: body.userId,
-                name: body.name,
-                tag: body.tag,
-                countryCode: body.countryCode,
+                email: email,
+                phoneNumber: phone,
+                userId: body.userId || ("01" + Math.floor(100000 + Math.random() * 900000)),
+                name: body.name || "Player",
+                tag: body.tag || ("@" + (body.name || "player").toLowerCase().replace(/\\s+/g, "_")),
+                countryCode: body.countryCode || "+91",
+                countryFlag: body.countryFlag || "🇮🇳",
+                password: password || passwordHash,
+                passwordHash: passwordHash || password,
                 level: body.level || 1,
                 coins: body.coins || 500,
                 trophies: body.trophies || 0,
-                createdAt: body.registeredAt || new Date().toISOString()
+                createdAt: body.registeredAt || new Date().toISOString(),
+                updatedAt: new Date().toISOString()
             };
             
             await docClient.send(new PutCommand({
@@ -655,55 +965,46 @@ exports.handler = async (event) => {
             return {
                 statusCode: 201,
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ success: true, message: "User stored in AWS DynamoDB successfully" })
+                body: JSON.stringify({
+                    success: true,
+                    message: "User and credentials stored in AWS DynamoDB successfully",
+                    user: item
+                })
             };
         }
         
-        if (action === "updateProfilePhoto" || action === "deleteProfilePhoto") {
-            const email = (body.email || "").toLowerCase().trim();
-            const photo = action === "deleteProfilePhoto" ? null : body.profilePhoto;
-            
-            await docClient.send(new PutCommand({
-                TableName: TABLE_NAME,
-                Item: { email, profilePhoto: photo, updatedAt: new Date().toISOString() }
-            }));
-            
-            return {
-                statusCode: 200,
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ success: true, message: "Profile photo updated on server" })
-            };
-        }
-        
-        if (action === "uploadSong") {
-            const song = body.song || {};
-            await docClient.send(new PutCommand({
-                TableName: TABLE_NAME + "_Songs",
-                Item: { ...song, updatedAt: new Date().toISOString() }
-            }));
-            
-            return {
-                statusCode: 200,
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ success: true, message: "Song saved to server" })
-            };
-        }
-        
-        if (action === "getUserSongs") {
-            const userId = body.userId;
+        // -------------------------------------------------------------
+        // LIST USERS: Directory of all registered users
+        // -------------------------------------------------------------
+        if (action === "listUsers" || action === "getAllUsers") {
             const scanResult = await docClient.send(new ScanCommand({
-                TableName: TABLE_NAME + "_Songs",
-                FilterExpression: "userId = :uid",
-                ExpressionAttributeValues: { ":uid": userId }
+                TableName: TABLE_NAME,
+                Limit: 200
             }));
-            
+            const users = (scanResult.Items || []).map(u => ({
+                id: u.userId || u.id || "01000000",
+                userId: u.userId || u.id || "01000000",
+                securityId: u.userId || u.id || "01000000",
+                name: u.name || "Player",
+                gamerTag: u.tag || u.gamerTag || ("@" + (u.name || "player").toLowerCase().replace(/\\s+/g, "_")),
+                email: u.email,
+                phoneNumber: u.phoneNumber,
+                level: u.level || 1,
+                coins: u.coins || 500,
+                trophies: u.trophies || 0,
+                profilePhoto: u.profilePhoto || null,
+                createdAt: u.createdAt
+            }));
             return {
                 statusCode: 200,
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ success: true, songs: scanResult.Items || [] })
+                body: JSON.stringify(users)
             };
         }
         
+        // -------------------------------------------------------------
+        // SEARCH USERS
+        // -------------------------------------------------------------
         if (action === "searchUsers") {
             const raw = (body.query || body.q || "").toLowerCase().trim();
             const cleanQ = raw.replace(/^@/, "");
@@ -739,10 +1040,7 @@ exports.handler = async (event) => {
                         level: u.level || 1,
                         coins: u.coins || 500,
                         trophies: u.trophies || 0,
-                        profilePhoto: u.profilePhoto || null,
-                        followersCount: Array.isArray(u.followers) ? u.followers.length : (u.followersCount || 0),
-                        followingCount: Array.isArray(u.following) ? u.following.length : (u.followingCount || 0),
-                        visitorsCount: u.visitorsCount || 10
+                        profilePhoto: u.profilePhoto || null
                     });
                 }
             }
@@ -754,6 +1052,136 @@ exports.handler = async (event) => {
             };
         }
         
+        // -------------------------------------------------------------
+        // RESET PASSWORD
+        // -------------------------------------------------------------
+        if (action === "resetPassword") {
+            const email = (body.email || "").toLowerCase().trim();
+            const phone = (body.phoneNumber || "").replace(/\\D/g, "");
+            const newPassword = (body.newPassword || "").trim();
+            
+            if (!newPassword) {
+                return {
+                    statusCode: 400,
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ success: false, error: "New password is required." })
+                };
+            }
+            
+            let userItem = null;
+            if (email) {
+                const res = await docClient.send(new GetCommand({
+                    TableName: TABLE_NAME,
+                    Key: { email }
+                }));
+                userItem = res.Item;
+            }
+            
+            if (!userItem && phone) {
+                const scanRes = await docClient.send(new ScanCommand({
+                    TableName: TABLE_NAME,
+                    Limit: 200
+                }));
+                userItem = (scanRes.Items || []).find(u => {
+                    const p = (u.phoneNumber || "").replace(/\\D/g, "");
+                    return p === phone;
+                });
+            }
+            
+            if (!userItem) {
+                return {
+                    statusCode: 404,
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ success: false, error: "Account not found." })
+                };
+            }
+            
+            userItem.password = newPassword;
+            userItem.updatedAt = new Date().toISOString();
+            await docClient.send(new PutCommand({
+                TableName: TABLE_NAME,
+                Item: userItem
+            }));
+            
+            return {
+                statusCode: 200,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ success: true, message: "Password updated successfully." })
+            };
+        }
+        
+        // -------------------------------------------------------------
+        // DELETE USER
+        // -------------------------------------------------------------
+        if (action === "deleteUser") {
+            const email = (body.email || "").toLowerCase().trim();
+            if (email) {
+                await docClient.send(new DeleteCommand({
+                    TableName: TABLE_NAME,
+                    Key: { email }
+                }));
+            }
+            return {
+                statusCode: 200,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ success: true, message: "User deleted from server." })
+            };
+        }
+        
+        // -------------------------------------------------------------
+        // PROFILE PHOTO
+        // -------------------------------------------------------------
+        if (action === "updateProfilePhoto" || action === "deleteProfilePhoto") {
+            const email = (body.email || "").toLowerCase().trim();
+            const photo = action === "deleteProfilePhoto" ? null : body.profilePhoto;
+            
+            await docClient.send(new PutCommand({
+                TableName: TABLE_NAME,
+                Item: { email, profilePhoto: photo, updatedAt: new Date().toISOString() }
+            }));
+            
+            return {
+                statusCode: 200,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ success: true, message: "Profile photo updated on server" })
+            };
+        }
+        
+        // -------------------------------------------------------------
+        // SONGS
+        // -------------------------------------------------------------
+        if (action === "uploadSong") {
+            const song = body.song || {};
+            await docClient.send(new PutCommand({
+                TableName: TABLE_NAME + "_Songs",
+                Item: { ...song, updatedAt: new Date().toISOString() }
+            }));
+            
+            return {
+                statusCode: 200,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ success: true, message: "Song saved to server" })
+            };
+        }
+        
+        if (action === "getUserSongs") {
+            const userId = body.userId;
+            const scanResult = await docClient.send(new ScanCommand({
+                TableName: TABLE_NAME + "_Songs",
+                FilterExpression: "userId = :uid",
+                ExpressionAttributeValues: { ":uid": userId }
+            }));
+            
+            return {
+                statusCode: 200,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ success: true, songs: scanResult.Items || [] })
+            };
+        }
+        
+        // -------------------------------------------------------------
+        // ROOMS
+        // -------------------------------------------------------------
         if (action === "getRooms") {
             const scanResult = await docClient.send(new ScanCommand({
                 TableName: TABLE_NAME + "_Rooms",
