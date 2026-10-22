@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/room_model.dart';
 import '../services/auth_service.dart';
+import '../services/aws_storage_service.dart';
 import '../services/backend_api_service.dart';
 import '../services/voice_room_manager.dart';
 import '../theme/app_theme.dart';
@@ -19,18 +21,22 @@ class RoomsScreen extends StatefulWidget {
 
 class _RoomsScreenState extends State<RoomsScreen> {
   late List<RoomModel> _rooms;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
     _rooms = List.from(AuthService().activeRooms);
-    AuthService().fetchRooms().then((_) {
-      if (mounted) {
-        setState(() {
-          _rooms = List.from(AuthService().activeRooms);
-        });
-      }
+    _refreshRooms();
+    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      _refreshRooms();
     });
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _refreshRooms() async {
@@ -341,7 +347,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'Enter the room PIN from your friend (e.g. PF-4912):',
+              'Enter the room PIN from your friend (e.g. 3501 or PF-3501):',
               style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 12),
@@ -349,7 +355,7 @@ class _RoomsScreenState extends State<RoomsScreen> {
               controller: codeCtrl,
               textCapitalization: TextCapitalization.characters,
               decoration: InputDecoration(
-                hintText: 'PF-XXXX',
+                hintText: 'PF-XXXX or 4-digit PIN',
                 filled: true,
                 fillColor: AppColors.cardBg,
                 border:
@@ -365,27 +371,64 @@ class _RoomsScreenState extends State<RoomsScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              final code = codeCtrl.text.trim();
+              final rawCode = codeCtrl.text.trim();
               Navigator.of(ctx).pop();
-              if (code.isNotEmpty) {
-                final match = _rooms.where(
-                    (r) => r.roomCode.toLowerCase() == code.toLowerCase());
-                if (match.isNotEmpty) {
-                  _openRoomLobby(match.first);
+              if (rawCode.isNotEmpty) {
+                final cleanUpper = rawCode.toUpperCase().replaceAll(' ', '');
+                final cleanDigits = cleanUpper.replaceAll('PF-', '');
+
+                RoomModel? targetRoom;
+                for (final r in _rooms) {
+                  final rCode = r.roomCode.toUpperCase().replaceAll(' ', '');
+                  final rDigits = rCode.replaceAll('PF-', '');
+                  final rId = r.id.toUpperCase();
+                  if (rCode == cleanUpper || rDigits == cleanDigits || rId == cleanUpper) {
+                    targetRoom = r;
+                    break;
+                  }
+                }
+
+                if (targetRoom != null) {
+                  _openRoomLobby(targetRoom);
                 } else {
-                  final newRoom = RoomModel(
-                    id: 'r_${DateTime.now().millisecondsSinceEpoch}',
-                    roomCode: code.toUpperCase(),
-                    gameTitle: 'Tic-Tac-Toe Duel',
-                    hostName: 'Game Friend',
-                    currentPlayers: 1,
-                    maxPlayers: 2,
-                    isPrivate: false,
-                    status: 'Joined lobby',
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Finding room on server...'),
+                      duration: Duration(seconds: 1),
+                    ),
                   );
-                  AuthService().addRoom(newRoom);
-                  _refreshRooms();
-                  _openRoomLobby(newRoom);
+
+                  AwsStorageService.getRoomState(cleanUpper).then((state) {
+                    if (!mounted) return;
+                    if (state.success && state.room != null && !state.roomDeleted) {
+                      AuthService().addRoom(state.room!);
+                      _refreshRooms();
+                      _openRoomLobby(state.room!);
+                    } else {
+                      showDialog(
+                        context: context,
+                        builder: (alertCtx) => AlertDialog(
+                          backgroundColor: AppColors.surfaceDark,
+                          title: const Row(
+                            children: [
+                              Icon(Icons.search_off_rounded, color: AppColors.dangerRose),
+                              SizedBox(width: 8),
+                              Text('Room Not Found'),
+                            ],
+                          ),
+                          content: Text(
+                            'No active room found with code "$rawCode". Please verify the PIN with the room host.',
+                          ),
+                          actions: [
+                            ElevatedButton(
+                              onPressed: () => Navigator.of(alertCtx).pop(),
+                              child: const Text('OK'),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+                  });
                 }
               }
             },

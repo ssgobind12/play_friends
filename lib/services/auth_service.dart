@@ -958,6 +958,7 @@ class AuthService extends ChangeNotifier {
     required String tag,
     Color? avatarColor,
     int? level,
+    String? statusText,
   }) {
     final cleanName = name.trim().isNotEmpty ? name.trim() : 'Player';
     final cleanTag = tag.trim().startsWith('@')
@@ -972,12 +973,37 @@ class AuthService extends ChangeNotifier {
       AppColors.coinAmber,
     ];
     final color = avatarColor ?? colors[Random().nextInt(colors.length)];
+    final friendStatus = statusText ?? 'Following';
 
     // Check if already in friends list
-    final existing = friends;
-    if (existing.any((f) =>
+    final existingIndex = friends.indexWhere((f) =>
         f.name.toLowerCase() == cleanName.toLowerCase() ||
-        f.tag.toLowerCase() == cleanTag.toLowerCase())) {
+        f.tag.toLowerCase() == cleanTag.toLowerCase());
+
+    if (existingIndex != -1) {
+      // Update statusText if changed (e.g. upgraded to Mutual Friend)
+      final existingFriend = friends[existingIndex];
+      final updatedFriend = FriendModel(
+        id: existingFriend.id,
+        name: existingFriend.name,
+        tag: existingFriend.tag,
+        initial: existingFriend.initial,
+        avatarColor: existingFriend.avatarColor,
+        level: level ?? existingFriend.level,
+        isOnline: true,
+        statusText: friendStatus,
+        favoriteGame: existingFriend.favoriteGame,
+      );
+
+      if (_currentUser != null) {
+        final updated = List<FriendModel>.from(_currentUser!.friends);
+        updated[existingIndex] = updatedFriend;
+        _currentUser = _currentUser!.copyWith(friends: updated);
+      } else {
+        _localFriends[existingIndex] = updatedFriend;
+      }
+      _persistState();
+      notifyListeners();
       return;
     }
 
@@ -989,7 +1015,7 @@ class AuthService extends ChangeNotifier {
       avatarColor: color,
       level: level ?? 1,
       isOnline: true,
-      statusText: 'Following',
+      statusText: friendStatus,
       favoriteGame: 'Party Voice & Games',
     );
 

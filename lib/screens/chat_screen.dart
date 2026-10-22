@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../data/sample_data.dart';
 import '../models/chat_model.dart';
 import '../services/auth_service.dart';
+import '../services/aws_storage_service.dart';
 import '../services/privacy_filter_service.dart';
 import '../services/voice_room_manager.dart';
 import '../theme/app_theme.dart';
@@ -23,7 +25,50 @@ class _ChatScreenState extends State<ChatScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _threads = List.from(SampleData.chatThreads);
+    _populateThreads();
+    VoiceRoomManager().syncFollowsFromServer().then((_) {
+      if (mounted) _populateThreads();
+    });
+  }
+
+  void _populateThreads() {
+    final friends = AuthService().friends;
+    final friendThreads = <ChatThread>[];
+
+    for (final f in friends) {
+      friendThreads.add(
+        ChatThread(
+          id: f.id,
+          title: f.name,
+          subtitle: f.statusText.isNotEmpty ? f.statusText : 'Tap to start direct chat',
+          time: 'Active',
+          iconColor: f.avatarColor,
+          unreadCount: 0,
+          isGroup: false,
+          messages: [
+            ChatMessage(
+              id: 'init_${f.id}',
+              senderName: f.name,
+              senderInitial: f.initial,
+              senderColor: f.avatarColor,
+              message: 'Hey! Let\'s play games together on Play Friends 🎉',
+              time: 'Recently',
+              isMe: false,
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Keep sample direct chats only if friend list is empty
+    final dms = friendThreads.isNotEmpty
+        ? friendThreads
+        : SampleData.chatThreads.where((t) => !t.isGroup).toList();
+    final groups = SampleData.chatThreads.where((t) => t.isGroup).toList();
+
+    setState(() {
+      _threads = [...dms, ...groups];
+    });
   }
 
   @override
@@ -240,18 +285,83 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   late List<ChatMessage> _messages;
   final TextEditingController _msgController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  Timer? _liveSyncTimer;
 
   @override
   void initState() {
     super.initState();
     _messages = List.from(widget.thread.messages);
+    _fetchLiveMessages();
+    _liveSyncTimer = Timer.periodic(const Duration(milliseconds: 2000), (_) {
+      _fetchLiveMessages();
+    });
   }
 
   @override
   void dispose() {
+    _liveSyncTimer?.cancel();
     _msgController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _fetchLiveMessages() async {
+    final currentUser = AuthService().currentUser;
+    if (currentUser == null) return;
+    final myName = currentUser.name.trim().toLowerCase();
+    final friendName = widget.thread.title.trim().toLowerCase();
+
+    try {
+      final remoteMsgs = await AwsStorageService.getDirectMessages(
+        userA: myName,
+        userB: friendName,
+      );
+
+      if (remoteMsgs.isNotEmpty && mounted) {
+        final existingIds = _messages.map((m) => m.id).toSet();
+        bool addedNew = false;
+
+        for (final m in remoteMsgs) {
+          final id = m['id']?.toString() ?? 'm_${m['createdAt']}';
+          if (!existingIds.contains(id)) {
+            existingIds.add(id);
+            final sId = (m['senderId'] ?? '').toString().toLowerCase();
+            final isMe = sId == myName;
+            final text = m['text']?.toString() ?? '';
+            final senderName = isMe ? currentUser.name : widget.thread.title;
+            final initial = senderName.isNotEmpty ? senderName[0].toUpperCase() : 'P';
+
+            _messages.add(
+              ChatMessage(
+                id: id,
+                senderName: senderName,
+                senderInitial: initial,
+                senderColor: isMe ? currentUser.avatarColor : widget.thread.iconColor,
+                message: text,
+                time: 'Just now',
+                isMe: isMe,
+              ),
+            );
+            addedNew = true;
+          }
+        }
+
+        if (addedNew) {
+          setState(() {});
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (_scrollController.hasClients) {
+              _scrollController.animateTo(
+                _scrollController.position.maxScrollExtent,
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOut,
+              );
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('ChatScreen _fetchLiveMessages error: $e');
+    }
   }
 
   void _sendMessage() {
@@ -295,8 +405,10 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
 
     final currentName = AuthService().currentUser?.name ?? 'Me';
     final currentInitial = currentName.isNotEmpty ? currentName[0].toUpperCase() : 'M';
+    final newMsgId = 'msg_${DateTime.now().millisecondsSinceEpoch}';
+
     final newMsg = ChatMessage(
-      id: 'm_${DateTime.now().millisecondsSinceEpoch}',
+      id: newMsgId,
       senderName: currentName,
       senderInitial: currentInitial,
       senderColor: AuthService().currentUser?.avatarColor ?? AppColors.primaryPurple,
@@ -309,6 +421,13 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
       _messages.add(newMsg);
       _msgController.clear();
     });
+
+    // Send to AWS DynamoDB
+    AwsStorageService.sendDirectMessage(
+      senderId: currentName.trim().toLowerCase(),
+      receiverId: widget.thread.title.trim().toLowerCase(),
+      text: text,
+    );
 
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_scrollController.hasClients) {

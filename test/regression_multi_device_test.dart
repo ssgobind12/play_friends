@@ -315,5 +315,90 @@ void main() {
       expect(messages.length, equals(1));
       expect(messages.first['text'], contains('Ready to play Carrom'));
     });
+
+    test('Host creates room with custom name -> Device B joins with code and gets EXACT host room name', () async {
+      const hostRoomId = 'room_3501';
+      const roomCode = 'PF-3501';
+      const customHostTitle = "shubham s's Room";
+
+      const room = RoomModel(
+        id: hostRoomId,
+        roomCode: roomCode,
+        gameTitle: customHostTitle,
+        hostName: 'shubham singh',
+        currentPlayers: 1,
+        maxPlayers: 100,
+        isPrivate: false,
+        status: 'Live Voice Party',
+      );
+
+      // 1. Host creates room on AWS
+      final created = await AwsStorageService.createRoom(room);
+      expect(created, isTrue);
+
+      // 2. Player joins with code '3501' (with or without 'PF-')
+      final state = await AwsStorageService.getRoomState(roomCode);
+      expect(state.success, isTrue);
+      expect(state.room, isNotNull);
+      expect(state.room!.gameTitle, equals("shubham s's Room"));
+      expect(state.room!.hostName, equals('shubham singh'));
+      expect(state.room!.gameTitle, isNot(equals('Tic-Tac-Toe Duel')));
+    });
+
+    test('Host deletes room -> Room disappears and participants detect deletion', () async {
+      const roomId = 'room_custom_7421';
+      const room = RoomModel(
+        id: roomId,
+        roomCode: 'PF-7421',
+        gameTitle: 'Temporary Room',
+        hostName: 'Real Host Player',
+        currentPlayers: 1,
+        maxPlayers: 100,
+        isPrivate: false,
+        status: 'Live',
+      );
+
+      await AwsStorageService.createRoom(room);
+      var rooms = await AwsStorageService.getRooms();
+      expect(rooms.any((r) => r.id == roomId), isTrue);
+
+      // Host deletes room
+      final deleted = await AwsStorageService.deleteRoom(roomId);
+      expect(deleted, isTrue);
+
+      // Room is no longer in active rooms list
+      rooms = await AwsStorageService.getRooms();
+      expect(rooms.any((r) => r.id == roomId), isFalse);
+    });
+
+    test('Mutual follow relationship reflects in followers and friends list', () async {
+      const userA = 'shubham';
+      const userB = 'diksha';
+
+      // Shubham follows Diksha
+      final f1 = await AwsStorageService.followUser(
+        followerId: userA,
+        followerName: 'Shubham',
+        targetIdOrTag: userB,
+        follow: true,
+      );
+      expect(f1['isFollowing'], isTrue);
+
+      // Diksha follows Shubham
+      final f2 = await AwsStorageService.followUser(
+        followerId: userB,
+        followerName: 'Diksha',
+        targetIdOrTag: userA,
+        follow: true,
+      );
+      expect(f2['isFollowing'], isTrue);
+
+      // Check mutual follow status
+      final status = await AwsStorageService.getFollowStatus(
+        currentUserId: userA,
+        targetUserId: userB,
+      );
+      expect(status['isMutual'], isTrue);
+    });
   });
 }

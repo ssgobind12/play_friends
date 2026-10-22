@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/room_model.dart';
+import '../models/user_model.dart';
 import 'auth_service.dart';
 import 'aws_storage_service.dart';
 import 'in_app_music_service.dart';
@@ -88,6 +89,19 @@ class VoiceRoomManager extends ChangeNotifier {
   Timer? _roomSyncTimer;
   List<Map<String, dynamic>> _activeRoomMembers = [];
   List<Map<String, dynamic>> get activeRoomMembers => List.unmodifiable(_activeRoomMembers);
+
+  // Synchronized Mic Seats across all players in room
+  List<dynamic> _micSeats = [];
+  List<dynamic> get micSeats => List.unmodifiable(_micSeats);
+
+  // Synchronized Room Music Track & Play State
+  Map<String, dynamic>? _syncedRoomSong;
+  Map<String, dynamic>? get syncedRoomSong => _syncedRoomSong;
+
+  // Flag set when room is closed/deleted by host
+  bool _activeRoomWasDeleted = false;
+  bool get activeRoomWasDeleted => _activeRoomWasDeleted;
+  void clearRoomDeletedFlag() => _activeRoomWasDeleted = false;
 
   Set<String> get followedRoomCodes => Set.unmodifiable(_followedRoomCodes);
   Set<String> get followedUsers => Set.unmodifiable(_followedUsers);
@@ -196,7 +210,7 @@ class VoiceRoomManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Syncs followers and following lists directly from AWS DynamoDB
+  /// Syncs followers and following lists directly from AWS DynamoDB and updates AuthService friends
   Future<void> syncFollowsFromServer() async {
     final currentUser = AuthService().currentUser;
     if (currentUser == null) return;
@@ -222,6 +236,48 @@ class VoiceRoomManager extends ChangeNotifier {
       }
       _userFollowingCounts[currentUser.name] = following.length;
 
+      // Populate AuthService().friends with real relationships & mutual badges
+      final auth = AuthService();
+      for (final g in following) {
+        final gName = g['name']?.toString() ?? '';
+        final gId = g['id']?.toString() ?? '';
+        final gTag = g['tag']?.toString() ?? '@gamer';
+        if (gName.isEmpty) continue;
+
+        final isMutual = followers.any((f) {
+          final fName = (f['name'] ?? '').toString().toLowerCase();
+          final fId = (f['id'] ?? '').toString().toLowerCase();
+          return fName == gName.toLowerCase() || (gId.isNotEmpty && fId == gId.toLowerCase());
+        });
+
+        auth.addFriend(
+          name: gName,
+          tag: gTag,
+          level: g['level'] is int ? g['level'] as int : 1,
+          statusText: isMutual ? 'Mutual Friends 👥' : 'Following',
+        );
+      }
+
+      for (final f in followers) {
+        final fName = f['name']?.toString() ?? '';
+        final fId = f['id']?.toString() ?? '';
+        final fTag = f['tag']?.toString() ?? '@gamer';
+        if (fName.isEmpty) continue;
+
+        final isMutual = following.any((g) {
+          final gName = (g['name'] ?? '').toString().toLowerCase();
+          final gId = (g['id'] ?? '').toString().toLowerCase();
+          return gName == fName.toLowerCase() || (fId.isNotEmpty && gId == fId.toLowerCase());
+        });
+
+        auth.addFriend(
+          name: fName,
+          tag: fTag,
+          level: f['level'] is int ? f['level'] as int : 1,
+          statusText: isMutual ? 'Mutual Friends 👥' : 'Follows You',
+        );
+      }
+
       LocalStorageService.saveFollowedUsers(_followedUsers);
       LocalStorageService.saveUserFollowers(_userFollowers);
       notifyListeners();
@@ -240,9 +296,61 @@ class VoiceRoomManager extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Sets the currently active room, registers with server, and begins live member sync
+  /// Take a mic seat in the active room (Seat 0 to 7)
+  Future<void> takeSeat(int seatIndex, UserModel user) async {
+    if (_activeRoom == null) return;
+    try {
+      final updatedSeats = await AwsStorageService.takeSeat(
+        roomId: _activeRoom!.id,
+        seatIndex: seatIndex,
+        user: user,
+      );
+      if (updatedSeats.isNotEmpty) {
+        _micSeats = updatedSeats;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('VoiceRoomManager takeSeat error: $e');
+    }
+  }
+
+  /// Leave a mic seat in the active room
+  Future<void> leaveSeat(int seatIndex, String userId) async {
+    if (_activeRoom == null) return;
+    try {
+      final updatedSeats = await AwsStorageService.leaveSeat(
+        roomId: _activeRoom!.id,
+        seatIndex: seatIndex,
+        userId: userId,
+      );
+      if (updatedSeats.isNotEmpty) {
+        _micSeats = updatedSeats;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('VoiceRoomManager leaveSeat error: $e');
+    }
+  }
+
+  /// Broadcast room music state to all room occupants
+  Future<void> broadcastRoomMusic(Map<String, dynamic> song) async {
+    if (_activeRoom == null) return;
+    _syncedRoomSong = song;
+    notifyListeners();
+    try {
+      await AwsStorageService.syncRoomMusic(
+        roomId: _activeRoom!.id,
+        song: song,
+      );
+    } catch (e) {
+      debugPrint('VoiceRoomManager broadcastRoomMusic error: $e');
+    }
+  }
+
+  /// Sets the currently active room, registers with server, and begins live member & seat sync
   void joinRoom(RoomModel room) {
     _activeRoom = room;
+    _activeRoomWasDeleted = false;
     _roomAdmins.clear();
     // Default: Host is always admin
     _roomAdmins.add(room.hostName);
@@ -264,29 +372,80 @@ class VoiceRoomManager extends ChangeNotifier {
     final currentUser = AuthService().currentUser;
     if (currentUser != null) {
       AwsStorageService.joinRoom(roomId: room.id, user: currentUser).then((res) {
+        if (res.room != null) {
+          _activeRoom = res.room!;
+        }
         if (res.members.isNotEmpty) {
           _activeRoomMembers = res.members;
           if (_activeRoom != null) {
             _activeRoom = _activeRoom!.copyWith(currentPlayers: res.currentPlayers);
           }
-          notifyListeners();
         }
+        if (res.seats.isNotEmpty) {
+          _micSeats = res.seats;
+        }
+        if (res.currentSong != null) {
+          _syncedRoomSong = res.currentSong;
+        }
+        notifyListeners();
       });
     }
 
     if (!AwsStorageService.mockMode) {
       _roomSyncTimer?.cancel();
-      _roomSyncTimer = Timer.periodic(const Duration(milliseconds: 2500), (_) async {
+      _roomSyncTimer = Timer.periodic(const Duration(milliseconds: 2000), (_) async {
         if (_activeRoom == null) {
           _roomSyncTimer?.cancel();
           return;
         }
         try {
-          final members = await AwsStorageService.getRoomMembers(_activeRoom!.id);
-          if (members.isNotEmpty) {
-            _activeRoomMembers = members;
-            _activeRoom = _activeRoom!.copyWith(currentPlayers: members.length);
+          final state = await AwsStorageService.getRoomState(_activeRoom!.id);
+          if (state.roomDeleted) {
+            _activeRoomWasDeleted = true;
+            _roomSyncTimer?.cancel();
+            _roomSyncTimer = null;
+            _activeRoom = null;
+            _activeRoomMembers.clear();
+            _micSeats.clear();
+            _syncedRoomSong = null;
+            InAppMusicService().pauseMusic();
             notifyListeners();
+            return;
+          }
+
+          if (state.success) {
+            bool changed = false;
+            if (state.room != null && (state.room!.gameTitle != _activeRoom!.gameTitle || state.room!.hostName != _activeRoom!.hostName)) {
+              _activeRoom = state.room!;
+              changed = true;
+            }
+            if (state.members.isNotEmpty) {
+              _activeRoomMembers = state.members;
+              _activeRoom = _activeRoom?.copyWith(currentPlayers: state.currentPlayers);
+              changed = true;
+            }
+            if (state.seats.isNotEmpty) {
+              _micSeats = state.seats;
+              changed = true;
+            }
+            if (state.currentSong != null) {
+              _syncedRoomSong = state.currentSong;
+              // Sync audio for listeners
+              final user = AuthService().currentUser;
+              final isHost = _activeRoom != null && _activeRoom!.hostName == user?.name;
+              if (!isHost) {
+                final isPlaying = _syncedRoomSong!['isPlaying'] == true;
+                final trackIdx = _syncedRoomSong!['trackIndex'] is int ? _syncedRoomSong!['trackIndex'] as int : 0;
+                final music = InAppMusicService();
+                if (isPlaying && (!music.isPlaying || music.currentTrackIndex != trackIdx)) {
+                  music.playMusic(trackIdx);
+                } else if (!isPlaying && music.isPlaying) {
+                  music.pauseMusic();
+                }
+              }
+              changed = true;
+            }
+            if (changed) notifyListeners();
           }
         } catch (_) {}
       });
@@ -306,6 +465,8 @@ class VoiceRoomManager extends ChangeNotifier {
 
     _activeRoom = null;
     _activeRoomMembers.clear();
+    _micSeats.clear();
+    _syncedRoomSong = null;
     _roomAdmins.clear();
     InAppMusicService().pauseMusic();
     notifyListeners();

@@ -296,27 +296,69 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
 
   void _onRoomMembersChanged() {
     if (!mounted) return;
+
+    // Check if room was closed/deleted by host
+    if (VoiceRoomManager().activeRoomWasDeleted) {
+      VoiceRoomManager().clearRoomDeletedFlag();
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('The host has closed this voice party room.'),
+          backgroundColor: AppColors.dangerRose,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
     final liveMembers = VoiceRoomManager().activeRoomMembers;
-    if (liveMembers.isEmpty) return;
+    final liveSeats = VoiceRoomManager().micSeats;
 
     setState(() {
       _activeSpectators = max(liveMembers.length, 1);
       final host = widget.room.hostName;
 
-      for (int i = 0; i < liveMembers.length && i < _seats.length; i++) {
-        final m = liveMembers[i];
-        final mName = m['name']?.toString() ?? 'Player';
-        final isHost = m['role'] == 'host' || mName == host;
-        final seatIdx = isHost ? 0 : (i == 0 ? 1 : i);
-        if (seatIdx < _seats.length && (_seats[seatIdx].userName == null || _seats[seatIdx].userName != mName)) {
-          _seats[seatIdx] = MicSeatData(
-            seatIndex: seatIdx + 1,
-            userName: mName,
-            userPhoto: m['profilePhoto']?.toString(),
-            userColor: isHost ? AppColors.primaryPurple : AppColors.primaryBlueLight,
-            level: 1,
-            isHost: isHost,
-          );
+      // 1. Sync Seats from authoritative live server state
+      if (liveSeats.isNotEmpty) {
+        for (int i = 0; i < liveSeats.length && i < _seats.length; i++) {
+          final s = liveSeats[i];
+          if (s is Map) {
+            final uName = s['userName']?.toString();
+            if (uName != null && uName.isNotEmpty) {
+              _seats[i] = MicSeatData(
+                seatIndex: i + 1,
+                userName: uName,
+                userPhoto: s['userPhoto']?.toString(),
+                userColor: s['userColor'] is int ? Color(s['userColor'] as int) : (s['isHost'] == true ? AppColors.primaryPurple : AppColors.primaryBlueLight),
+                level: s['level'] is int ? s['level'] as int : 1,
+                isHost: s['isHost'] == true || uName == host,
+                isMuted: s['isMuted'] == true,
+                isSpeaking: s['isSpeaking'] == true,
+              );
+            } else {
+              _seats[i] = MicSeatData(seatIndex: i + 1);
+            }
+          } else if (s == null) {
+            _seats[i] = MicSeatData(seatIndex: i + 1);
+          }
+        }
+      } else if (liveMembers.isNotEmpty) {
+        // Fallback: place members onto seats
+        for (int i = 0; i < liveMembers.length && i < _seats.length; i++) {
+          final m = liveMembers[i];
+          final mName = m['name']?.toString() ?? 'Player';
+          final isHost = m['role'] == 'host' || mName == host;
+          final seatIdx = isHost ? 0 : (i == 0 ? 1 : i);
+          if (seatIdx < _seats.length && (_seats[seatIdx].userName == null || _seats[seatIdx].userName != mName)) {
+            _seats[seatIdx] = MicSeatData(
+              seatIndex: seatIdx + 1,
+              userName: mName,
+              userPhoto: m['profilePhoto']?.toString(),
+              userColor: isHost ? AppColors.primaryPurple : AppColors.primaryBlueLight,
+              level: 1,
+              isHost: isHost,
+            );
+          }
         }
       }
     });
@@ -355,6 +397,7 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
       if (mySeatIndex == seatIndex) {
         // Leave seat
         _seats[seatIndex] = MicSeatData(seatIndex: seatIndex + 1);
+        VoiceRoomManager().leaveSeat(seatIndex, user.id);
         _messages.add(
           RoomChatMessage(
             id: 'seat_${DateTime.now().millisecondsSinceEpoch}',
@@ -380,6 +423,7 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
           isSpeaking: !_isMicMuted,
           isHost: seatIndex == 0,
         );
+        VoiceRoomManager().takeSeat(seatIndex, user);
         _messages.add(
           RoomChatMessage(
             id: 'seat_${DateTime.now().millisecondsSinceEpoch}',
@@ -1736,6 +1780,14 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
   /// Floating Vinyl Record DJ Music Player (Identical to user's uploaded screenshot)
   Widget _buildVinylRecordPlayer(
       MusicTrack currentTrack, InAppMusicService music) {
+    final syncedSong = VoiceRoomManager().syncedRoomSong;
+    final displayTitle = (syncedSong != null && (syncedSong['title'] ?? '').toString().isNotEmpty)
+        ? syncedSong['title'].toString()
+        : currentTrack.title;
+    final isAudioPlaying = (syncedSong != null)
+        ? syncedSong['isPlaying'] == true
+        : music.isPlaying;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1756,7 +1808,7 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
         children: [
           // 1. Spinning Vinyl Turntable Disc Animation
           RotationTransition(
-            turns: music.isPlaying
+            turns: isAudioPlaying
                 ? _vinylAnimCtrl
                 : const AlwaysStoppedAnimation(0.0),
             child: Container(
@@ -1806,7 +1858,7 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
                   children: [
                     Flexible(
                       child: Text(
-                        currentTrack.title,
+                        displayTitle,
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -1835,12 +1887,12 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
                   ],
                 ),
                 Text(
-                  music.isPlaying
+                  isAudioPlaying
                       ? '🎵 Playing Live in Room for all members'
                       : 'Room music paused',
                   style: TextStyle(
                     fontSize: 10,
-                    color: music.isPlaying
+                    color: isAudioPlaying
                         ? currentTrack.accentColor
                         : AppColors.textMuted,
                   ),
@@ -1852,7 +1904,7 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
           // 3. Play / Pause Button
           IconButton(
             icon: Icon(
-              music.isPlaying
+              isAudioPlaying
                   ? Icons.pause_circle_filled_rounded
                   : Icons.play_circle_fill_rounded,
               color: Colors.white,
@@ -1872,6 +1924,15 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
                 return;
               }
               music.toggleMusic();
+              VoiceRoomManager().broadcastRoomMusic({
+                'id': music.currentTrack.id,
+                'title': music.currentTrack.title,
+                'genre': music.currentTrack.genre,
+                'bpm': music.currentTrack.bpm,
+                'isPlaying': music.isPlaying,
+                'trackIndex': music.currentTrackIndex,
+                'audioSource': music.currentTrack.audioSource,
+              });
             },
           ),
 
@@ -1895,6 +1956,15 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
               final nextIndex =
                   (music.currentTrackIndex + 1) % music.tracks.length;
               music.selectTrack(nextIndex);
+              VoiceRoomManager().broadcastRoomMusic({
+                'id': music.currentTrack.id,
+                'title': music.currentTrack.title,
+                'genre': music.currentTrack.genre,
+                'bpm': music.currentTrack.bpm,
+                'isPlaying': music.isPlaying,
+                'trackIndex': music.currentTrackIndex,
+                'audioSource': music.currentTrack.audioSource,
+              });
             },
           ),
 

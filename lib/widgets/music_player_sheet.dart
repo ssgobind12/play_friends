@@ -358,6 +358,15 @@ class MusicPlayerSheet extends StatelessWidget {
                     onPressed: () {
                       if (!_checkPermission(context)) return;
                       musicService.toggleMusic();
+                      VoiceRoomManager().broadcastRoomMusic({
+                        'id': musicService.currentTrack.id,
+                        'title': musicService.currentTrack.title,
+                        'genre': musicService.currentTrack.genre,
+                        'bpm': musicService.currentTrack.bpm,
+                        'isPlaying': musicService.isPlaying,
+                        'trackIndex': musicService.currentTrackIndex,
+                        'audioSource': musicService.currentTrack.audioSource,
+                      });
                     },
                   ),
                 ],
@@ -492,6 +501,15 @@ class MusicPlayerSheet extends StatelessWidget {
                         onTap: () {
                           if (!_checkPermission(context)) return;
                           musicService.selectTrack(track.id);
+                          VoiceRoomManager().broadcastRoomMusic({
+                            'id': track.id,
+                            'title': track.title,
+                            'genre': track.genre,
+                            'bpm': track.bpm,
+                            'isPlaying': musicService.isPlaying,
+                            'trackIndex': track.id,
+                            'audioSource': track.audioSource,
+                          });
                         },
                         borderRadius: BorderRadius.circular(14),
                         child: Container(

@@ -1159,8 +1159,260 @@ class AwsStorageService {
     return true;
   }
 
+  /// Get comprehensive room state (members, seats, music, deletion status)
+  static Future<({
+    bool success,
+    bool roomDeleted,
+    RoomModel? room,
+    List<Map<String, dynamic>> members,
+    List<dynamic> seats,
+    Map<String, dynamic>? currentSong,
+    int currentPlayers,
+  })> getRoomState(String roomIdOrCode) async {
+    if (mockMode) {
+      final r = _cloudRooms.firstWhere(
+        (room) => room.id == roomIdOrCode || room.roomCode.toLowerCase() == roomIdOrCode.toLowerCase(),
+        orElse: () => RoomModel(
+          id: roomIdOrCode,
+          roomCode: roomIdOrCode,
+          gameTitle: 'Voice Party Room',
+          hostName: 'Host',
+          currentPlayers: 1,
+          maxPlayers: 100,
+          isPrivate: false,
+          status: 'Active',
+        ),
+      );
+      final m = _roomMembersMap[r.id] ?? [];
+      return (
+        success: true,
+        roomDeleted: false,
+        room: r,
+        members: List<Map<String, dynamic>>.from(m),
+        seats: [],
+        currentSong: null,
+        currentPlayers: m.length,
+      );
+    }
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'getRoomState',
+                'roomId': roomIdOrCode,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data is Map) {
+            RoomModel? parsedRoom;
+            if (data['room'] is Map) {
+              parsedRoom = RoomModel.fromMap(Map<String, dynamic>.from(data['room']));
+            }
+            final membersList = data['members'] is List
+                ? (data['members'] as List).cast<Map<String, dynamic>>()
+                : <Map<String, dynamic>>[];
+            final seatsList = data['seats'] is List ? (data['seats'] as List) : <dynamic>[];
+            final currentSong = data['currentSong'] is Map
+                ? Map<String, dynamic>.from(data['currentSong'])
+                : null;
+            final count = data['currentPlayers'] is int ? data['currentPlayers'] as int : membersList.length;
+
+            return (
+              success: true,
+              roomDeleted: false,
+              room: parsedRoom,
+              members: membersList,
+              seats: seatsList,
+              currentSong: currentSong,
+              currentPlayers: count,
+            );
+          }
+        } else if (response.statusCode == 404) {
+          final data = jsonDecode(response.body);
+          final isDel = data is Map && data['roomDeleted'] == true;
+          return (
+            success: false,
+            roomDeleted: isDel,
+            room: null,
+            members: <Map<String, dynamic>>[],
+            seats: [],
+            currentSong: null,
+            currentPlayers: 0,
+          );
+        }
+      } catch (e) {
+        debugPrint('AwsStorageService getRoomState error: $e');
+      }
+    }
+
+    return (
+      success: false,
+      roomDeleted: false,
+      room: null,
+      members: <Map<String, dynamic>>[],
+      seats: [],
+      currentSong: null,
+      currentPlayers: 0,
+    );
+  }
+
+  /// Take a mic seat in a room on AWS server
+  static Future<List<dynamic>> takeSeat({
+    required String roomId,
+    required int seatIndex,
+    required UserModel user,
+  }) async {
+    if (mockMode) return [];
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'takeSeat',
+                'roomId': roomId,
+                'seatIndex': seatIndex,
+                'user': {
+                  'id': user.id,
+                  'name': user.name,
+                  'tag': user.tag,
+                  'profilePhoto': user.profilePhoto,
+                  'avatarColor': user.avatarColor.toARGB32(),
+                  'level': user.level,
+                },
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data is Map && data['seats'] is List) {
+            return (data['seats'] as List);
+          }
+        }
+      } catch (e) {
+        debugPrint('AwsStorageService takeSeat error: $e');
+      }
+    }
+    return [];
+  }
+
+  /// Leave a mic seat in a room on AWS server
+  static Future<List<dynamic>> leaveSeat({
+    required String roomId,
+    required int seatIndex,
+    required String userId,
+  }) async {
+    if (mockMode) return [];
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'leaveSeat',
+                'roomId': roomId,
+                'seatIndex': seatIndex,
+                'userId': userId,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data is Map && data['seats'] is List) {
+            return (data['seats'] as List);
+          }
+        }
+      } catch (e) {
+        debugPrint('AwsStorageService leaveSeat error: $e');
+      }
+    }
+    return [];
+  }
+
+  /// Sync room music playback state to all players in the room
+  static Future<Map<String, dynamic>?> syncRoomMusic({
+    required String roomId,
+    required Map<String, dynamic> song,
+  }) async {
+    if (mockMode) return song;
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'syncRoomMusic',
+                'roomId': roomId,
+                'song': song,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data is Map && data['currentSong'] is Map) {
+            return Map<String, dynamic>.from(data['currentSong']);
+          }
+        }
+      } catch (e) {
+        debugPrint('AwsStorageService syncRoomMusic error: $e');
+      }
+    }
+    return null;
+  }
+
   /// Join a room and register membership on AWS server
-  static Future<({bool success, List<Map<String, dynamic>> members, int currentPlayers})> joinRoom({
+  static Future<({
+    bool success,
+    RoomModel? room,
+    List<Map<String, dynamic>> members,
+    int currentPlayers,
+    List<dynamic> seats,
+    Map<String, dynamic>? currentSong,
+  })> joinRoom({
     required String roomId,
     required UserModel user,
   }) async {
@@ -1178,7 +1430,14 @@ class AwsStorageService {
     localList.add(memberObj);
 
     if (mockMode) {
-      return (success: true, members: localList, currentPlayers: localList.length);
+      return (
+        success: true,
+        room: null,
+        members: localList,
+        currentPlayers: localList.length,
+        seats: [],
+        currentSong: null,
+      );
     }
 
     if (AwsConfig.isConfigured) {
@@ -1209,11 +1468,28 @@ class AwsStorageService {
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
-          if (data is Map && data['members'] is List) {
-            final mList = (data['members'] as List).cast<Map<String, dynamic>>();
+          if (data is Map) {
+            RoomModel? parsedRoom;
+            if (data['room'] is Map) {
+              parsedRoom = RoomModel.fromMap(Map<String, dynamic>.from(data['room']));
+            }
+            final mList = data['members'] is List
+                ? (data['members'] as List).cast<Map<String, dynamic>>()
+                : localList;
+            final seatsList = data['seats'] is List ? (data['seats'] as List) : <dynamic>[];
+            final currentSong = data['currentSong'] is Map
+                ? Map<String, dynamic>.from(data['currentSong'])
+                : null;
             _roomMembersMap[roomId] = mList;
             final count = data['currentPlayers'] is int ? data['currentPlayers'] as int : mList.length;
-            return (success: true, members: mList, currentPlayers: count);
+            return (
+              success: true,
+              room: parsedRoom,
+              members: mList,
+              currentPlayers: count,
+              seats: seatsList,
+              currentSong: currentSong,
+            );
           }
         }
       } catch (e) {
@@ -1221,7 +1497,14 @@ class AwsStorageService {
       }
     }
 
-    return (success: true, members: localList, currentPlayers: localList.length);
+    return (
+      success: true,
+      room: null,
+      members: localList,
+      currentPlayers: localList.length,
+      seats: [],
+      currentSong: null,
+    );
   }
 
   /// Leave a room and unregister membership on AWS server

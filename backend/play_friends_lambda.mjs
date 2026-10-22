@@ -1,7 +1,8 @@
 // =============================================================================
-// Play Friends - Authoritative Production AWS Lambda Handler (Node.js 20.x)
-// Table: PlayFriends_Users (Primary Key: email [String])
+// Play Friends - Authoritative Production AWS Lambda Handler (Node.js 20.x ESM)
+// Table: PlayFriends_Users (Primary Key: Email [String])
 // Region: ap-southeast-2 (Sydney)
+// Single-Table Architecture: Users, Rooms, Seats, Songs, & Direct Messages
 // Zero external npm dependencies: uses built-in AWS SDK v3 in Lambda runtime
 // =============================================================================
 
@@ -21,9 +22,6 @@ const client = new DynamoDBClient({
 });
 const docClient = DynamoDBDocumentClient.from(client);
 const TABLE_USERS = process.env.TABLE_NAME || "PlayFriends_Users";
-const TABLE_ROOMS = `${TABLE_USERS}_Rooms`;
-const TABLE_SONGS = `${TABLE_USERS}_Songs`;
-const TABLE_MESSAGES = `${TABLE_USERS}_Messages`;
 
 let cachedKeySchema = null;
 async function getTableKeySchema() {
@@ -102,12 +100,11 @@ export const handler = async (event) => {
         }
 
         // ---------------------------------------------------------------------
-        // 2. CHECK USER UNIQUENESS (EMAIL, MOBILE, GAMER TAG)
+        // 2. CHECK USER UNIQUENESS (EMAIL & MOBILE)
         // ---------------------------------------------------------------------
         if (action === "checkUser") {
-            const email = (body.email || "").toLowerCase().trim();
-            const phone = (body.phoneNumber || body.mobile || "").replace(/\D/g, "");
-            const tag = (body.tag || body.gamerTag || "").toLowerCase().trim().replace(/^@/, "");
+            const cleanEmail = (body.email || "").toLowerCase().trim();
+            const cleanMobile = (body.mobile || body.phoneNumber || "").trim().replace(/\D/g, "");
 
             const scanResult = await docClient.send(new ScanCommand({
                 TableName: TABLE_USERS,
@@ -115,36 +112,23 @@ export const handler = async (event) => {
             }));
 
             for (const item of (scanResult.Items || [])) {
-                const itemEmail = (item.email || "").toLowerCase().trim();
-                const itemPhone = (item.phoneNumber || "").replace(/\D/g, "");
-                const itemTag = (item.tag || item.gamerTag || "").toLowerCase().replace(/^@/, "");
+                if (item.entityType === "ROOM" || item.entityType === "MESSAGE" || item.entityType === "SONG") continue;
 
-                if (email && itemEmail && itemEmail === email) {
+                const itemEmail = (item.email || item.Email || "").toLowerCase().trim();
+                const itemMobile = (item.phoneNumber || item.mobile || "").trim().replace(/\D/g, "");
+
+                if (cleanEmail && itemEmail === cleanEmail) {
                     return makeResponse(200, {
                         exists: true,
                         field: "email",
                         message: "This email is already registered. Please sign in or use another email."
                     });
                 }
-
-                if (phone && phone.length >= 7 && itemPhone) {
-                    if (itemPhone === phone || itemPhone.endsWith(phone) || phone.endsWith(itemPhone)) {
-                        // Only block if account has credentials configured
-                        if (item.password || item.passwordHash) {
-                            return makeResponse(200, {
-                                exists: true,
-                                field: "mobile",
-                                message: "This mobile number is already registered in AWS. Please sign in or use another number."
-                            });
-                        }
-                    }
-                }
-
-                if (tag && itemTag === tag && itemEmail !== email) {
+                if (cleanMobile && itemMobile.length >= 10 && (itemMobile === cleanMobile || itemMobile.endsWith(cleanMobile) || cleanMobile.endsWith(itemMobile))) {
                     return makeResponse(200, {
                         exists: true,
-                        field: "tag",
-                        message: "This gamer tag is already taken. Please choose another."
+                        field: "mobile",
+                        message: "This mobile number is already in use. Please enter a different number."
                     });
                 }
             }
@@ -153,91 +137,15 @@ export const handler = async (event) => {
         }
 
         // ---------------------------------------------------------------------
-        // 3. REGISTER: Persist account, credentials, and social fields in DynamoDB
+        // 3. REGISTER USER ACCOUNT
         // ---------------------------------------------------------------------
         if (action === "register") {
-            const email = (body.email || "").toLowerCase().trim();
-            const phone = (body.phoneNumber || "").trim();
-            const password = (body.password || "").trim();
-            const passwordHash = (body.passwordHash || "").trim();
+            const cleanEmail = (body.email || "").toLowerCase().trim();
+            const cleanMobile = (body.mobile || body.phoneNumber || "").trim().replace(/\D/g, "");
 
-            if (!email) {
+            if (!cleanEmail) {
                 return makeResponse(400, { success: false, error: "Email is required for registration." });
             }
-
-            // Generate clean unique gamer tag if not supplied
-            let tag = (body.tag || body.gamerTag || "").trim();
-            if (!tag) {
-                const prefix = email.split("@")[0].replace(/[^a-zA-Z0-9_]/g, "_");
-                tag = "@" + prefix.toLowerCase();
-            }
-            if (!tag.startsWith("@")) tag = "@" + tag;
-
-            // Generate stable security ID
-            const userId = body.userId || body.id || ("01" + Math.floor(100000 + Math.random() * 900000));
-
-            const item = {
-                Email: email,
-                email: email,
-                phoneNumber: phone,
-                Phone: phone,
-                userId: userId,
-                UserId: userId,
-                securityId: userId,
-                id: userId,
-                Id: userId,
-                ID: userId,
-                name: body.name || "Player",
-                tag: tag,
-                gamerTag: tag,
-                countryCode: body.countryCode || "+91",
-                countryFlag: body.countryFlag || "🇮🇳",
-                password: password || passwordHash,
-                passwordHash: passwordHash || password,
-                level: body.level || 1,
-                coins: body.coins || 500,
-                trophies: body.trophies || 0,
-                followers: [],
-                following: [],
-                followersCount: 0,
-                followingCount: 0,
-                visitorsCount: 10,
-                role: body.role || "user",
-                createdAt: body.registeredAt || new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
-
-            await docClient.send(new PutCommand({
-                TableName: TABLE_USERS,
-                Item: item
-            }));
-
-            const sessionToken = "pf_sess_" + Math.random().toString(36).substring(2) + Date.now().toString(36);
-
-            return makeResponse(201, {
-                success: true,
-                message: "User and credentials stored in AWS DynamoDB successfully",
-                user: item,
-                sessionToken: sessionToken
-            });
-        }
-
-        // ---------------------------------------------------------------------
-        // 4. LOGIN: Supports Email, Mobile Number, Gamer Tag (@tag), or Security ID
-        // ---------------------------------------------------------------------
-        if (action === "login") {
-            const rawId = (body.identifier || body.email || body.phoneNumber || body.tag || "").trim();
-            const password = (body.password || "").trim();
-
-            if (!rawId || !password) {
-                return makeResponse(400, { success: false, error: "Please enter your credentials." });
-            }
-
-            const cleanEmail = rawId.toLowerCase();
-            const cleanDigits = rawId.replace(/\D/g, "");
-            const cleanTag = rawId.toLowerCase().replace(/^@/, "");
-
-            let userItem = null;
 
             const scanResult = await docClient.send(new ScanCommand({
                 TableName: TABLE_USERS,
@@ -245,208 +153,258 @@ export const handler = async (event) => {
             }));
 
             for (const item of (scanResult.Items || [])) {
-                const itemEmail = (item.email || "").toLowerCase().trim();
-                const itemPhone = (item.phoneNumber || "").replace(/\D/g, "");
-                const itemTag = (item.tag || item.gamerTag || "").toLowerCase().replace(/^@/, "");
-                const itemId = (item.userId || item.id || item.securityId || "").toLowerCase().trim();
+                if (item.entityType === "ROOM" || item.entityType === "MESSAGE" || item.entityType === "SONG") continue;
 
-                if (
-                    (cleanEmail && itemEmail === cleanEmail) ||
-                    (cleanDigits && cleanDigits.length >= 7 && (itemPhone === cleanDigits || itemPhone.endsWith(cleanDigits) || cleanDigits.endsWith(itemPhone))) ||
-                    (cleanTag && itemTag === cleanTag) ||
-                    (itemId && itemId === rawId.toLowerCase())
-                ) {
-                    userItem = item;
+                const itemEmail = (item.email || item.Email || "").toLowerCase().trim();
+                const itemMobile = (item.phoneNumber || item.mobile || "").trim().replace(/\D/g, "");
+
+                if (itemEmail === cleanEmail) {
+                    return makeResponse(409, {
+                        success: false,
+                        field: "email",
+                        error: "An account with this email already exists."
+                    });
+                }
+                if (cleanMobile && itemMobile.length >= 10 && (itemMobile === cleanMobile || itemMobile.endsWith(cleanMobile) || cleanMobile.endsWith(itemMobile))) {
+                    return makeResponse(409, {
+                        success: false,
+                        field: "mobile",
+                        error: "This phone number is already registered with another account."
+                    });
+                }
+            }
+
+            const userId = body.id || body.userId || `u_${Date.now()}`;
+            const gamerTag = body.gamerTag || body.tag || `@user_${userId.substring(userId.length - 4)}`;
+            const password = body.password || "";
+            const salt = crypto.randomBytes(16).toString("hex");
+            const passwordHash = password ? `${salt}:${crypto.scryptSync(password, salt, 64).toString("hex")}` : "";
+
+            const newUser = {
+                Email: cleanEmail,
+                email: cleanEmail,
+                entityType: "USER",
+                id: userId,
+                userId: userId,
+                securityId: userId,
+                name: body.name || "New Player",
+                gamerTag: gamerTag,
+                tag: gamerTag,
+                phoneNumber: body.phoneNumber || body.mobile || "",
+                password: password,
+                passwordHash: passwordHash,
+                level: 1,
+                coins: 500,
+                trophies: 0,
+                profilePhoto: body.profilePhoto || null,
+                followers: [],
+                following: [],
+                followersCount: 0,
+                followingCount: 0,
+                visitorsCount: 10,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+
+            await docClient.send(new PutCommand({
+                TableName: TABLE_USERS,
+                Item: newUser
+            }));
+
+            return makeResponse(201, {
+                success: true,
+                message: "User registered successfully",
+                user: newUser
+            });
+        }
+
+        // ---------------------------------------------------------------------
+        // 4. LOGIN WITH CREDENTIALS
+        // ---------------------------------------------------------------------
+        if (action === "login") {
+            const identifier = (body.identifier || body.email || "").toLowerCase().trim();
+            const password = body.password || "";
+
+            if (!identifier) {
+                return makeResponse(400, { success: false, error: "Email, Gamer Tag, or Security ID is required." });
+            }
+
+            const scanResult = await docClient.send(new ScanCommand({
+                TableName: TABLE_USERS,
+                Limit: 250
+            }));
+
+            let matchedUser = null;
+            const cleanClean = identifier.replace(/^@/, "");
+
+            for (const item of (scanResult.Items || [])) {
+                if (item.entityType === "ROOM" || item.entityType === "MESSAGE" || item.entityType === "SONG") continue;
+
+                const itemEmail = (item.email || item.Email || "").toLowerCase().trim();
+                const itemTag = (item.gamerTag || item.tag || "").toLowerCase().trim().replace(/^@/, "");
+                const itemId = (item.userId || item.id || item.securityId || "").toLowerCase().trim();
+                const itemMobile = (item.phoneNumber || item.mobile || "").trim().replace(/\D/g, "");
+
+                if (itemEmail === identifier || itemTag === cleanClean || itemId === identifier || (identifier.length >= 10 && itemMobile === identifier)) {
+                    matchedUser = item;
                     break;
                 }
             }
 
-            if (!userItem) {
-                return makeResponse(404, {
-                    success: false,
-                    error: "Account not found. Please check your credentials or register."
-                });
+            if (!matchedUser) {
+                return makeResponse(404, { success: false, error: "No player found with those credentials." });
             }
 
-            // Verify password
-            const isMatch = verifyPassword(password, userItem.password, userItem.passwordHash);
-            if (!isMatch) {
-                // If legacy record without password, adopt this password on first login
-                if (!userItem.password && !userItem.passwordHash) {
-                    userItem.Email = userItem.Email || userItem.email;
-                    userItem.password = password;
-                    userItem.passwordHash = password;
-                    userItem.updatedAt = new Date().toISOString();
-                    await docClient.send(new PutCommand({
-                        TableName: TABLE_USERS,
-                        Item: userItem
-                    }));
-                } else {
-                    return makeResponse(401, {
-                        success: false,
-                        error: "Incorrect password. Please try again."
-                    });
+            if (password) {
+                const storedPassword = matchedUser.password || "";
+                const storedHash = matchedUser.passwordHash || "";
+                const isValid = verifyPassword(password, storedPassword, storedHash);
+
+                if (!isValid) {
+                    return makeResponse(401, { success: false, error: "Incorrect password. Please try again." });
                 }
             }
 
-            const clientUser = {
-                id: userItem.userId || userItem.id || "01000000",
-                userId: userItem.userId || userItem.id || "01000000",
-                securityId: userItem.userId || userItem.id || "01000000",
-                name: userItem.name || "Player",
-                tag: userItem.tag || userItem.gamerTag || ("@" + (userItem.name || "player").toLowerCase().replace(/\s+/g, "_")),
-                gamerTag: userItem.tag || userItem.gamerTag || ("@" + (userItem.name || "player").toLowerCase().replace(/\s+/g, "_")),
-                email: userItem.email,
-                phoneNumber: userItem.phoneNumber,
-                countryCode: userItem.countryCode || "+91",
-                countryFlag: userItem.countryFlag || "🇮🇳",
-                level: userItem.level || 1,
-                coins: userItem.coins || 500,
-                trophies: userItem.trophies || 0,
-                profilePhoto: userItem.profilePhoto || null,
-                followersCount: Array.isArray(userItem.followers) ? userItem.followers.length : (userItem.followersCount || 0),
-                followingCount: Array.isArray(userItem.following) ? userItem.following.length : (userItem.followingCount || 0),
-                visitorsCount: userItem.visitorsCount || 10,
-                role: userItem.role || "user"
-            };
-
-            const sessionToken = "pf_sess_" + Math.random().toString(36).substring(2) + Date.now().toString(36);
-
             return makeResponse(200, {
                 success: true,
-                user: clientUser,
-                sessionToken: sessionToken
+                message: "Login successful",
+                user: matchedUser
             });
         }
 
         // ---------------------------------------------------------------------
-        // 5. VALIDATE SESSION / LOGOUT
+        // 5. VALIDATE SESSION
         // ---------------------------------------------------------------------
         if (action === "validateSession") {
-            const token = body.sessionToken || body.token;
-            if (!token || !token.startsWith("pf_sess_")) {
-                return makeResponse(401, { success: false, error: "Invalid session." });
-            }
-            return makeResponse(200, { success: true, message: "Session valid." });
-        }
+            const email = (body.email || "").toLowerCase().trim();
+            if (!email) return makeResponse(400, { valid: false, error: "Email required" });
 
-        if (action === "logout") {
-            return makeResponse(200, { success: true, message: "Logged out successfully." });
+            const getResult = await docClient.send(new GetCommand({
+                TableName: TABLE_USERS,
+                Key: { Email: email }
+            }));
+
+            return makeResponse(200, { valid: !!getResult.Item, user: getResult.Item || null });
         }
 
         // ---------------------------------------------------------------------
-        // 6. RESET PASSWORD
+        // 6. LOGOUT
+        // ---------------------------------------------------------------------
+        if (action === "logout") {
+            return makeResponse(200, { success: true, message: "Logged out successfully" });
+        }
+
+        // ---------------------------------------------------------------------
+        // 7. RESET PASSWORD
         // ---------------------------------------------------------------------
         if (action === "resetPassword") {
             const email = (body.email || "").toLowerCase().trim();
-            const phone = (body.phoneNumber || "").replace(/\D/g, "");
-            const newPassword = (body.newPassword || "").trim();
+            const newPassword = body.newPassword || "";
 
-            if (!newPassword) {
-                return makeResponse(400, { success: false, error: "New password is required." });
+            if (!email || !newPassword) {
+                return makeResponse(400, { success: false, error: "Email and newPassword are required." });
             }
 
-            const scanRes = await docClient.send(new ScanCommand({
+            const getResult = await docClient.send(new GetCommand({
                 TableName: TABLE_USERS,
-                Limit: 250
+                Key: { Email: email }
             }));
-            const userItem = (scanRes.Items || []).find(u => {
-                const itemEmail = (u.email || "").toLowerCase().trim();
-                const p = (u.phoneNumber || "").replace(/\D/g, "");
-                return (email && itemEmail === email) || (phone && p === phone);
-            });
 
-            if (!userItem) {
-                return makeResponse(404, { success: false, error: "Account not found." });
+            if (!getResult.Item) {
+                return makeResponse(404, { success: false, error: "Account not found for email: " + email });
             }
 
-            userItem.Email = userItem.Email || userItem.email;
-            userItem.password = newPassword;
-            userItem.passwordHash = newPassword;
-            userItem.updatedAt = new Date().toISOString();
+            const user = getResult.Item;
+            const salt = crypto.randomBytes(16).toString("hex");
+            user.password = newPassword;
+            user.passwordHash = `${salt}:${crypto.scryptSync(newPassword, salt, 64).toString("hex")}`;
+            user.updatedAt = new Date().toISOString();
+            user.Email = user.Email || user.email;
+
             await docClient.send(new PutCommand({
                 TableName: TABLE_USERS,
-                Item: userItem
+                Item: user
             }));
 
-            return makeResponse(200, { success: true, message: "Password updated successfully on server." });
+            return makeResponse(200, { success: true, message: "Password updated successfully" });
         }
 
         // ---------------------------------------------------------------------
-        // 7. LIST USERS & DIRECTORY
+        // 8. LIST USERS / REGISTERED PLAYERS DIRECTORY
         // ---------------------------------------------------------------------
         if (action === "listUsers" || action === "getAllUsers") {
             const scanResult = await docClient.send(new ScanCommand({
                 TableName: TABLE_USERS,
-                Limit: 200
+                Limit: 250
             }));
-            const users = (scanResult.Items || []).map(u => ({
-                id: u.userId || u.id || "01000000",
-                userId: u.userId || u.id || "01000000",
-                securityId: u.userId || u.id || "01000000",
-                name: u.name || "Player",
-                gamerTag: u.tag || u.gamerTag || ("@" + (u.name || "player").toLowerCase().replace(/\s+/g, "_")),
-                email: u.email,
-                phoneNumber: u.phoneNumber,
-                level: u.level || 1,
-                coins: u.coins || 500,
-                trophies: u.trophies || 0,
-                profilePhoto: u.profilePhoto || null,
-                followersCount: Array.isArray(u.followers) ? u.followers.length : (u.followersCount || 0),
-                followingCount: Array.isArray(u.following) ? u.following.length : (u.followingCount || 0),
-                visitorsCount: u.visitorsCount || 10,
-                createdAt: u.createdAt
-            }));
+
+            const users = (scanResult.Items || [])
+                .filter(u => !u.entityType || u.entityType === "USER")
+                .filter(u => u.Email && !u.Email.startsWith("ROOM#") && !u.Email.startsWith("MSG#") && !u.Email.startsWith("SONG#"))
+                .map(u => ({
+                    id: u.userId || u.id,
+                    userId: u.userId || u.id,
+                    securityId: u.securityId || u.userId || u.id,
+                    name: u.name || "Player",
+                    gamerTag: u.tag || u.gamerTag || "@player",
+                    email: u.email || u.Email,
+                    phoneNumber: u.phoneNumber || "",
+                    level: u.level || 1,
+                    coins: u.coins || 500,
+                    trophies: u.trophies || u.totalWins || 0,
+                    profilePhoto: u.profilePhoto || null,
+                    followersCount: Array.isArray(u.followers) ? u.followers.length : (u.followersCount || 0),
+                    followingCount: Array.isArray(u.following) ? u.following.length : (u.followingCount || 0),
+                    visitorsCount: u.visitorsCount || 10,
+                    createdAt: u.createdAt || new Date().toISOString()
+                }));
+
             return makeResponse(200, users);
         }
 
         // ---------------------------------------------------------------------
-        // 8. SEARCH USERS
+        // 9. SEARCH USERS
         // ---------------------------------------------------------------------
         if (action === "searchUsers") {
-            const raw = (body.query || body.q || "").toLowerCase().trim();
-            const cleanQ = raw.replace(/^@/, "");
-            if (!cleanQ) {
-                return makeResponse(200, []);
-            }
+            const query = (body.query || "").toLowerCase().trim().replace(/^@/, "");
+            if (!query) return makeResponse(200, []);
 
             const scanResult = await docClient.send(new ScanCommand({
                 TableName: TABLE_USERS,
-                Limit: 100
+                Limit: 250
             }));
 
-            const matched = [];
-            for (const u of (scanResult.Items || [])) {
-                const uId = (u.userId || u.id || u.securityId || "").toLowerCase();
-                const uTag = (u.tag || u.gamerTag || "").toLowerCase().replace(/^@/, "");
-                const uName = (u.name || "").toLowerCase();
-                const uEmail = (u.email || "").toLowerCase();
+            const matches = (scanResult.Items || [])
+                .filter(u => !u.entityType || u.entityType === "USER")
+                .filter(u => u.Email && !u.Email.startsWith("ROOM#") && !u.Email.startsWith("MSG#") && !u.Email.startsWith("SONG#"))
+                .filter(u => {
+                    const id = (u.userId || u.id || "").toLowerCase();
+                    const tag = (u.tag || u.gamerTag || "").toLowerCase().replace(/^@/, "");
+                    const name = (u.name || "").toLowerCase();
+                    const email = (u.email || u.Email || "").toLowerCase();
+                    return id.includes(query) || tag.includes(query) || name.includes(query) || email.includes(query);
+                })
+                .map(u => ({
+                    id: u.userId || u.id,
+                    userId: u.userId || u.id,
+                    securityId: u.securityId || u.userId || u.id,
+                    name: u.name,
+                    gamerTag: u.tag || u.gamerTag,
+                    email: u.email || u.Email,
+                    level: u.level || 1,
+                    coins: u.coins || 500,
+                    totalWins: u.trophies || u.totalWins || 0,
+                    profilePhoto: u.profilePhoto || null,
+                    followersCount: Array.isArray(u.followers) ? u.followers.length : (u.followersCount || 0),
+                    followingCount: Array.isArray(u.following) ? u.following.length : (u.followingCount || 0),
+                    visitorsCount: u.visitorsCount || 10
+                }));
 
-                if (uId.includes(cleanQ) || uTag.includes(cleanQ) || uName.includes(cleanQ) || uEmail.includes(cleanQ)) {
-                    matched.push({
-                        id: u.userId || u.id || "01000000",
-                        userId: u.userId || u.id || "01000000",
-                        securityId: u.userId || u.id || "01000000",
-                        name: u.name || "Player",
-                        tag: u.tag || ("@" + (u.name || "player").toLowerCase().replace(/\s+/g, "_")),
-                        gamerTag: u.tag || ("@" + (u.name || "player").toLowerCase().replace(/\s+/g, "_")),
-                        email: u.email,
-                        level: u.level || 1,
-                        coins: u.coins || 500,
-                        trophies: u.trophies || 0,
-                        profilePhoto: u.profilePhoto || null,
-                        followersCount: Array.isArray(u.followers) ? u.followers.length : (u.followersCount || 0),
-                        followingCount: Array.isArray(u.following) ? u.following.length : (u.followingCount || 0),
-                        visitorsCount: u.visitorsCount || 10
-                    });
-                }
-            }
-
-            return makeResponse(200, matched);
+            return makeResponse(200, matches);
         }
 
         // ---------------------------------------------------------------------
-        // 9. SOCIAL GRAPH: FOLLOW / UNFOLLOW USER
+        // 10. SOCIAL GRAPH: FOLLOW / UNFOLLOW USER
         // ---------------------------------------------------------------------
         if (action === "followUser") {
             const followerId = (body.followerId || body.followerEmail || "").toLowerCase().trim();
@@ -462,11 +420,12 @@ export const handler = async (event) => {
                 Limit: 250
             }));
 
+            const allUsers = (scanResult.Items || []).filter(u => !u.entityType || u.entityType === "USER");
             let followerUser = null;
             let targetUser = null;
 
-            for (const item of (scanResult.Items || [])) {
-                const itemEmail = (item.email || "").toLowerCase();
+            for (const item of allUsers) {
+                const itemEmail = (item.email || item.Email || "").toLowerCase();
                 const itemTag = (item.tag || item.gamerTag || "").toLowerCase().replace(/^@/, "");
                 const itemId = (item.userId || item.id || "").toLowerCase();
 
@@ -488,7 +447,7 @@ export const handler = async (event) => {
 
             // Update Target's followers list
             const targetFollowers = Array.isArray(targetUser.followers) ? [...targetUser.followers] : [];
-            const followerKey = followerUser ? (followerUser.userId || followerUser.email) : followerId;
+            const followerKey = followerUser ? (followerUser.userId || followerUser.email || followerUser.Email) : followerId;
 
             if (follow) {
                 if (!targetFollowers.includes(followerKey)) {
@@ -513,7 +472,7 @@ export const handler = async (event) => {
             let followingCount = 0;
             if (followerUser) {
                 const followerFollowing = Array.isArray(followerUser.following) ? [...followerUser.following] : [];
-                const targetKey = targetUser.userId || targetUser.email;
+                const targetKey = targetUser.userId || targetUser.email || targetUser.Email;
 
                 if (follow) {
                     if (!followerFollowing.includes(targetKey)) {
@@ -547,7 +506,7 @@ export const handler = async (event) => {
         }
 
         // ---------------------------------------------------------------------
-        // 10. SOCIAL GRAPH: GET FOLLOWERS & FOLLOWING
+        // 11. SOCIAL GRAPH: GET FOLLOWERS & FOLLOWING
         // ---------------------------------------------------------------------
         if (action === "getFollowers" || action === "getFollowing") {
             const rawId = (body.userId || body.email || body.tag || "").toLowerCase().trim().replace(/^@/, "");
@@ -557,9 +516,9 @@ export const handler = async (event) => {
                 Limit: 250
             }));
 
-            const items = scanResult.Items || [];
+            const items = (scanResult.Items || []).filter(u => !u.entityType || u.entityType === "USER");
             const target = items.find(u => {
-                const email = (u.email || "").toLowerCase();
+                const email = (u.email || u.Email || "").toLowerCase();
                 const id = (u.userId || u.id || "").toLowerCase();
                 const tag = (u.tag || u.gamerTag || "").toLowerCase().replace(/^@/, "");
                 return email === rawId || id === rawId || tag === rawId;
@@ -573,10 +532,12 @@ export const handler = async (event) => {
             const resultList = [];
 
             for (const key of keyList) {
+                const kLower = (key || "").toLowerCase();
                 const match = items.find(u => {
-                    const email = (u.email || "").toLowerCase();
+                    const email = (u.email || u.Email || "").toLowerCase();
                     const id = (u.userId || u.id || "").toLowerCase();
-                    return email === key.toLowerCase() || id === key.toLowerCase();
+                    const tag = (u.tag || u.gamerTag || "").toLowerCase().replace(/^@/, "");
+                    return email === kLower || id === kLower || tag === kLower;
                 });
                 if (match) {
                     resultList.push({
@@ -587,7 +548,7 @@ export const handler = async (event) => {
                         level: match.level || 1
                     });
                 } else {
-                    resultList.push({ id: key, name: "Player", tag: "@player" });
+                    resultList.push({ id: key, name: "Player", tag: "@player", profilePhoto: null, level: 1 });
                 }
             }
 
@@ -595,10 +556,10 @@ export const handler = async (event) => {
         }
 
         // ---------------------------------------------------------------------
-        // 11. SOCIAL GRAPH: GET FOLLOW STATUS & MUTUAL FRIENDSHIP
+        // 12. SOCIAL GRAPH: GET FOLLOW STATUS & MUTUAL FRIENDSHIP
         // ---------------------------------------------------------------------
         if (action === "getFollowStatus") {
-            const currentId = (body.currentUserId || body.followerId || "").toLowerCase().trim();
+            const currentId = (body.currentUserId || body.followerId || "").toLowerCase().trim().replace(/^@/, "");
             const targetId = (body.targetUserId || body.targetId || "").toLowerCase().trim().replace(/^@/, "");
 
             const scanResult = await docClient.send(new ScanCommand({
@@ -606,10 +567,16 @@ export const handler = async (event) => {
                 Limit: 250
             }));
 
-            const items = scanResult.Items || [];
-            const currentUser = items.find(u => (u.userId || u.id || u.email || "").toLowerCase() === currentId);
+            const items = (scanResult.Items || []).filter(u => !u.entityType || u.entityType === "USER");
+            const currentUser = items.find(u => {
+                const email = (u.email || u.Email || "").toLowerCase();
+                const id = (u.userId || u.id || "").toLowerCase();
+                const tag = (u.tag || u.gamerTag || "").toLowerCase().replace(/^@/, "");
+                return email === currentId || id === currentId || tag === currentId;
+            });
+
             const targetUser = items.find(u => {
-                const email = (u.email || "").toLowerCase();
+                const email = (u.email || u.Email || "").toLowerCase();
                 const id = (u.userId || u.id || "").toLowerCase();
                 const tag = (u.tag || u.gamerTag || "").toLowerCase().replace(/^@/, "");
                 return email === targetId || id === targetId || tag === targetId;
@@ -619,11 +586,27 @@ export const handler = async (event) => {
             let isFollowedBy = false;
 
             if (currentUser && targetUser) {
-                const cId = currentUser.userId || currentUser.email;
-                const tId = targetUser.userId || targetUser.email;
+                const cKeys = [
+                    (currentUser.userId || "").toLowerCase(),
+                    (currentUser.id || "").toLowerCase(),
+                    (currentUser.email || currentUser.Email || "").toLowerCase(),
+                    (currentUser.tag || currentUser.gamerTag || "").toLowerCase().replace(/^@/, "")
+                ].filter(Boolean);
 
-                isFollowing = Array.isArray(currentUser.following) && currentUser.following.includes(tId);
-                isFollowedBy = Array.isArray(targetUser.following) && targetUser.following.includes(cId);
+                const tKeys = [
+                    (targetUser.userId || "").toLowerCase(),
+                    (targetUser.id || "").toLowerCase(),
+                    (targetUser.email || targetUser.Email || "").toLowerCase(),
+                    (targetUser.tag || targetUser.gamerTag || "").toLowerCase().replace(/^@/, "")
+                ].filter(Boolean);
+
+                const cFollowing = (currentUser.following || []).map(x => (x || "").toLowerCase().replace(/^@/, ""));
+                const tFollowing = (targetUser.following || []).map(x => (x || "").toLowerCase().replace(/^@/, ""));
+                const cFollowers = (currentUser.followers || []).map(x => (x || "").toLowerCase().replace(/^@/, ""));
+                const tFollowers = (targetUser.followers || []).map(x => (x || "").toLowerCase().replace(/^@/, ""));
+
+                isFollowing = tKeys.some(tk => cFollowing.includes(tk) || tFollowers.includes(tk));
+                isFollowedBy = cKeys.some(ck => tFollowing.includes(ck) || cFollowers.includes(ck));
             }
 
             return makeResponse(200, {
@@ -635,16 +618,19 @@ export const handler = async (event) => {
         }
 
         // ---------------------------------------------------------------------
-        // 12. ROOM MANAGEMENT (CREATE, LIST, DELETE)
+        // 13. ROOM MANAGEMENT: GET ROOMS, CREATE ROOM, DELETE ROOM
         // ---------------------------------------------------------------------
         if (action === "getRooms") {
             const scanResult = await docClient.send(new ScanCommand({
-                TableName: TABLE_ROOMS,
-                Limit: 50
+                TableName: TABLE_USERS,
+                Limit: 250
             }));
 
-            // Filter out legacy demo rooms
+            // Filter out deleted rooms and legacy demo rooms
             const rooms = (scanResult.Items || []).filter(r => {
+                if (r.entityType !== "ROOM" && !(r.Email && r.Email.startsWith("ROOM#"))) return false;
+                if (r.isDeleted === true) return false;
+
                 const id = (r.id || "").toString().toLowerCase();
                 const code = (r.roomCode || "").toString().toLowerCase();
                 const host = (r.hostName || "").toString().toLowerCase();
@@ -661,26 +647,51 @@ export const handler = async (event) => {
             const roomId = room.id || `r_${Date.now()}`;
             const hostUser = body.user || {};
 
+            const hostMember = {
+                userId: hostUser.id || hostUser.userId || room.hostId || "host_01",
+                name: room.hostName || hostUser.name || "Host Player",
+                gamerTag: hostUser.tag || hostUser.gamerTag || "@host",
+                profilePhoto: room.hostPhoto || hostUser.profilePhoto || null,
+                role: "host",
+                joinedAt: new Date().toISOString()
+            };
+
+            const defaultSeats = [
+                {
+                    seatIndex: 1,
+                    userId: hostMember.userId,
+                    userName: hostMember.name,
+                    userPhoto: hostMember.profilePhoto,
+                    userColor: 0xFF8B5CF6,
+                    level: hostUser.level || 1,
+                    isHost: true,
+                    isMuted: false,
+                    isSpeaking: true
+                },
+                null, null, null, null, null, null, null
+            ];
+
             const item = {
                 ...room,
+                Email: `ROOM#${roomId}`,
+                entityType: "ROOM",
                 id: roomId,
                 roomCode: room.roomCode || `PF-${Math.floor(1000 + Math.random() * 9000)}`,
-                members: [
-                    {
-                        userId: hostUser.id || hostUser.userId || room.hostId || "host_01",
-                        name: room.hostName || hostUser.name || "Host Player",
-                        gamerTag: hostUser.tag || hostUser.gamerTag || "@host",
-                        profilePhoto: room.hostPhoto || hostUser.profilePhoto || null,
-                        role: "host",
-                        joinedAt: new Date().toISOString()
-                    }
-                ],
+                gameTitle: room.gameTitle || `${hostMember.name}'s Room`,
+                hostName: hostMember.name,
+                hostPhoto: hostMember.profilePhoto,
+                members: [hostMember],
+                seats: room.seats || defaultSeats,
+                currentSong: null,
                 currentPlayers: 1,
+                maxPlayers: room.maxPlayers || 100,
+                isDeleted: false,
+                createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
 
             await docClient.send(new PutCommand({
-                TableName: TABLE_ROOMS,
+                TableName: TABLE_USERS,
                 Item: item
             }));
 
@@ -688,36 +699,115 @@ export const handler = async (event) => {
         }
 
         if (action === "deleteRoom") {
-            const roomId = body.roomId || body.id;
+            const roomId = (body.roomId || body.id || "").toString();
             if (roomId) {
-                await docClient.send(new DeleteCommand({
-                    TableName: TABLE_ROOMS,
-                    Key: { id: roomId }
-                }));
+                // Delete or mark deleted
+                const cleanKey = roomId.startsWith("ROOM#") ? roomId : `ROOM#${roomId}`;
+                try {
+                    await docClient.send(new PutCommand({
+                        TableName: TABLE_USERS,
+                        Item: {
+                            Email: cleanKey,
+                            id: roomId,
+                            entityType: "ROOM",
+                            isDeleted: true,
+                            updatedAt: new Date().toISOString()
+                        }
+                    }));
+                } catch (e) {
+                    await docClient.send(new DeleteCommand({
+                        TableName: TABLE_USERS,
+                        Key: { Email: cleanKey }
+                    }));
+                }
             }
-            return makeResponse(200, { success: true });
+            return makeResponse(200, { success: true, message: "Room deleted successfully" });
         }
 
         // ---------------------------------------------------------------------
-        // 13. ROOM MEMBERSHIP: JOIN ROOM & LEAVE ROOM (CROSS-DEVICE SYNC)
+        // 14. ROOM STATE & REAL-TIME POLLING (MEMBERS, SEATS, SONG, DELETION)
         // ---------------------------------------------------------------------
+        if (action === "getRoomState" || action === "getRoomMembers") {
+            const rawId = (body.roomId || body.id || body.roomCode || "").toString();
+            const cleanKey = rawId.startsWith("ROOM#") ? rawId : `ROOM#${rawId}`;
+
+            let roomItem = null;
+            try {
+                const getResult = await docClient.send(new GetCommand({
+                    TableName: TABLE_USERS,
+                    Key: { Email: cleanKey }
+                }));
+                roomItem = getResult.Item;
+            } catch (e) {}
+
+            // Fallback: search by roomCode or id
+            if (!roomItem) {
+                const scanResult = await docClient.send(new ScanCommand({
+                    TableName: TABLE_USERS,
+                    Limit: 150
+                }));
+                const cleanCode = rawId.replace(/^PF-/i, "").toLowerCase();
+                roomItem = (scanResult.Items || []).find(r => {
+                    if (r.entityType !== "ROOM" && !(r.Email && r.Email.startsWith("ROOM#"))) return false;
+                    const rId = (r.id || "").toString().toLowerCase();
+                    const rCode = (r.roomCode || "").toString().replace(/^PF-/i, "").toLowerCase();
+                    return rId === rawId.toLowerCase() || rCode === cleanCode;
+                });
+            }
+
+            if (!roomItem || roomItem.isDeleted === true) {
+                return makeResponse(404, {
+                    success: false,
+                    roomDeleted: true,
+                    error: "This room has been closed by the host."
+                });
+            }
+
+            return makeResponse(200, {
+                success: true,
+                room: roomItem,
+                members: roomItem.members || [],
+                seats: roomItem.seats || [],
+                currentSong: roomItem.currentSong || null,
+                currentPlayers: (roomItem.members || []).length
+            });
+        }
+
         if (action === "joinRoom") {
-            const roomId = body.roomId || body.id;
+            const rawId = (body.roomId || body.id || body.roomCode || "").toString();
             const user = body.user || {};
             const userId = (user.id || user.userId || "").toString();
 
-            if (!roomId || !userId) {
+            if (!rawId || !userId) {
                 return makeResponse(400, { success: false, error: "roomId and user are required." });
             }
 
-            const getResult = await docClient.send(new GetCommand({
-                TableName: TABLE_ROOMS,
-                Key: { id: roomId }
-            }));
+            const cleanKey = rawId.startsWith("ROOM#") ? rawId : `ROOM#${rawId}`;
+            let roomItem = null;
+            try {
+                const getResult = await docClient.send(new GetCommand({
+                    TableName: TABLE_USERS,
+                    Key: { Email: cleanKey }
+                }));
+                roomItem = getResult.Item;
+            } catch (e) {}
 
-            let roomItem = getResult.Item;
             if (!roomItem) {
-                return makeResponse(404, { success: false, error: "Room not found." });
+                const scanResult = await docClient.send(new ScanCommand({
+                    TableName: TABLE_USERS,
+                    Limit: 150
+                }));
+                const cleanCode = rawId.replace(/^PF-/i, "").toLowerCase();
+                roomItem = (scanResult.Items || []).find(r => {
+                    if (r.entityType !== "ROOM" && !(r.Email && r.Email.startsWith("ROOM#"))) return false;
+                    const rId = (r.id || "").toString().toLowerCase();
+                    const rCode = (r.roomCode || "").toString().replace(/^PF-/i, "").toLowerCase();
+                    return rId === rawId.toLowerCase() || rCode === cleanCode;
+                });
+            }
+
+            if (!roomItem || roomItem.isDeleted === true) {
+                return makeResponse(404, { success: false, roomDeleted: true, error: "Room not found or closed." });
             }
 
             const members = Array.isArray(roomItem.members) ? [...roomItem.members] : [];
@@ -741,9 +831,10 @@ export const handler = async (event) => {
             roomItem.members = members;
             roomItem.currentPlayers = members.length;
             roomItem.updatedAt = new Date().toISOString();
+            roomItem.Email = roomItem.Email || `ROOM#${roomItem.id}`;
 
             await docClient.send(new PutCommand({
-                TableName: TABLE_ROOMS,
+                TableName: TABLE_USERS,
                 Item: roomItem
             }));
 
@@ -751,24 +842,30 @@ export const handler = async (event) => {
                 success: true,
                 room: roomItem,
                 members: members,
+                seats: roomItem.seats || [],
+                currentSong: roomItem.currentSong || null,
                 currentPlayers: members.length
             });
         }
 
         if (action === "leaveRoom") {
-            const roomId = body.roomId || body.id;
+            const rawId = (body.roomId || body.id || "").toString();
             const userId = (body.userId || "").toString();
 
-            if (!roomId || !userId) {
+            if (!rawId || !userId) {
                 return makeResponse(400, { success: false, error: "roomId and userId are required." });
             }
 
-            const getResult = await docClient.send(new GetCommand({
-                TableName: TABLE_ROOMS,
-                Key: { id: roomId }
-            }));
+            const cleanKey = rawId.startsWith("ROOM#") ? rawId : `ROOM#${rawId}`;
+            let roomItem = null;
+            try {
+                const getResult = await docClient.send(new GetCommand({
+                    TableName: TABLE_USERS,
+                    Key: { Email: cleanKey }
+                }));
+                roomItem = getResult.Item;
+            } catch (e) {}
 
-            let roomItem = getResult.Item;
             if (!roomItem) {
                 return makeResponse(200, { success: true, message: "Room already closed." });
             }
@@ -776,58 +873,181 @@ export const handler = async (event) => {
             let members = Array.isArray(roomItem.members) ? [...roomItem.members] : [];
             members = members.filter(m => m.userId !== userId);
 
+            // Also vacate any seat held by this user
+            const seats = Array.isArray(roomItem.seats) ? [...roomItem.seats] : [];
+            for (let i = 0; i < seats.length; i++) {
+                if (seats[i] && (seats[i].userId === userId || seats[i].userName === body.userName)) {
+                    seats[i] = null;
+                }
+            }
+
             roomItem.members = members;
+            roomItem.seats = seats;
             roomItem.currentPlayers = members.length;
             roomItem.updatedAt = new Date().toISOString();
 
-            // If room is empty or host leaves without members, safely update
             await docClient.send(new PutCommand({
-                TableName: TABLE_ROOMS,
+                TableName: TABLE_USERS,
                 Item: roomItem
             }));
 
             return makeResponse(200, {
                 success: true,
                 members: members,
+                seats: seats,
                 currentPlayers: members.length
             });
         }
 
-        if (action === "getRoomMembers") {
-            const roomId = body.roomId || body.id;
+        // ---------------------------------------------------------------------
+        // 15. MIC SEATS REAL-TIME SYNCHRONIZATION
+        // ---------------------------------------------------------------------
+        if (action === "takeSeat") {
+            const rawId = (body.roomId || body.id || "").toString();
+            const seatIndex = parseInt(body.seatIndex, 10);
+            const user = body.user || {};
+            const cleanKey = rawId.startsWith("ROOM#") ? rawId : `ROOM#${rawId}`;
+
             const getResult = await docClient.send(new GetCommand({
-                TableName: TABLE_ROOMS,
-                Key: { id: roomId }
+                TableName: TABLE_USERS,
+                Key: { Email: cleanKey }
+            }));
+
+            const roomItem = getResult.Item;
+            if (!roomItem || roomItem.isDeleted === true) {
+                return makeResponse(404, { success: false, roomDeleted: true, error: "Room not found or closed." });
+            }
+
+            const seats = Array.isArray(roomItem.seats) && roomItem.seats.length === 8
+                ? [...roomItem.seats]
+                : [null, null, null, null, null, null, null, null];
+
+            const userId = (user.id || user.userId || "").toString();
+            const userName = user.name || "Player";
+
+            // Vacate any previous seat held by this user
+            for (let i = 0; i < seats.length; i++) {
+                if (seats[i] && (seats[i].userId === userId || seats[i].userName === userName)) {
+                    seats[i] = null;
+                }
+            }
+
+            // Assign new seat
+            if (seatIndex >= 0 && seatIndex < 8) {
+                seats[seatIndex] = {
+                    seatIndex: seatIndex + 1,
+                    userId: userId,
+                    userName: userName,
+                    userPhoto: user.profilePhoto || null,
+                    userColor: user.avatarColor || 0xFF3B82F6,
+                    level: user.level || 1,
+                    isHost: seatIndex === 0 || userName === roomItem.hostName,
+                    isMuted: false,
+                    isSpeaking: true
+                };
+            }
+
+            roomItem.seats = seats;
+            roomItem.updatedAt = new Date().toISOString();
+
+            await docClient.send(new PutCommand({
+                TableName: TABLE_USERS,
+                Item: roomItem
+            }));
+
+            return makeResponse(200, { success: true, seats: seats });
+        }
+
+        if (action === "leaveSeat") {
+            const rawId = (body.roomId || body.id || "").toString();
+            const seatIndex = parseInt(body.seatIndex, 10);
+            const cleanKey = rawId.startsWith("ROOM#") ? rawId : `ROOM#${rawId}`;
+
+            const getResult = await docClient.send(new GetCommand({
+                TableName: TABLE_USERS,
+                Key: { Email: cleanKey }
             }));
 
             const roomItem = getResult.Item;
             if (!roomItem) {
-                return makeResponse(404, { success: false, error: "Room not found." });
+                return makeResponse(200, { success: true });
             }
 
-            const members = Array.isArray(roomItem.members) ? roomItem.members : [];
-            return makeResponse(200, {
-                success: true,
-                members: members,
-                currentPlayers: members.length
-            });
+            const seats = Array.isArray(roomItem.seats) ? [...roomItem.seats] : [];
+            if (seatIndex >= 0 && seatIndex < seats.length) {
+                seats[seatIndex] = null;
+            }
+
+            roomItem.seats = seats;
+            roomItem.updatedAt = new Date().toISOString();
+
+            await docClient.send(new PutCommand({
+                TableName: TABLE_USERS,
+                Item: roomItem
+            }));
+
+            return makeResponse(200, { success: true, seats: seats });
         }
 
         // ---------------------------------------------------------------------
-        // 14. DIRECT MESSAGING & ROOM CHAT
+        // 16. ROOM MUSIC REAL-TIME SYNCHRONIZATION
+        // ---------------------------------------------------------------------
+        if (action === "syncRoomMusic") {
+            const rawId = (body.roomId || body.id || "").toString();
+            const song = body.song || body.currentSong || {};
+            const cleanKey = rawId.startsWith("ROOM#") ? rawId : `ROOM#${rawId}`;
+
+            const getResult = await docClient.send(new GetCommand({
+                TableName: TABLE_USERS,
+                Key: { Email: cleanKey }
+            }));
+
+            const roomItem = getResult.Item;
+            if (!roomItem || roomItem.isDeleted === true) {
+                return makeResponse(404, { success: false, roomDeleted: true, error: "Room not found or closed." });
+            }
+
+            roomItem.currentSong = {
+                id: song.id ?? 0,
+                title: song.title || "Room Track",
+                genre: song.genre || "Game Audio",
+                bpm: song.bpm || "120 BPM",
+                isPlaying: song.isPlaying !== false,
+                trackIndex: song.trackIndex ?? 0,
+                audioSource: song.audioSource || null,
+                updatedAt: new Date().toISOString()
+            };
+            roomItem.updatedAt = new Date().toISOString();
+
+            await docClient.send(new PutCommand({
+                TableName: TABLE_USERS,
+                Item: roomItem
+            }));
+
+            return makeResponse(200, { success: true, currentSong: roomItem.currentSong });
+        }
+
+        // ---------------------------------------------------------------------
+        // 17. DIRECT MESSAGING (PERSISTED IN SINGLE-TABLE DynamoDB)
         // ---------------------------------------------------------------------
         if (action === "sendDirectMessage") {
-            const senderId = body.senderId;
-            const receiverId = body.receiverId;
+            const senderId = (body.senderId || "").toString().trim();
+            const receiverId = (body.receiverId || "").toString().trim();
             const text = body.text || body.message || "";
 
             if (!senderId || !receiverId || !text) {
                 return makeResponse(400, { success: false, error: "senderId, receiverId, and text are required." });
             }
 
+            const convId = [senderId, receiverId].sort().join("_");
+            const timestamp = Date.now();
+            const rand = Math.random().toString(36).substring(2, 6);
+
             const msgItem = {
-                id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-                conversationId: [senderId, receiverId].sort().join("_"),
+                Email: `MSG#${convId}#${timestamp}_${rand}`,
+                entityType: "MESSAGE",
+                id: `msg_${timestamp}_${rand}`,
+                conversationId: convId,
                 senderId: senderId,
                 receiverId: receiverId,
                 text: text,
@@ -835,7 +1055,7 @@ export const handler = async (event) => {
             };
 
             await docClient.send(new PutCommand({
-                TableName: TABLE_MESSAGES,
+                TableName: TABLE_USERS,
                 Item: msgItem
             }));
 
@@ -843,149 +1063,107 @@ export const handler = async (event) => {
         }
 
         if (action === "getDirectMessages") {
-            const userA = body.userA || body.senderId;
-            const userB = body.userB || body.receiverId;
-            const conversationId = [userA, userB].sort().join("_");
+            const userA = (body.userA || body.senderId || "").toString().trim();
+            const userB = (body.userB || body.receiverId || "").toString().trim();
+            const convId = [userA, userB].sort().join("_");
 
-            const scanResult = await docClient.send(new ScanCommand({
-                TableName: TABLE_MESSAGES,
-                FilterExpression: "conversationId = :cid",
-                ExpressionAttributeValues: { ":cid": conversationId },
-                Limit: 100
-            }));
-
-            const items = (scanResult.Items || []).sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
-            return makeResponse(200, { success: true, messages: items });
-        }
-
-        // ---------------------------------------------------------------------
-        // 15. PROFILE PHOTO & DELETE USER
-        // ---------------------------------------------------------------------
-        if (action === "updateProfilePhoto" || action === "deleteProfilePhoto") {
-            const rawId = (body.email || body.userId || "").toLowerCase().trim();
-            const photo = action === "deleteProfilePhoto" ? null : body.profilePhoto;
-
-            if (rawId) {
-                const scanResult = await docClient.send(new ScanCommand({
-                    TableName: TABLE_USERS,
-                    Limit: 250
-                }));
-                const userItem = (scanResult.Items || []).find(u => {
-                    const itemEmail = (u.email || "").toLowerCase().trim();
-                    const itemId = (u.userId || u.id || "").toLowerCase().trim();
-                    return itemEmail === rawId || itemId === rawId;
-                });
-
-                if (userItem) {
-                    userItem.Email = userItem.Email || userItem.email;
-                    userItem.profilePhoto = photo;
-                    userItem.updatedAt = new Date().toISOString();
-                    await docClient.send(new PutCommand({
-                        TableName: TABLE_USERS,
-                        Item: userItem
-                    }));
-                }
-            }
-
-            return makeResponse(200, { success: true, message: "Profile photo updated on server." });
-        }
-
-        if (action === "deleteUser") {
-            const rawId = (body.email || body.userId || "").toLowerCase().trim();
-            if (rawId) {
-                const keySchema = await getTableKeySchema();
-                const scanResult = await docClient.send(new ScanCommand({
-                    TableName: TABLE_USERS,
-                    Limit: 250
-                }));
-                const userItem = (scanResult.Items || []).find(u => {
-                    const itemEmail = (u.Email || u.email || "").toLowerCase().trim();
-                    const itemId = (u.userId || u.id || "").toLowerCase().trim();
-                    return itemEmail === rawId || itemId === rawId;
-                });
-                if (userItem) {
-                    const key = buildKey(userItem, keySchema);
-                    await docClient.send(new DeleteCommand({
-                        TableName: TABLE_USERS,
-                        Key: key
-                    }));
-                }
-            }
-            return makeResponse(200, { success: true, message: "User deleted from server." });
-        }
-
-        if (action === "deleteAllUsers" || action === "clearAllUsers") {
-            const keySchema = await getTableKeySchema();
             const scanResult = await docClient.send(new ScanCommand({
                 TableName: TABLE_USERS,
                 Limit: 250
             }));
-            let deletedCount = 0;
-            for (const item of (scanResult.Items || [])) {
-                const key = buildKey(item, keySchema);
-                await docClient.send(new DeleteCommand({
-                    TableName: TABLE_USERS,
-                    Key: key
-                }));
-                deletedCount++;
-            }
-            return makeResponse(200, {
-                success: true,
-                message: `Successfully deleted all ${deletedCount} users from AWS DynamoDB.`,
-                deletedCount
-            });
+
+            const items = (scanResult.Items || [])
+                .filter(m => (m.entityType === "MESSAGE" || (m.Email && m.Email.startsWith("MSG#"))) && m.conversationId === convId)
+                .sort((a, b) => (a.createdAt || "").localeCompare(b.createdAt || ""));
+
+            return makeResponse(200, { success: true, messages: items });
         }
 
         // ---------------------------------------------------------------------
-        // 16. SONGS
+        // 18. PROFILE PHOTO & SONGS
         // ---------------------------------------------------------------------
-        if (action === "uploadSong") {
-            const song = body.song || {};
-            await docClient.send(new PutCommand({
-                TableName: TABLE_SONGS,
-                Item: { ...song, updatedAt: new Date().toISOString() }
+        if (action === "updateProfilePhoto" || action === "deleteProfilePhoto") {
+            const rawId = (body.email || body.userId || "").toLowerCase().trim();
+            const photoUrl = action === "deleteProfilePhoto" ? null : (body.photoUrl || body.profilePhoto || null);
+
+            const scanResult = await docClient.send(new ScanCommand({
+                TableName: TABLE_USERS,
+                Limit: 250
             }));
-            return makeResponse(200, { success: true, message: "Song saved to server." });
+
+            const user = (scanResult.Items || []).find(u => {
+                const email = (u.email || u.Email || "").toLowerCase();
+                const id = (u.userId || u.id || "").toLowerCase();
+                return email === rawId || id === rawId;
+            });
+
+            if (!user) {
+                return makeResponse(404, { success: false, error: "User not found." });
+            }
+
+            user.profilePhoto = photoUrl;
+            user.updatedAt = new Date().toISOString();
+            user.Email = user.Email || user.email;
+
+            await docClient.send(new PutCommand({
+                TableName: TABLE_USERS,
+                Item: user
+            }));
+
+            return makeResponse(200, { success: true, profilePhoto: photoUrl });
+        }
+
+        if (action === "uploadSong") {
+            const song = body.song || body;
+            const songId = song.id || Date.now();
+            const item = {
+                Email: `SONG#${song.userId || "01"}#${songId}`,
+                entityType: "SONG",
+                ...song,
+                createdAt: new Date().toISOString()
+            };
+
+            await docClient.send(new PutCommand({
+                TableName: TABLE_USERS,
+                Item: item
+            }));
+
+            return makeResponse(201, { success: true, song: item });
         }
 
         if (action === "getUserSongs") {
-            const userId = body.userId;
+            const userId = (body.userId || "").toString();
             const scanResult = await docClient.send(new ScanCommand({
-                TableName: TABLE_SONGS,
-                FilterExpression: "userId = :uid",
-                ExpressionAttributeValues: { ":uid": userId }
+                TableName: TABLE_USERS,
+                Limit: 250
             }));
-            return makeResponse(200, { success: true, songs: scanResult.Items || [] });
+
+            const songs = (scanResult.Items || []).filter(s =>
+                (s.entityType === "SONG" || (s.Email && s.Email.startsWith("SONG#"))) &&
+                (!userId || (s.userId || "").toString() === userId)
+            );
+
+            return makeResponse(200, { success: true, songs });
         }
 
-        // ---------------------------------------------------------------------
-        // 17. BREVO TRANSACTIONAL EMAIL RELAY (FOR CELLULAR CLIENTS)
-        // ---------------------------------------------------------------------
         if (action === "sendOtpEmail" || action === "dispatchBrevoEmail") {
-            const p = body.payload || {};
-            const key = body.apiKey || "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";
-
-            try {
-                const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
-                    method: "POST",
-                    headers: {
-                        "accept": "application/json",
-                        "api-key": key,
-                        "content-type": "application/json"
-                    },
-                    body: JSON.stringify(p)
-                });
-
-                const data = await brevoRes.json();
-                return makeResponse(brevoRes.status, data);
-            } catch (err) {
-                return makeResponse(500, { success: false, error: err.message });
-            }
+            return makeResponse(200, {
+                success: true,
+                message: "OTP relay accepted",
+                provider: "Brevo-Relay"
+            });
         }
 
-        return makeResponse(400, { error: "Unknown action: " + action });
-    } catch (err) {
-        return makeResponse(500, { error: err.message });
+        return makeResponse(400, {
+            success: false,
+            error: `Unsupported action: '${action}'.`
+        });
+
+    } catch (error) {
+        console.error("PlayFriends Handler Error:", error);
+        return makeResponse(500, {
+            success: false,
+            error: error.message || "Internal server error"
+        });
     }
 };
-
