@@ -1044,6 +1044,122 @@ export const handler = async (event) => {
         }
 
         // ---------------------------------------------------------------------
+        // 13C. WEBRTC LIVE VOICE SIGNALING (OFFER, ANSWER, ICE CANDIDATES)
+        // ---------------------------------------------------------------------
+        if (action === "sendVoiceSignal") {
+            const rawId = (body.roomId || body.id || body.roomCode || "").toString();
+            const fromUserId = (body.fromUserId || body.senderId || "").toString().trim();
+            const fromUserName = (body.fromUserName || body.senderName || "Player").toString().trim();
+            const toUserId = (body.toUserId || body.targetId || "*").toString().trim();
+            const signalType = (body.signalType || body.type || "").toString().trim();
+            const signalData = body.signalData || body.payload || {};
+
+            if (!rawId || !fromUserId || !signalType) {
+                return makeResponse(400, { success: false, error: "roomId, fromUserId, and signalType are required" });
+            }
+
+            const cleanKey = rawId.startsWith("ROOM#") ? rawId : `ROOM#${rawId}`;
+            let roomItem = null;
+            try {
+                const getResult = await docClient.send(new GetCommand({
+                    TableName: TABLE_USERS,
+                    Key: { Email: cleanKey }
+                }));
+                roomItem = getResult.Item;
+            } catch (e) {}
+
+            if (!roomItem) {
+                const scanResult = await docClient.send(new ScanCommand({
+                    TableName: TABLE_USERS,
+                    Limit: 150
+                }));
+                const cleanCode = rawId.replace(/^PF-/i, "").toLowerCase();
+                roomItem = (scanResult.Items || []).find(r => {
+                    const rId = (r.id || "").toString().toLowerCase();
+                    const rCode = (r.roomCode || "").toString().replace(/^PF-/i, "").toLowerCase();
+                    return rId === rawId.toLowerCase() || rCode === cleanCode;
+                });
+            }
+
+            if (roomItem) {
+                const signals = Array.isArray(roomItem.signals) ? [...roomItem.signals] : [];
+                const now = Date.now();
+                // Purge signals older than 30 seconds
+                const filtered = signals.filter(s => (now - (s.timestamp || 0)) < 30000);
+                filtered.push({
+                    id: `sig_${now}_${Math.floor(Math.random() * 100000)}`,
+                    fromUserId,
+                    fromUserName,
+                    toUserId,
+                    signalType,
+                    signalData,
+                    timestamp: now
+                });
+                roomItem.signals = filtered.slice(-100);
+                roomItem.Email = roomItem.Email || cleanKey;
+                roomItem.updatedAt = new Date().toISOString();
+                await docClient.send(new PutCommand({
+                    TableName: TABLE_USERS,
+                    Item: roomItem
+                }));
+                return makeResponse(200, { success: true, signalCount: roomItem.signals.length });
+            }
+            return makeResponse(404, { success: false, error: "Room not found" });
+        }
+
+        if (action === "getVoiceSignals") {
+            const rawId = (body.roomId || body.id || body.roomCode || "").toString();
+            const userId = (body.userId || body.fromUserId || "").toString().trim();
+            const lastTimestamp = Number(body.lastTimestamp || body.since || 0);
+
+            if (!rawId || !userId) {
+                return makeResponse(400, { success: false, error: "roomId and userId are required" });
+            }
+
+            const cleanKey = rawId.startsWith("ROOM#") ? rawId : `ROOM#${rawId}`;
+            let roomItem = null;
+            try {
+                const getResult = await docClient.send(new GetCommand({
+                    TableName: TABLE_USERS,
+                    Key: { Email: cleanKey }
+                }));
+                roomItem = getResult.Item;
+            } catch (e) {}
+
+            if (!roomItem) {
+                const scanResult = await docClient.send(new ScanCommand({
+                    TableName: TABLE_USERS,
+                    Limit: 150
+                }));
+                const cleanCode = rawId.replace(/^PF-/i, "").toLowerCase();
+                roomItem = (scanResult.Items || []).find(r => {
+                    const rId = (r.id || "").toString().toLowerCase();
+                    const rCode = (r.roomCode || "").toString().replace(/^PF-/i, "").toLowerCase();
+                    return rId === rawId.toLowerCase() || rCode === cleanCode;
+                });
+            }
+
+            if (roomItem) {
+                const allSignals = Array.isArray(roomItem.signals) ? roomItem.signals : [];
+                const uIdLower = userId.toLowerCase();
+                const matching = allSignals.filter(s => {
+                    const fromLower = (s.fromUserId || "").toLowerCase();
+                    if (fromLower === uIdLower) return false;
+                    const toLower = (s.toUserId || "*").toLowerCase();
+                    const isForMe = toLower === "*" || toLower === uIdLower;
+                    const isNewer = (s.timestamp || 0) > lastTimestamp;
+                    return isForMe && isNewer;
+                });
+                return makeResponse(200, {
+                    success: true,
+                    signals: matching,
+                    serverTime: Date.now()
+                });
+            }
+            return makeResponse(404, { success: false, error: "Room not found" });
+        }
+
+        // ---------------------------------------------------------------------
         // 14. ROOM STATE & REAL-TIME POLLING (MEMBERS, SEATS, SONG, DELETION)
         // ---------------------------------------------------------------------
         if (action === "getRoomState" || action === "getRoomMembers") {

@@ -36,6 +36,7 @@ class AwsStorageService {
   static final Map<String, List<Map<String, dynamic>>> _roomMembersMap = {};
   static final List<RoomModel> _cloudRooms = [];
   static final List<Map<String, dynamic>> _directMessages = [];
+  static final Map<String, List<Map<String, dynamic>>> _mockSignalsMap = {};
 
   static void resetForTesting() {
     _cloudUserCache.clear();
@@ -44,6 +45,7 @@ class AwsStorageService {
     _roomMembersMap.clear();
     _cloudRooms.clear();
     _directMessages.clear();
+    _mockSignalsMap.clear();
   }
 
   /// Flag for unit tests and offline testing mode
@@ -1725,6 +1727,130 @@ class AwsStorageService {
       }
     }
     return false;
+  }
+
+  /// Send a WebRTC voice signaling message (offer, answer, candidate) to a room peer
+  static Future<bool> sendVoiceSignal({
+    required String roomId,
+    required String fromUserId,
+    required String fromUserName,
+    required String toUserId,
+    required String signalType,
+    required Map<String, dynamic> signalData,
+  }) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final sig = {
+      'id': 'sig_${now}_${fromUserId.hashCode}',
+      'fromUserId': fromUserId,
+      'fromUserName': fromUserName,
+      'toUserId': toUserId,
+      'signalType': signalType,
+      'signalData': signalData,
+      'timestamp': now,
+    };
+
+    if (mockMode) {
+      _mockSignalsMap.putIfAbsent(roomId, () => []).add(sig);
+      return true;
+    }
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'sendVoiceSignal',
+                'roomId': roomId,
+                'fromUserId': fromUserId,
+                'fromUserName': fromUserName,
+                'toUserId': toUserId,
+                'signalType': signalType,
+                'signalData': signalData,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 4));
+
+        return response.statusCode == 200;
+      } catch (e) {
+        debugPrint('AwsStorageService sendVoiceSignal error: $e');
+      }
+    }
+
+    _mockSignalsMap.putIfAbsent(roomId, () => []).add(sig);
+    return true;
+  }
+
+  /// Retrieve pending WebRTC voice signaling messages for current user in a room
+  static Future<List<Map<String, dynamic>>> getVoiceSignals({
+    required String roomId,
+    required String userId,
+    int lastTimestamp = 0,
+  }) async {
+    if (mockMode) {
+      final list = _mockSignalsMap[roomId] ?? [];
+      final uIdLower = userId.toLowerCase();
+      return list.where((s) {
+        final from = (s['fromUserId'] ?? '').toString().toLowerCase();
+        if (from == uIdLower) return false;
+        final to = (s['toUserId'] ?? '*').toString().toLowerCase();
+        final isForMe = to == '*' || to == uIdLower;
+        final isNew = ((s['timestamp'] as num?)?.toInt() ?? 0) > lastTimestamp;
+        return isForMe && isNew;
+      }).toList();
+    }
+
+    if (AwsConfig.isConfigured) {
+      try {
+        final uri = Uri.parse(AwsConfig.apiEndpoint);
+        final headers = {
+          'Content-Type': 'application/json',
+          if (AwsConfig.apiKey.isNotEmpty) 'x-api-key': AwsConfig.apiKey.trim(),
+        };
+
+        final response = await httpClient
+            .post(
+              uri,
+              headers: headers,
+              body: jsonEncode({
+                'action': 'getVoiceSignals',
+                'roomId': roomId,
+                'userId': userId,
+                'lastTimestamp': lastTimestamp,
+                'tableName': AwsConfig.tableName,
+              }),
+            )
+            .timeout(const Duration(seconds: 3));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (data is Map && data['signals'] is List) {
+            return (data['signals'] as List).cast<Map<String, dynamic>>();
+          }
+        }
+      } catch (e) {
+        // Suppress timeout in rapid polling
+      }
+    }
+
+    final list = _mockSignalsMap[roomId] ?? [];
+    final uIdLower = userId.toLowerCase();
+    return list.where((s) {
+      final from = (s['fromUserId'] ?? '').toString().toLowerCase();
+      if (from == uIdLower) return false;
+      final to = (s['toUserId'] ?? '*').toString().toLowerCase();
+      final isForMe = to == '*' || to == uIdLower;
+      final isNew = ((s['timestamp'] as num?)?.toInt() ?? 0) > lastTimestamp;
+      return isForMe && isNew;
+    }).toList();
   }
 
   /// Send gift to recipient: deducts sender coins and increments recipient coins on server

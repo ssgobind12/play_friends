@@ -60,3 +60,6 @@ key.properties
 *.jks
 android/key.properties
 key.properties
+android/.kotlin/
+android/build/
+*.hprof

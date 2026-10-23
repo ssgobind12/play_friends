@@ -11,6 +11,7 @@ import '../services/game_sound_service.dart';
 import '../services/in_app_music_service.dart';
 import '../services/privacy_filter_service.dart';
 import '../services/voice_room_manager.dart';
+import '../services/voice_rtc_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/music_player_sheet.dart';
 import '../widgets/room_profile_dialog.dart';
@@ -294,6 +295,35 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
         : max(2, widget.room.currentPlayers + 1);
 
     VoiceRoomManager().addListener(_onRoomMembersChanged);
+
+    // Initialize Real-Time WebRTC Live Voice Chat for this room
+    VoiceRtcService().joinRoom(
+      widget.room.roomCode,
+      user,
+      startMuted: _isMicMuted,
+    );
+    VoiceRtcService().addListener(_onVoiceRtcStateChanged);
+  }
+
+    void _onVoiceRtcStateChanged() {
+    if (!mounted) return;
+    final rtc = VoiceRtcService();
+    setState(() {
+      _isMicMuted = rtc.isMicMuted;
+      _isRoomAudioMuted = rtc.isRoomAudioMuted;
+
+      // Update live speaking glow for active speakers
+      for (int i = 0; i < _seats.length; i++) {
+        final uName = _seats[i].userName;
+        if (uName != null) {
+          final isSpeaking = rtc.speakingUsers.contains(uName) ||
+              (uName == AuthService().currentUser?.name && !_isMicMuted);
+          if (_seats[i].isSpeaking != isSpeaking) {
+            _seats[i] = _seats[i].copyWith(isSpeaking: isSpeaking);
+          }
+        }
+      }
+    });
   }
 
   void _onRoomMembersChanged() {
@@ -315,6 +345,9 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
 
     final liveMembers = VoiceRoomManager().activeRoomMembers;
     final liveSeats = VoiceRoomManager().micSeats;
+
+    // Connect WebRTC audio streams to newly joined members
+    VoiceRtcService().updateRoomMembers(liveMembers);
 
     setState(() {
       _activeSpectators = max(liveMembers.length, 1);
@@ -368,6 +401,8 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
 
   @override
   void dispose() {
+    VoiceRtcService().removeListener(_onVoiceRtcStateChanged);
+    VoiceRtcService().leaveRoom();
     VoiceRoomManager().removeListener(_onRoomMembersChanged);
     _simulatedTrafficTimer?.cancel();
     _vinylAnimCtrl.dispose();
@@ -2280,8 +2315,20 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
             onPressed: () {
               setState(() {
                 _isRoomAudioMuted = !_isRoomAudioMuted;
+                VoiceRtcService().setRoomAudioMuted(_isRoomAudioMuted);
                 InAppMusicService().setVolume(_isRoomAudioMuted ? 0.0 : 0.8);
               });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(_isRoomAudioMuted
+                      ? 'Room Audio Muted 🔇'
+                      : 'Room Audio Live 🔊 (Hearing Everyone)'),
+                  backgroundColor: _isRoomAudioMuted
+                      ? AppColors.dangerRose
+                      : AppColors.primaryBlueLight,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
             },
           ),
           const SizedBox(width: 4),
@@ -2299,6 +2346,7 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
             onPressed: () {
               setState(() {
                 _isMicMuted = !_isMicMuted;
+                VoiceRtcService().setMicrophoneMuted(_isMicMuted);
                 final user = AuthService().currentUser;
                 final myIdx =
                     _seats.indexWhere((s) => s.userName == user?.name);
@@ -2308,6 +2356,17 @@ class _VoicePartyRoomScreenState extends State<VoicePartyRoomScreen>
                 }
               });
               GameSoundService.buttonTap();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(_isMicMuted
+                      ? 'Microphone Muted 🔇'
+                      : 'Microphone Live 🎙️ (Everyone in Room Can Hear You)'),
+                  backgroundColor: _isMicMuted
+                      ? AppColors.dangerRose
+                      : AppColors.onlineGreen,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
             },
           ),
           const SizedBox(width: 4),
